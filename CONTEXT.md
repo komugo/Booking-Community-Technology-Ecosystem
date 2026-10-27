@@ -30,6 +30,10 @@ _Avoid_: Bundle, membership, credits
 A limited thing an Option consumes during a session: a horse, instructor, belayer or auto-belay lane.
 _Avoid_: Asset, staff, inventory
 
+**Allocation**:
+One Resource assigned to one Participant for a Hold or Ticket, covering the session plus that Resource's rest gap.
+_Avoid_: Assignment, reservation
+
 **Welfare Rule**:
 A limit on how a horse may be used (max sessions per day, rest gap, max rider weight).
 
@@ -78,7 +82,7 @@ The Operator scanning a Ticket on arrival.
 ### Money and changes
 
 **Cancellation Policy**:
-Per-Activity rule for refunds when a Customer cancels.
+Per-Activity free-cancel window in hours before the Timeslot starts. A Customer cancel inside the window is a full Refund (a Pack session returns to the Pack); a later cancel is **forfeited** (no Refund, Pack session stays used). No cancel once the Timeslot has started.
 
 **Closure**:
 An Operator cancelling a Timeslot (weather, horse unfit).
