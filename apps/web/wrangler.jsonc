@@ -1,0 +1,6 @@
+{
+  "name": "komugo-web",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" }
+}

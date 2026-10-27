@@ -1,11 +1,12 @@
 import { defineConfig } from "astro/config";
-import node from "@astrojs/node";
+import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   output: "server",
-  adapter: node({ mode: "standalone" }),
+  session: false,
+  adapter: cloudflare({ imageService: "passthrough" }),
   i18n: {
     defaultLocale: "en",
     locales: ["en", "ms"],

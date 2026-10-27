@@ -1,0 +1,103 @@
+import { tx } from "./tx";
+
+export const migrations: string[][] = [
+  [
+    `CREATE TABLE meta (id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INTEGER NOT NULL,
+      rev INTEGER NOT NULL DEFAULT 0, operator_id TEXT) STRICT`,
+    `INSERT INTO meta (id, schema_version) VALUES (1, 0)`,
+    `CREATE TABLE requests (request_id TEXT PRIMARY KEY, method TEXT NOT NULL, fingerprint TEXT NOT NULL,
+      response TEXT NOT NULL, created_at INTEGER NOT NULL) STRICT`,
+    `CREATE INDEX requests_created_at ON requests(created_at)`,
+    `CREATE TABLE outbox (entity TEXT NOT NULL,
+      entity_id TEXT NOT NULL, rev INTEGER NOT NULL, PRIMARY KEY (entity, entity_id)) STRICT`,
+    `CREATE INDEX outbox_rev ON outbox(rev)`,
+
+    `CREATE TABLE activities (id TEXT PRIMARY KEY, free_cancel_hours INTEGER NOT NULL CHECK (free_cancel_hours >= 0)) STRICT`,
+    `CREATE TABLE options (id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id),
+      name_en TEXT NOT NULL CHECK (length(name_en) BETWEEN 1 AND 200),
+      name_ms TEXT NOT NULL CHECK (length(name_ms) BETWEEN 1 AND 200),
+      price_sen INTEGER NOT NULL CHECK (price_sen >= 0),
+      duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 720),
+      min_age INTEGER, max_age INTEGER, max_weight_kg INTEGER CHECK (max_weight_kg > 0), required_cert TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+      CHECK (min_age <= max_age)) STRICT`,
+    `CREATE TABLE option_resources (option_id TEXT NOT NULL REFERENCES options(id),
+      kind TEXT NOT NULL CHECK (kind IN ('horse','instructor','belayer','auto_belay_lane')),
+      quantity INTEGER NOT NULL CHECK (quantity > 0), PRIMARY KEY (option_id, kind)) STRICT`,
+    `CREATE TABLE resources (id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('horse','instructor','belayer','auto_belay_lane')),
+      name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+      max_sessions_per_day INTEGER CHECK (max_sessions_per_day > 0),
+      rest_minutes INTEGER NOT NULL DEFAULT 0 CHECK (rest_minutes BETWEEN 0 AND 720),
+      max_rider_weight_kg INTEGER CHECK (max_rider_weight_kg > 0),
+      CHECK (kind = 'horse' OR (max_sessions_per_day IS NULL AND rest_minutes = 0 AND max_rider_weight_kg IS NULL))) STRICT`,
+    `CREATE INDEX resources_kind ON resources(kind, active)`,
+    `CREATE TABLE timeslots (id TEXT PRIMARY KEY, option_id TEXT NOT NULL REFERENCES options(id),
+      starts_at INTEGER NOT NULL, closed_at INTEGER, UNIQUE (option_id, starts_at)) STRICT`,
+    `CREATE INDEX timeslots_starts_at ON timeslots(starts_at)`,
+
+    `CREATE TABLE holds (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, timeslot_id TEXT NOT NULL REFERENCES timeslots(id),
+      price_sen INTEGER NOT NULL CHECK (price_sen >= 0), created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL CHECK (expires_at > created_at),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','confirmed','expired','released'))) STRICT`,
+    `CREATE INDEX holds_active_expiry ON holds(expires_at) WHERE status = 'active'`,
+    `CREATE INDEX holds_timeslot ON holds(timeslot_id)`,
+    `CREATE TABLE hold_participants (hold_id TEXT NOT NULL REFERENCES holds(id), participant_id TEXT NOT NULL,
+      birth_date TEXT NOT NULL CHECK (birth_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      weight_kg INTEGER CHECK (weight_kg > 0), certs TEXT NOT NULL CHECK (json_valid(certs)),
+      PRIMARY KEY (hold_id, participant_id)) STRICT`,
+    `CREATE TABLE bookings (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL,
+      hold_id TEXT NOT NULL UNIQUE REFERENCES holds(id), created_at INTEGER NOT NULL) STRICT`,
+    `CREATE TABLE payments (bill_id TEXT PRIMARY KEY, hold_id TEXT NOT NULL,
+      amount_sen INTEGER NOT NULL CHECK (amount_sen >= 0), received_at INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('paid','refund_due')),
+      refund_reason TEXT CHECK (refund_reason IN ('duplicate','amount_mismatch','unavailable','unknown_hold')),
+      booking_id TEXT UNIQUE REFERENCES bookings(id),
+      CHECK ((status = 'paid') = (booking_id IS NOT NULL)),
+      CHECK ((status = 'refund_due') = (refund_reason IS NOT NULL))) STRICT`,
+    `CREATE INDEX payments_hold ON payments(hold_id)`,
+    `CREATE TABLE packs (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL,
+      sessions_total INTEGER NOT NULL CHECK (sessions_total > 0), expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL) STRICT`,
+    `CREATE TABLE tickets (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL,
+      booking_id TEXT REFERENCES bookings(id), pack_id TEXT REFERENCES packs(id),
+      participant_id TEXT NOT NULL, timeslot_id TEXT NOT NULL REFERENCES timeslots(id),
+      price_sen INTEGER NOT NULL CHECK (price_sen >= 0),
+      status TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued','cancelled','forfeited')),
+      created_at INTEGER NOT NULL, CHECK ((booking_id IS NULL) <> (pack_id IS NULL))) STRICT`,
+    `CREATE UNIQUE INDEX tickets_one_issued_per_participant_timeslot ON tickets(participant_id, timeslot_id) WHERE status = 'issued'`,
+    `CREATE INDEX tickets_timeslot ON tickets(timeslot_id)`,
+    `CREATE INDEX tickets_booking ON tickets(booking_id)`,
+    `CREATE INDEX tickets_pack ON tickets(pack_id)`,
+    `CREATE TABLE allocations (id TEXT PRIMARY KEY, resource_id TEXT NOT NULL REFERENCES resources(id),
+      participant_id TEXT NOT NULL, hold_id TEXT REFERENCES holds(id), ticket_id TEXT REFERENCES tickets(id),
+      block_start INTEGER NOT NULL, block_end INTEGER NOT NULL,
+      CHECK (block_end > block_start AND block_end - block_start <= 86400000),
+      CHECK ((hold_id IS NULL) <> (ticket_id IS NULL))) STRICT`,
+    `CREATE INDEX allocations_resource_start ON allocations(resource_id, block_start)`,
+    `CREATE INDEX allocations_hold ON allocations(hold_id)`,
+    `CREATE INDEX allocations_ticket ON allocations(ticket_id)`,
+    `CREATE TRIGGER allocations_no_overlap_insert BEFORE INSERT ON allocations
+      WHEN EXISTS (SELECT 1 FROM allocations a WHERE a.resource_id = NEW.resource_id
+        AND a.block_start > NEW.block_start - 86400000
+        AND a.block_start < NEW.block_end AND NEW.block_start < a.block_end)
+      BEGIN SELECT RAISE(ABORT, 'allocations_no_overlap'); END`,
+    `CREATE TRIGGER allocations_no_overlap_update BEFORE UPDATE OF resource_id, block_start, block_end ON allocations
+      WHEN EXISTS (SELECT 1 FROM allocations a WHERE a.id <> NEW.id AND a.resource_id = NEW.resource_id
+        AND a.block_start > NEW.block_start - 86400000
+        AND a.block_start < NEW.block_end AND NEW.block_start < a.block_end)
+      BEGIN SELECT RAISE(ABORT, 'allocations_no_overlap'); END`,
+  ],
+];
+
+export function migrate(storage: DurableObjectStorage) {
+  const sql = storage.sql;
+  const hasMeta = sql.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'").toArray().length > 0;
+  const version = hasMeta ? (sql.exec<{ v: number }>("SELECT schema_version AS v FROM meta").one().v) : 0;
+  for (let i = version; i < migrations.length; i++) {
+    tx(storage, () => {
+      for (const s of migrations[i]) sql.exec(s);
+      sql.exec("UPDATE meta SET schema_version = ?", i + 1);
+    });
+  }
+}

@@ -88,6 +88,10 @@ Per-Activity free-cancel window in hours before the Timeslot starts. A Customer 
 An Operator cancelling a Timeslot (weather, horse unfit).
 _Avoid_: Operator cancellation
 
+**Payment**:
+One Billplz bill received for a Hold. Either **paid** (it produced the Booking) or **refund_due** with a reason (duplicate, amount mismatch, Timeslot unavailable, unknown Hold), which a Refund then settles.
+_Avoid_: Transaction, charge
+
 **Refund**:
 Money returned to the Customer by Komugo.
 
@@ -107,6 +111,7 @@ Komugo's scheduled transfer to an Operator, net of Commission and Refunds.
 - An **Option** consumes one or more **Resources** for its duration; **Resources** are assigned by Komugo, not chosen by the **Customer**
 - A **Booking** belongs to one **Customer** and contains one or more **Tickets**
 - A **Ticket** is for exactly one **Participant** and one **Timeslot**, and is issued only after the **Participant** meets the **Requirements** and has a **Waiver**
+- A **Participant** can't hold overlapping **Tickets** at one **Operator**; back-to-back is fine
 - A **Pack** belongs to one **Customer** and one **Operator**; any **Participant** on that **Customer**'s account may redeem it, and each redemption produces a **Ticket**
 - A **Closure** lets the **Customer** choose a **Refund** or a **Reschedule**
 

@@ -1,0 +1,16 @@
+{
+  "name": "komugo-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "vars": { "CORS_ORIGINS": "http://localhost:4321,http://localhost:5173" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "komugo",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+  "durable_objects": { "bindings": [{ "name": "BOOKING", "class_name": "OperatorBooking" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OperatorBooking"] }]
+}

@@ -1,12 +1,8 @@
-import { existsSync } from "node:fs";
 import { defineConfig } from "drizzle-kit";
-
-if (existsSync("../../.env")) process.loadEnvFile("../../.env");
 
 export default defineConfig({
   schema: "./src/schema.ts",
-  out: "./drizzle",
-  dialect: "postgresql",
+  out: "./migrations",
+  dialect: "sqlite",
   casing: "snake_case",
-  dbCredentials: { url: process.env.DATABASE_URL! },
 });

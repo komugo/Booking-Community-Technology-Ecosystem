@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": []
   },
-  "include": ["src", "tsup.config.ts"]
+  "include": ["src", "worker-configuration.d.ts", "worker-runtime.d.ts"]
 }
