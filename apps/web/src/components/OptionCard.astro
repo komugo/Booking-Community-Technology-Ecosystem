@@ -1,15 +1,16 @@
 ---
 import type { Locale } from "@komugo/db";
 import Price from "./Price.astro";
-import { duration, requirements, t } from "../lib/i18n";
+import { duration, path, requirements, t } from "../lib/i18n";
 import type { ActivityData } from "../lib/catalog";
 
 interface Props {
   option: ActivityData["options"][number];
   locale: Locale;
   confirmed: boolean;
+  bookable: boolean;
 }
-const { option: o, locale, confirmed } = Astro.props;
+const { option: o, locale, confirmed, bookable } = Astro.props;
 const s = t[locale];
 ---
 
@@ -26,6 +27,6 @@ const s = t[locale];
       <Price locale={locale} sen={o.priceSen} confirmed />
       {!confirmed && <span class="block text-xs font-medium text-clay">{s.unconfirmed}</span>}
     </p>
-    <a href="#book" class="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-leaf px-3 font-semibold text-white hover:bg-forest">{s.select}<span class="sr-only">: {o.name}</span></a>
+    <a href={bookable ? path(locale, "book", o.id) : "#book"} class="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-leaf px-3 font-semibold text-white hover:bg-forest">{s.select}<span class="sr-only">: {o.name}</span></a>
   </div>
 </li>

@@ -35,7 +35,8 @@ export async function loadActivity(p: Params, locale: Locale, search: string) {
   if (!data?.city || !data.category) return notFound();
   const { city, category } = data;
   const alt = alternates(locale, search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
-  return alt instanceof Response ? alt : { locale, alternates: alt, ...data, city, category };
+  if (alt instanceof Response) return alt;
+  return { locale, alternates: alt, ...data, city, category, bookable: (data.published || showDrafts) && data.options.length > 0 };
 }
 
 export type HomeData = Awaited<ReturnType<typeof loadHome>>;

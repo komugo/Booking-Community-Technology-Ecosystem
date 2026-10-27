@@ -20,9 +20,10 @@ interface Props {
   image: Photo | null;
   hero?: { photo: Photo; sizes: string };
   jsonLd?: Record<string, unknown>[];
+  solid?: boolean;
 }
 
-const { locale, title, description, alternates, indexable, canonical = true, image, hero, jsonLd = [] } = Astro.props;
+const { locale, title, description, alternates, indexable, canonical = true, image, hero, jsonLd = [], solid = false } = Astro.props;
 const s = t[locale];
 const other: Locale = locale === "en" ? "ms" : "en";
 const fonts = `
@@ -76,9 +77,10 @@ const fonts = `
       )
     }
     {jsonLd.map((d) => <JsonLd data={d} />)}
+    <slot name="head" />
   </head>
   <body class="min-h-dvh">
-    <Header locale={locale} alternates={alternates} />
+    <Header locale={locale} alternates={alternates} solid={solid} />
     <main>
       <slot />
     </main>

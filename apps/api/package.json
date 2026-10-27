@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --persist-to ../../.wrangler/state --var DEV_SEED:1",
+    "dev": "wrangler dev --persist-to ../../.wrangler/state --var DEV_SEED:1 BOOK_DRAFTS:1 EMAIL_MODE:log PUBLIC_SITE_URL:http://localhost:4321 BILLPLZ_BASE:http://localhost:8787/dev/billplz/api/v3 BILLPLZ_COLLECTION_ID:dev-collection",
     "deploy": "wrangler deploy",
     "typegen": "wrangler types --strict-vars=false --include-runtime=false && wrangler types worker-runtime.d.ts --include-env=false",
     "db:migrate:local": "wrangler d1 migrations apply komugo --local --persist-to ../../.wrangler/state",
@@ -22,6 +22,7 @@
   "devDependencies": {
     "typescript": "6.0.3",
     "vitest": "5.0.5",
-    "wrangler": "4.153.0"
+    "wrangler": "4.153.0",
+    "@cloudflare/vitest-plugin": "1.4.8"
   }
 }

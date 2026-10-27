@@ -1,9 +1,11 @@
 import { createDb, participants, waivers } from "@komugo/db";
+import { WAIVER } from "@komugo/types";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   BookingError,
   type ActivityInput,
   type AddOnInput,
+  type AddOnPick,
   type OptionInput,
   type ParticipantFacts,
   type ResourceInput,
@@ -18,7 +20,9 @@ async function loadFacts(env: Env, operatorId: string, ids: string[]): Promise<P
     db
       .select({ participantId: waivers.participantId })
       .from(waivers)
-      .where(and(eq(waivers.operatorId, operatorId), inArray(waivers.participantId, ids))),
+      .where(
+        and(eq(waivers.operatorId, operatorId), eq(waivers.version, WAIVER.version), inArray(waivers.participantId, ids)),
+      ),
   ]);
   const byId = new Map(people.map((p) => [p.id, p]));
   const waived = new Set(signed.map((w) => w.participantId));
@@ -72,12 +76,15 @@ export function booking(env: Env, operatorId: string) {
     }: {
       requestId: string;
       customerId: string;
+      replaces: string | null;
       timeslotId: string;
       participantIds: string[];
+      addOns: AddOnPick[];
     }) {
       const people = await loadFacts(env, op, participantIds);
       return call((s) => s.createHold(op, { ...i, participants: people }));
     },
+    bookingView: (bookingId: string) => call((s) => s.bookingView(op, bookingId)),
     async redeemPack({
       participantIds,
       ...i

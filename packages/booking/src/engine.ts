@@ -1,3 +1,4 @@
+import { ageOn, klDate } from "@komugo/types";
 import { mark, markWindow } from "./outbox";
 
 export type BookingErrorCode =
@@ -8,7 +9,10 @@ export type BookingErrorCode =
   | "no_availability"
   | "pack_unavailable"
   | "invalid_state"
-  | "idempotency_conflict";
+  | "idempotency_conflict"
+  | "below_min_participants"
+  | "too_many_holds"
+  | "invalid_add_on";
 
 export class BookingError extends Error {
   constructor(readonly code: BookingErrorCode) {
@@ -27,7 +31,7 @@ export type ParticipantFacts = {
   certs: string[];
   waiverSigned: boolean;
 };
-export type ActivityInput = { id: string; freeCancelHours: number };
+export type ActivityInput = { id: string; freeCancelHours: number; bookingCutoffMinutes?: number };
 export type OptionInput = {
   id: string;
   activityId: string;
@@ -42,6 +46,17 @@ export type OptionInput = {
   minParticipants: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
+};
+export type AddOnPick = { id: string; qty: number };
+export type BookingView = {
+  customerId: string;
+  holdId: string;
+  timeslotId: string;
+  startsAt: number;
+  optionId: string;
+  amountSen: number;
+  tickets: { id: string; participantId: string; status: string }[];
+  addOns: { addOnId: string; quantity: number; priceSen: number }[];
 };
 export type AddOnInput = { id: string; activityId: string; nameEn: string; nameMs: string; priceSen: number; active: boolean };
 export type ResourceInput = {
@@ -62,26 +77,23 @@ const HOUR = 3_600_000;
 export const DAY = 86_400_000;
 const KL_OFFSET = 8 * HOUR;
 const HOLD_MS = 15 * MIN;
+const MAX_PARTICIPANTS = 10;
+const MAX_ACTIVE_HOLDS = 3;
 
 export const klDayStart = (t: number) => Math.floor((t + KL_OFFSET) / DAY) * DAY - KL_OFFSET;
-const klDate = (t: number) => new Date(t + KL_OFFSET).toISOString().slice(0, 10);
-
-function ageOn(birthDate: string, date: string) {
-  const [by, bm, bd] = birthDate.split("-").map(Number);
-  const [y, m, d] = date.split("-").map(Number);
-  return y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
-}
-
 type Slot = { id: string; option_id: string; starts_at: number; closed_at: number | null };
 type Option = {
   id: string;
+  activity_id: string;
   price_sen: number;
   duration_minutes: number;
   min_age: number | null;
   max_age: number | null;
   max_weight_kg: number | null;
   required_cert: string | null;
+  min_participants: number | null;
   active: number;
+  booking_cutoff_minutes: number;
 };
 type Need = { kind: string; quantity: number };
 type Candidate = {
@@ -93,7 +105,14 @@ type Candidate = {
   day_count: number;
 };
 type Pick = { resourceId: string; participantId: string; blockStart: number; blockEnd: number };
-type Hold = { id: string; customer_id: string; timeslot_id: string; price_sen: number; status: string };
+type Hold = {
+  id: string;
+  customer_id: string;
+  timeslot_id: string;
+  price_sen: number;
+  amount_sen: number | null;
+  status: string;
+};
 
 const first = <T extends Record<string, SqlStorageValue>>(c: SqlStorageCursor<T>): T | undefined => c.toArray()[0];
 const ids = (xs: string[]) => JSON.stringify(xs);
@@ -105,7 +124,9 @@ function loadSlot(sql: SqlStorage, id: string) {
 function loadOption(sql: SqlStorage, id: string) {
   return sql
     .exec<Option>(
-      `SELECT id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert, active
+      `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
+         min_participants, active,
+         (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes
        FROM options WHERE id = ?`,
       id,
     )
@@ -177,10 +198,12 @@ function allocate(sql: SqlStorage, now: number, slotId: string, people: Particip
   }
 
   const slot = loadSlot(sql, slotId);
-  if (!slot || slot.closed_at !== null || slot.starts_at <= now) throw new BookingError("not_bookable");
+  if (!slot || slot.closed_at !== null) throw new BookingError("not_bookable");
   const option = loadOption(sql, slot.option_id);
   const needs = loadNeeds(sql, option.id);
-  if (!option.active || needs.length === 0) throw new BookingError("not_bookable");
+  if (!option.active || needs.length === 0 || slot.starts_at - option.booking_cutoff_minutes * MIN <= now) {
+    throw new BookingError("not_bookable");
+  }
 
   const date = klDate(slot.starts_at);
   for (const p of people) {
@@ -349,10 +372,12 @@ export function record(sql: SqlStorage, idem: Idempotency, value: unknown, now: 
 
 export function upsertActivity(sql: SqlStorage, a: ActivityInput) {
   sql.exec(
-    `INSERT INTO activities (id, free_cancel_hours) VALUES (?, ?)
-     ON CONFLICT(id) DO UPDATE SET free_cancel_hours = excluded.free_cancel_hours`,
+    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes) VALUES (?1, ?2, coalesce(?3, 60))
+     ON CONFLICT(id) DO UPDATE SET free_cancel_hours = excluded.free_cancel_hours,
+       booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes)`,
     a.id,
     a.freeCancelHours,
+    a.bookingCutoffMinutes ?? null,
   );
   mark(sql, "activity", [a.id]);
   return null;
@@ -528,21 +553,94 @@ export function issuePack(
   return { packId };
 }
 
+// Releases the Checkout's previous Hold and any of the Customer's Holds that would clash with the new one.
+function supersede(
+  sql: SqlStorage,
+  now: number,
+  i: { customerId: string; replaces: string | null; timeslotId: string; participantIds: string[] },
+) {
+  const slot = loadSlot(sql, i.timeslotId);
+  const end = slot ? slot.starts_at + loadOption(sql, slot.option_id).duration_minutes * MIN : 0;
+  const prior = sql
+    .exec<{ id: string; starts_at: number }>(
+      `SELECT h.id, t.starts_at FROM holds h
+       JOIN timeslots t ON t.id = h.timeslot_id
+       JOIN options o ON o.id = t.option_id
+       WHERE h.status = 'active' AND h.customer_id = ?1 AND (h.id = ?2 OR (
+         t.starts_at < ?5 AND t.starts_at + o.duration_minutes * ${MIN} > ?4 AND EXISTS (
+           SELECT 1 FROM hold_participants hp
+           WHERE hp.hold_id = h.id AND hp.participant_id IN (SELECT value FROM json_each(?3)))))`,
+      i.customerId,
+      i.replaces,
+      ids(i.participantIds),
+      slot?.starts_at ?? 0,
+      end,
+    )
+    .toArray();
+  for (const h of prior) {
+    releaseHold(sql, h.id, "released");
+    markWindow(sql, now, h.starts_at);
+  }
+  return prior.map((h) => h.id);
+}
+
+function priceAddOns(sql: SqlStorage, option: Option, n: number, picks: AddOnPick[]) {
+  if (new Set(picks.map((a) => a.id)).size !== picks.length) throw new BookingError("invalid_add_on");
+  return picks.map((a) => {
+    const row = first(
+      sql.exec<{ activity_id: string; price_sen: number; active: number }>(
+        "SELECT activity_id, price_sen, active FROM add_ons WHERE id = ?",
+        a.id,
+      ),
+    );
+    if (!row || !row.active || row.activity_id !== option.activity_id || !Number.isInteger(a.qty) || a.qty < 1 || a.qty > n) {
+      throw new BookingError("invalid_add_on");
+    }
+    return { id: a.id, qty: a.qty, priceSen: row.price_sen };
+  });
+}
+
 export function createHold(
   sql: SqlStorage,
   now: number,
-  i: { customerId: string; timeslotId: string; participants: ParticipantFacts[] },
+  i: {
+    customerId: string;
+    replaces: string | null;
+    timeslotId: string;
+    participants: ParticipantFacts[];
+    addOns: AddOnPick[];
+  },
 ) {
+  const n = i.participants.length;
+  const released = supersede(sql, now, { ...i, participantIds: i.participants.map((p) => p.id) });
   const { slot, option, picks } = allocate(sql, now, i.timeslotId, i.participants, i.customerId);
+  if (n < (option.min_participants ?? 1)) throw new BookingError("below_min_participants");
+  if (n > MAX_PARTICIPANTS) throw new BookingError("invalid_participant");
+  const addOns = priceAddOns(sql, option, n, i.addOns);
+  const { active } = sql
+    .exec<{ active: number }>("SELECT count(*) AS active FROM holds WHERE customer_id = ? AND status = 'active'", i.customerId)
+    .one();
+  const { people } = sql
+    .exec<{ people: number }>(
+      `SELECT count(*) AS people FROM hold_participants hp JOIN holds h ON h.id = hp.hold_id
+       WHERE h.customer_id = ? AND h.timeslot_id = ? AND h.status = 'active'`,
+      i.customerId,
+      slot.id,
+    )
+    .one();
+  if (active >= MAX_ACTIVE_HOLDS || people + n > MAX_PARTICIPANTS) throw new BookingError("too_many_holds");
   if (i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
   const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
+  const amountSen = option.price_sen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
   sql.exec(
-    "INSERT INTO holds (id, customer_id, timeslot_id, price_sen, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+    `INSERT INTO holds (id, customer_id, timeslot_id, price_sen, amount_sen, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     holdId,
     i.customerId,
     slot.id,
     option.price_sen,
+    amountSen,
     now,
     expiresAt,
   );
@@ -556,9 +654,60 @@ export function createHold(
       JSON.stringify(p.certs),
     );
   }
+  for (const a of addOns) {
+    sql.exec(
+      "INSERT INTO hold_add_ons (hold_id, add_on_id, quantity, price_sen) VALUES (?, ?, ?, ?)",
+      holdId,
+      a.id,
+      a.qty,
+      a.priceSen,
+    );
+  }
   insertAllocations(sql, picks, { holdId });
   markWindow(sql, now, slot.starts_at);
-  return { holdId, expiresAt, amountSen: option.price_sen * i.participants.length };
+  return { holdId, expiresAt, amountSen, addOns, released };
+}
+
+export function bookingView(sql: SqlStorage, bookingId: string): BookingView {
+  const b = first(
+    sql.exec<{
+      customer_id: string;
+      hold_id: string;
+      timeslot_id: string;
+      starts_at: number;
+      option_id: string;
+      amount_sen: number;
+    }>(
+      `SELECT b.customer_id, b.hold_id, h.timeslot_id, t.starts_at, t.option_id,
+         coalesce(h.amount_sen, h.price_sen * (SELECT count(*) FROM hold_participants WHERE hold_id = h.id)) AS amount_sen
+       FROM bookings b JOIN holds h ON h.id = b.hold_id JOIN timeslots t ON t.id = h.timeslot_id
+       WHERE b.id = ?`,
+      bookingId,
+    ),
+  );
+  if (!b) throw new BookingError("invalid_state");
+  return {
+    customerId: b.customer_id,
+    holdId: b.hold_id,
+    timeslotId: b.timeslot_id,
+    startsAt: b.starts_at,
+    optionId: b.option_id,
+    amountSen: b.amount_sen,
+    tickets: sql
+      .exec<{ id: string; participant_id: string; status: string }>(
+        "SELECT id, participant_id, status FROM tickets WHERE booking_id = ? ORDER BY rowid",
+        bookingId,
+      )
+      .toArray()
+      .map((t) => ({ id: t.id, participantId: t.participant_id, status: t.status })),
+    addOns: sql
+      .exec<{ add_on_id: string; quantity: number; price_sen: number }>(
+        "SELECT add_on_id, quantity, price_sen FROM hold_add_ons WHERE hold_id = ? ORDER BY add_on_id",
+        b.hold_id,
+      )
+      .toArray()
+      .map((a) => ({ addOnId: a.add_on_id, quantity: a.quantity, priceSen: a.price_sen })),
+  };
 }
 
 function bookingOutcome(sql: SqlStorage, bookingId: string): ConfirmResult {
@@ -569,10 +718,39 @@ function bookingOutcome(sql: SqlStorage, bookingId: string): ConfirmResult {
   return { status: "paid", bookingId, ticketIds };
 }
 
+const ticketFor = (h: Hold, bookingId: string) => ({
+  customerId: h.customer_id,
+  bookingId,
+  packId: null,
+  timeslotId: h.timeslot_id,
+  priceSen: h.price_sen,
+});
+
+// A Hold that replaced the paid one for the same people, Timeslot and amount takes the payment.
+function successor(sql: SqlStorage, hold: Hold, participantIds: string[], amountSen: number) {
+  const want = [...participantIds].sort().join();
+  return sql
+    .exec<Hold>(
+      `SELECT id, customer_id, timeslot_id, price_sen, amount_sen, status FROM holds
+       WHERE customer_id = ? AND timeslot_id = ? AND status = 'active' AND id <> ?`,
+      hold.customer_id,
+      hold.timeslot_id,
+      hold.id,
+    )
+    .toArray()
+    .find((h) => {
+      const theirs = sql
+        .exec<{ participant_id: string }>("SELECT participant_id FROM hold_participants WHERE hold_id = ?", h.id)
+        .toArray()
+        .map((p) => p.participant_id);
+      return (h.amount_sen ?? h.price_sen * theirs.length) === amountSen && theirs.sort().join() === want;
+    });
+}
+
 function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: number }): ConfirmResult {
   const refund = (reason: RefundReason): ConfirmResult => ({ status: "refund_due", reason });
   const hold = first(
-    sql.exec<Hold>("SELECT id, customer_id, timeslot_id, price_sen, status FROM holds WHERE id = ?", i.holdId),
+    sql.exec<Hold>("SELECT id, customer_id, timeslot_id, price_sen, amount_sen, status FROM holds WHERE id = ?", i.holdId),
   );
   if (!hold) return refund("unknown_hold");
   const people = sql
@@ -581,28 +759,24 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
       hold.id,
     )
     .toArray();
-  if (i.amountSen !== hold.price_sen * people.length) return refund("amount_mismatch");
+  if (i.amountSen !== (hold.amount_sen ?? hold.price_sen * people.length)) return refund("amount_mismatch");
   if (hold.status === "confirmed") return refund("duplicate");
 
   const slot = loadSlot(sql, hold.timeslot_id)!;
   const participantIds = people.map((p) => p.participant_id);
+  const live = hold.status === "active" ? hold : successor(sql, hold, participantIds, i.amountSen);
   const bookingId = crypto.randomUUID();
-  const ticket = {
-    customerId: hold.customer_id,
-    bookingId,
-    packId: null,
-    timeslotId: slot.id,
-    priceSen: hold.price_sen,
-  };
+  let confirmed = hold.id;
 
-  if (hold.status === "active" && slot.closed_at === null && slot.starts_at > now) {
-    sql.exec("INSERT INTO bookings (id, customer_id, hold_id, created_at) VALUES (?, ?, ?, ?)", bookingId, hold.customer_id, hold.id, now);
-    const ticketOf = insertTickets(sql, now, ticket, participantIds);
+  if (live && slot.closed_at === null && slot.starts_at > now) {
+    confirmed = live.id;
+    sql.exec("INSERT INTO bookings (id, customer_id, hold_id, created_at) VALUES (?, ?, ?, ?)", bookingId, live.customer_id, live.id, now);
+    const ticketOf = insertTickets(sql, now, ticketFor(live, bookingId), participantIds);
     for (const [participantId, ticketId] of ticketOf) {
       sql.exec(
         "UPDATE allocations SET ticket_id = ?, hold_id = NULL WHERE hold_id = ? AND participant_id = ?",
         ticketId,
-        hold.id,
+        live.id,
         participantId,
       );
     }
@@ -627,9 +801,9 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
       throw e;
     }
     sql.exec("INSERT INTO bookings (id, customer_id, hold_id, created_at) VALUES (?, ?, ?, ?)", bookingId, hold.customer_id, hold.id, now);
-    insertAllocations(sql, picks, insertTickets(sql, now, ticket, participantIds));
+    insertAllocations(sql, picks, insertTickets(sql, now, ticketFor(hold, bookingId), participantIds));
   }
-  const updated = sql.exec("UPDATE holds SET status = 'confirmed' WHERE id = ? AND status <> 'confirmed' RETURNING id", hold.id);
+  const updated = sql.exec("UPDATE holds SET status = 'confirmed' WHERE id = ? AND status <> 'confirmed' RETURNING id", confirmed);
   if (updated.toArray().length !== 1) throw new Error("hold_confirm_conflict");
   markWindow(sql, now, slot.starts_at);
   return bookingOutcome(sql, bookingId);

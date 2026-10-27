@@ -51,8 +51,8 @@ test("confirm projects Tickets, Payment and Timeslot spots, then empties the out
   expect(await d1("SELECT spots, option_id FROM proj_timeslots WHERE id = ?", ts)).toEqual([
     { spots: 0, option_id: w.optionId },
   ]);
-  expect(await d1("SELECT free_cancel_hours FROM proj_activities WHERE id = ?", w.activityId)).toEqual([
-    { free_cancel_hours: 24 },
+  expect(await d1("SELECT free_cancel_hours, booking_cutoff_minutes FROM proj_activities WHERE id = ?", w.activityId)).toEqual([
+    { free_cancel_hours: 24, booking_cutoff_minutes: 60 },
   ]);
   expect(await d1("SELECT name_en, price_sen, active FROM proj_options WHERE id = ?", w.optionId)).toEqual([
     { name_en: "Ride", price_sen: 10000, active: 1 },

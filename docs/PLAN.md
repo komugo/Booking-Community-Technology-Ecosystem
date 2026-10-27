@@ -44,16 +44,27 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 ### Platform
 
 - [ ] Cron Triggers: payouts
-- [ ] Billplz webhook as a Worker route, duplicate callbacks handled in code; Queues for retries if needed
+- [x] Billplz webhook as a Worker route, duplicate callbacks handled in code (cron reconciles lost callbacks; no Queues)
 - [ ] R2 for photos/files
-- [ ] Rate limiting rules on auth + checkout; allowlist the Billplz webhook path in WAF/bot rules
+- [x] Rate limiting on auth + checkout (Workers `ratelimits` plus D1 caps: 5 codes per email per hour, 10 per day, 5 tries per code; 3 active Holds and 10 held people per Timeslot per Customer; 8 Holds per Checkout)
+- [ ] Allowlist `/billplz/callback` in WAF/bot rules
 - [ ] Git-connected deploys to a `staging` env with its own DO namespace and D1 database (DOs don't support preview URLs)
 
-## Deferred from the schema slice
+## Checkout (step 4)
 
-- Checkout slice: Waiver signing must record that a guardian signed for a minor (under 18 at signing); `waivers` stores only `signer_name` today.
-- Late payment after Hold expiry: implemented in the engine (re-allocate the same Timeslot, else `refund_due`). Checkout slice: automatic Refund + rebook link.
+- [x] Guest checkout: Option → Timeslot → Participants + Waivers → email code → Hold (15 min) → Billplz → Tickets with QR, EN + BM
+- [x] Waiver records version, text hash, signer, and a guardian flag for a minor (under 18 at signing)
+- [x] Late payment after Hold expiry: re-allocate the same Timeslot (or the Checkout's replacement Hold for the same people), else `refund_due` with a refund email and rebook link
+- Refunds are manual: ops pays out every `refund_due` Payment (`proj_payments`, `bills.refund_reason`) by hand; the Customer gets an email. Not an automatic Refund.
+- [ ] Real Billplz keys and collection (`BILLPLZ_API_KEY`, `BILLPLZ_X_SIGNATURE_KEY`, `BILLPLZ_COLLECTION_ID`), "Extra Payment Completion Information" on, then a sandbox smoke test on staging
+- [ ] Email domain: verify `komugo.my` in Resend (SPF/DKIM), set `RESEND_API_KEY` and `APP_SECRET`
+- [ ] Legal review of the DRAFT Waiver text (EN + BM) and of adult self-attestation on the lead booker's device; bump `WAIVER.version` when it changes
+- [ ] Test Safari on staging (`__Host-` Secure cookies don't set on http://localhost)
+
+## Deferred
+
 - Payouts slice: Commission rate on `operators` plus a snapshot on `tickets` (and Pack purchases) at sale time.
+- Packs purchase/redemption UI and Reschedule/Cancel UI: step 6. Operator dashboard: step 5 (re-add API CORS then).
 
 ## Later
 

@@ -2,7 +2,16 @@
   "name": "komugo-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
-  "vars": { "CORS_ORIGINS": "http://localhost:4321,http://localhost:5173", "DEV_SEED": "0" },
+  "workers_dev": false,
+  "vars": {
+    "DEV_SEED": "0",
+    "BOOK_DRAFTS": "0",
+    "PUBLIC_SITE_URL": "https://komugo.my",
+    "BILLPLZ_BASE": "https://www.billplz.com/api/v3",
+    "BILLPLZ_COLLECTION_ID": "",
+    "EMAIL_MODE": "resend",
+    "EMAIL_FROM": "Komugo <tickets@komugo.my>"
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -12,5 +21,11 @@
     }
   ],
   "durable_objects": { "bindings": [{ "name": "BOOKING", "class_name": "OperatorBooking" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OperatorBooking"] }]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OperatorBooking"] }],
+  "ratelimits": [
+    { "name": "RL_OTP_EMAIL", "namespace_id": "1001", "simple": { "limit": 1, "period": 60 } },
+    { "name": "RL_IP", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_CHECKOUT", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
+  ],
+  "triggers": { "crons": ["*/5 * * * *"] }
 }

@@ -35,12 +35,15 @@ export function markWindow(sql: SqlStorage, now: number, startsAt: number) {
 }
 
 const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
-  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours FROM activities WHERE id = ?" },
+  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours, booking_cutoff_minutes FROM activities WHERE id = ?" },
   option: {
     table: "proj_options",
     pk: "id",
     query: `SELECT id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age, max_weight_kg,
-      required_cert, min_participants, active FROM options WHERE id = ?`,
+      required_cert, min_participants, active,
+      (max_weight_kg IS NOT NULL OR EXISTS (SELECT 1 FROM option_resources WHERE option_id = options.id AND kind = 'horse'))
+        AS asks_weight
+      FROM options WHERE id = ?`,
   },
   add_on: {
     table: "proj_add_ons",

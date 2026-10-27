@@ -1,0 +1,169 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import BottomBar from "../../components/checkout/BottomBar.astro";
+import FieldError from "../../components/checkout/FieldError.astro";
+import { ageOn, participantKey } from "@komugo/types";
+import { klDate, klDay, path, t } from "../../lib/i18n";
+import { invalid } from "../../lib/form";
+import { named, type whoStep } from "../../lib/checkout";
+
+type Props = Exclude<Awaited<ReturnType<typeof whoStep>>, Response>;
+const { locale: l, co, values, problems: p } = Astro.props;
+const c = t[l].checkout;
+const o = co.option;
+const today = klDate(Date.now());
+const split = (f: (n: string) => string) => f("\u0000").split("\u0000");
+const signedKey = new Map(
+  co.savedParticipants.filter((x) => x.waiverSignedAt !== null).map((x) => [participantKey(x.name, x.birthDate), x.waiverSignedAt!]),
+);
+const people = Array.from({ length: co.quantity }, (_, i) => {
+  const fromPost = Object.keys(values).length > 0;
+  const v = (k: string) => values[`p${i}.${k}`] ?? "";
+  const d = co.draft?.[i];
+  const saved = co.participants[i] ? co.savedParticipants.find((x) => x.id === co.participants[i].id) : undefined;
+  const src = fromPost
+    ? { name: v("name"), dd: v("dd"), mm: v("mm"), yyyy: v("yyyy"), weight: v("weight"), cert: v("cert"), accept: v("accept") === "on", guardianName: v("guardianName"), signedAs: v("signedAs") }
+    : (() => {
+        const x = d ?? saved;
+        const [yyyy = "", mm = "", dd = ""] = x?.birthDate.split("-") ?? [];
+        return {
+          name: x?.name ?? "",
+          dd,
+          mm,
+          yyyy,
+          weight: x?.weightKg ? String(x.weightKg) : "",
+          cert: x && o.requiredCert ? (x.certs.includes(o.requiredCert) ? "yes" : "no") : "",
+          accept: !!d?.waiver,
+          guardianName: d?.waiver?.guardian ? d.waiver.signerName : "",
+          signedAs: d?.waiver?.guardian ? "minor" : "adult",
+        };
+      })();
+  const birth = /^\d{4}$/.test(src.yyyy) && src.mm && src.dd ? `${src.yyyy}-${src.mm.padStart(2, "0")}-${src.dd.padStart(2, "0")}` : "";
+  const signedAt = birth ? signedKey.get(participantKey(src.name, birth)) : undefined;
+  const minor = birth ? ageOn(birth, today) < 18 : false;
+  const accept = src.accept && src.signedAs === (minor ? "minor" : "adult");
+  return { ...src, accept, minor, signed: signedAt ? c.signed(klDay(l, signedAt)) : null };
+});
+const input = "mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-clay aria-invalid:border-2";
+const label = "block font-semibold";
+const [agreeA, agreeB] = split(c.agree);
+const [guardA, guardB] = split(c.guardian);
+---
+
+<Checkout locale={l} title={c.whoTitle} step={2} back={path(l, "book", o.id)} problems={p}>
+  <p class="mt-2 text-muted">{named(co.activity, l)} · {named(o, l)}</p>
+  <form method="post" class="mt-6 space-y-6" novalidate>
+    {
+      people.map((x, i) => {
+        const id = (f: string) => `participants.${i}.${f}`;
+        return (
+          <section data-person class="rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line),0_8px_24px_-16px_rgb(14_26_20/0.25)]" aria-labelledby={`person-${i}`}>
+            <h2 id={`person-${i}`} class="text-2xl font-extrabold">{c.person(i + 1)}</h2>
+            {co.savedParticipants.length > 0 && (
+              <div class="mt-3">
+                <p class="text-sm text-muted">{c.saved}</p>
+                <ul class="mt-1.5 flex flex-wrap gap-2">
+                  {co.savedParticipants.map((sp) => {
+                    const [yyyy, mm, dd] = sp.birthDate.split("-");
+                    const fill = { name: sp.name, dd, mm, yyyy, weight: sp.weightKg ? String(sp.weightKg) : "", cert: o.requiredCert ? (sp.certs.includes(o.requiredCert) ? "yes" : "no") : "" };
+                    return (
+                      <li>
+                        <button type="button" data-fill={JSON.stringify(fill)} data-signed={sp.waiverSignedAt ? c.signed(klDay(l, sp.waiverSignedAt)) : undefined} class="inline-flex min-h-12 items-center rounded-full border border-line bg-paper px-4 font-semibold hover:border-leaf">
+                          {sp.name}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            <div class="mt-4">
+              <label for={id("name")} class={label}>{c.fullName}</label>
+              <input id={id("name")} name={`p${i}.name`} data-f="name" value={x.name} autocomplete={i === 0 ? "name" : "off"} maxlength="100" class={input} {...invalid(p, id("name"))} />
+              <FieldError p={p} id={id("name")} />
+            </div>
+
+            <fieldset class="mt-4">
+              <legend class={label}>{c.birthDate}</legend>
+              <div class="mt-1.5 grid grid-cols-[1fr_1fr_1.6fr] gap-2">
+                {([["dd", c.day, 2, "DD"], ["mm", c.month, 2, "MM"], ["yyyy", c.year, 4, "YYYY"]] as const).map(([f, lab, len, ph], j) => (
+                  <label class="text-sm text-muted">
+                    {lab}
+                    <input
+                      id={j === 0 ? id("birthDate") : undefined}
+                      name={`p${i}.${f}`}
+                      data-f={f}
+                      value={x[f]}
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      maxlength={len}
+                      placeholder={ph}
+                      autocomplete="off"
+                      class={`${input} num mt-1 text-ink`}
+                      {...invalid(p, id("birthDate"))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <FieldError p={p} id={id("birthDate")} />
+            </fieldset>
+
+            {o.asksWeight && (
+              <div class="mt-4">
+                <label for={id("weightKg")} class={label}>{c.weight}</label>
+                <p id={`${id("weightKg")}-hint`} class="text-sm text-muted">{c.weightHint}</p>
+                <input id={id("weightKg")} name={`p${i}.weight`} data-f="weight" value={x.weight} inputmode="numeric" pattern="[0-9]*" maxlength="3" class={`${input} num max-w-32`} {...invalid(p, id("weightKg"))} />
+                <FieldError p={p} id={id("weightKg")} />
+              </div>
+            )}
+
+            {o.requiredCert && (
+              <div class="mt-4">
+                <label for={id("certs")} class={label}>{c.cert(o.requiredCert)}</label>
+                <select id={id("certs")} name={`p${i}.cert`} data-f="cert" class={input} {...invalid(p, id("certs"))}>
+                  <option value="" selected={!x.cert}>–</option>
+                  <option value="yes" selected={x.cert === "yes"}>{c.yes}</option>
+                  <option value="no" selected={x.cert === "no"}>{c.no}</option>
+                </select>
+                <FieldError p={p} id={id("certs")} />
+              </div>
+            )}
+
+            <p data-signed-badge hidden={!x.signed} class="mt-5 flex items-center gap-2 rounded-xl bg-lime/30 px-3 py-3 font-semibold text-forest">{x.signed}</p>
+            <div data-waiver hidden={!!x.signed} class="mt-5 border-t border-line pt-4">
+              <h3 class="text-xl font-bold">{c.waiver}</h3>
+              <ul class="mt-2 space-y-1 text-sm">
+                {c.waiverPoints.map((w) => (
+                  <li class="flex gap-2"><span aria-hidden="true" class="mt-1.5 size-2 shrink-0 rounded-full bg-leaf" />{w}</li>
+                ))}
+              </ul>
+              <details class="mt-2">
+                <summary class="inline-flex min-h-12 cursor-pointer items-center text-sm font-semibold text-leaf underline underline-offset-2">{c.readWaiver(co.operatorName)}</summary>
+                <div class="max-h-72 overflow-y-auto rounded-xl bg-sand p-3 text-sm whitespace-pre-line" tabindex="0">{co.waiver.text}</div>
+              </details>
+              <label class="mt-3 flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-line p-3 has-checked:border-leaf has-checked:bg-leaf/5">
+                <input id={id("waiver")} type="checkbox" name={`p${i}.accept`} checked={x.accept} class="mt-0.5 size-6 shrink-0 accent-leaf" {...invalid(p, id("waiver"))} />
+                <input type="hidden" name={`p${i}.signedAs`} data-signed-as value={x.minor ? "minor" : "adult"} />
+                <span>
+                  <span data-adult hidden={x.minor}>{agreeA}<span data-name={c.thisPerson}>{x.name || c.thisPerson}</span>{agreeB}</span>
+                  <span data-minor hidden={!x.minor}>{guardA}<span data-name={c.thisPerson}>{x.name || c.thisPerson}</span>{guardB}</span>
+                </span>
+              </label>
+              <FieldError p={p} id={id("waiver")} />
+              <div data-minor hidden={!x.minor} class="mt-3">
+                <p class="text-sm text-muted">{c.minorNote}</p>
+                <label for={id("guardianName")} class={`${label} mt-2`}>{c.guardianName}</label>
+                <input id={id("guardianName")} name={`p${i}.guardianName`} value={x.guardianName} autocomplete="name" maxlength="100" class={input} {...invalid(p, id("guardianName"))} />
+                <FieldError p={p} id={id("guardianName")} />
+              </div>
+            </div>
+          </section>
+        );
+      })
+    }
+    <BottomBar locale={l} label={c.estimated} sen={co.amountSen ?? co.estimatedSen}>
+      <button class="inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{c.continue}</button>
+    </BottomBar>
+  </form>
+</Checkout>

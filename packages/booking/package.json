@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@komugo/db": "workspace:*",
+    "@komugo/types": "workspace:*",
     "drizzle-orm": "0.45.4"
   },
   "devDependencies": {

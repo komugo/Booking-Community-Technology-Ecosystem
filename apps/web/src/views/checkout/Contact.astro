@@ -1,0 +1,69 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import BottomBar from "../../components/checkout/BottomBar.astro";
+import FieldError from "../../components/checkout/FieldError.astro";
+import { path, t } from "../../lib/i18n";
+import { invalid } from "../../lib/form";
+import type { contactStep } from "../../lib/checkout";
+
+type Props = Exclude<Awaited<ReturnType<typeof contactStep>>, Response>;
+const { locale: l, co, values, editing, sentAt, problems: p } = Astro.props;
+const c = t[l].checkout;
+const here = path(l, "checkout", co.id, "contact");
+const input = "mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-2 aria-invalid:border-clay";
+const btn = "inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest";
+---
+
+<Checkout locale={l} title={c.contactTitle} step={3} back={path(l, "checkout", co.id, "who")} problems={p}>
+  {
+    editing ? (
+      <form method="post" action={here} class="mt-6 space-y-5" novalidate>
+        <div>
+          <label for="name" class="block font-semibold">{c.contactName}</label>
+          <input id="name" name="name" value={values.name} autocomplete="name" maxlength="100" class={input} {...invalid(p, "name")} />
+          <FieldError p={p} id="name" />
+        </div>
+        <div>
+          <label for="email" class="block font-semibold">{c.email}</label>
+          <p id="email-hint" class="text-sm text-muted">{c.emailHint}</p>
+          <input id="email" name="email" type="email" value={values.email} autocomplete="email" inputmode="email" maxlength="254" class={input} {...invalid(p, "email")} />
+          <FieldError p={p} id="email" />
+        </div>
+        <div>
+          <label for="phone" class="block font-semibold">{c.phone}</label>
+          <input id="phone" name="phone" type="tel" value={values.phone} autocomplete="tel" inputmode="tel" maxlength="20" class={input} {...invalid(p, "phone")} />
+          <FieldError p={p} id="phone" />
+        </div>
+        <BottomBar locale={l} label={c.total} sen={null}>
+          <button name="action" value="send" class={`${btn} ml-auto`}>{c.sendCode}</button>
+        </BottomBar>
+      </form>
+    ) : (
+      <div class="mt-6">
+        <p>{c.codeSent(values.email)}</p>
+        <a href={`${here}?change=1`} class="mt-1 inline-flex min-h-12 items-center font-semibold text-leaf underline underline-offset-2">{c.changeEmail}</a>
+        <form method="post" action={here} class="mt-4" novalidate>
+          <label for="code" class="block font-semibold">{c.code}</label>
+          <input
+            id="code"
+            name="code"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="6"
+            autofocus={!p.summary.length}
+            class={`${input} num max-w-48 text-center text-2xl tracking-[0.4em]`}
+            {...invalid(p, "code")}
+          />
+          <FieldError p={p} id="code" />
+          <BottomBar locale={l} label={c.total} sen={null}>
+            <button name="action" value="verify" class={`${btn} ml-auto`}>{c.verify}</button>
+          </BottomBar>
+        </form>
+        <form method="post" action={here} class="mt-4">
+          <button name="action" value="resend" data-resend={sentAt} data-wait={c.resendIn} class="inline-flex min-h-12 items-center rounded-full border border-line bg-white px-5 font-semibold disabled:text-muted">{c.resend}</button>
+        </form>
+      </div>
+    )
+  }
+</Checkout>

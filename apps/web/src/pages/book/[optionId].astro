@@ -1,0 +1,11 @@
+---
+import Pick from "../../views/checkout/Pick.astro";
+import { pickStep } from "../../lib/checkout";
+
+const data = await pickStep(Astro, "en");
+if (data instanceof Response) return data;
+Astro.response.status = data.status;
+for (const c of data.cookies) Astro.response.headers.append("Set-Cookie", c);
+---
+
+<Pick {...data} />

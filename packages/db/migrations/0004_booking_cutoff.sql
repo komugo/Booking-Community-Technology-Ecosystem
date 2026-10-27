@@ -1,0 +1,1 @@
+ALTER TABLE `proj_activities` ADD `booking_cutoff_minutes` integer DEFAULT 60 NOT NULL;

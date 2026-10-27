@@ -1,0 +1,21 @@
+---
+import type { Locale } from "@komugo/db";
+import { rm } from "../../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  label: string;
+  sen: number | null;
+}
+const { label, sen } = Astro.props;
+---
+
+<div data-bar class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]">
+  <div class="mx-auto flex h-20 w-full max-w-xl items-center justify-between gap-4 px-4">
+    <p class="min-w-0 leading-tight">
+      {sen !== null && <span class="block text-sm text-muted">{label}</span>}
+      {sen !== null && <span class="num text-xl font-semibold" data-total>{rm(sen)}</span>}
+    </p>
+    <slot />
+  </div>
+</div>

@@ -1,0 +1,66 @@
+---
+import { renderSVG } from "uqr";
+import Checkout from "../../layouts/Checkout.astro";
+import { klLongDay, klTime, rm, t } from "../../lib/i18n";
+import { named, type ticketStep } from "../../lib/checkout";
+
+type Props = Exclude<Awaited<ReturnType<typeof ticketStep>>, Response>;
+const { locale: l, b } = Astro.props;
+const s = t[l];
+const c = s.checkout;
+const a = b.activity;
+const address = [a.streetAddress, [a.postalCode, named(a.city, l)].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : `${named(a, l)}, ${address}`)}`;
+const qr = (id: string) => renderSVG(id, { border: 4 }).replace("<svg ", `<svg role="img" aria-label="${c.ticket} ${id.slice(0, 8)}" class="size-56" `);
+---
+
+<Checkout locale={l} title={c.bookedTitle}>
+  <p class="mt-2 text-lg">{named(a, l)} · {named(b.option, l)}</p>
+  <p class="mt-1 font-semibold">{klLongDay(l, b.startsAt)} · <span class="num">{klTime(l, b.startsAt)}</span></p>
+  <p class="mt-3 text-sm text-muted">{c.emailCopy}</p>
+  <p class="mt-4 rounded-xl bg-lime/30 px-3 py-3 text-sm font-semibold text-forest">{c.brightness}</p>
+
+  <ul class="mt-6 space-y-5">
+    {
+      b.tickets.map((x, i) => (
+        <li class="overflow-hidden rounded-3xl bg-white shadow-[0_1px_0_var(--color-line),0_16px_40px_-20px_rgb(14_26_20/0.3)]" aria-labelledby={`ticket-${i}`}>
+          <div class="bg-forest px-5 py-4 text-white">
+            <p class="text-sm text-white/80">{c.ticket} {i + 1} / {b.tickets.length}</p>
+            <h2 id={`ticket-${i}`} class="mt-1 text-2xl font-extrabold">{x.participantName}</h2>
+          </div>
+          <div class="flex flex-col items-center px-5 py-5">
+            <div set:html={qr(x.id)} />
+            <p class="num mt-2 font-mono text-sm tracking-widest">{x.id.slice(0, 8).toUpperCase()}</p>
+            <p class="mt-3 text-center font-semibold">{named(b.option, l)}</p>
+            <p class="text-center text-sm">{klLongDay(l, b.startsAt)} · <span class="num">{klTime(l, b.startsAt)}</span></p>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+
+  {
+    b.addOns.length > 0 && (
+      <section class="mt-6 rounded-2xl bg-white p-4" aria-labelledby="addons">
+        <h2 id="addons" class="text-xl font-bold">{s.addOns}</h2>
+        <ul class="mt-2 space-y-1 text-sm">
+          {b.addOns.map((x) => (
+            <li class="flex justify-between gap-4"><span>{named(x, l)} × {x.quantity}</span><span class="num">{rm(x.priceSen * x.quantity)}</span></li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <section class="mt-4 rounded-2xl bg-white p-4" aria-labelledby="where">
+    <h2 id="where" class="text-xl font-bold">{s.location}</h2>
+    <p class="mt-1">{named(a, l)}</p>
+    {address && <p class="text-sm text-muted">{address}</p>}
+    <a href={maps} class="mt-3 inline-flex min-h-12 items-center rounded-full bg-leaf px-5 font-semibold text-white hover:bg-forest">{s.openMaps}</a>
+  </section>
+
+  <section class="mt-4 rounded-2xl bg-sand p-4 text-sm">
+    <p class="flex justify-between"><span>{c.paid}</span><span class="num font-semibold">{rm(b.amountSen)}</span></p>
+    {b.freeCancelHours !== null && <p class="mt-2">{s.cancelText(b.freeCancelHours)}</p>}
+  </section>
+</Checkout>

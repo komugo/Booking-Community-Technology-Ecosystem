@@ -1,0 +1,10 @@
+---
+import Contact from "../../../../views/checkout/Contact.astro";
+import { contactStep } from "../../../../lib/checkout";
+
+const data = await contactStep(Astro, "ms");
+if (data instanceof Response) return data;
+if (data.status !== 200) Astro.response.status = data.status;
+---
+
+<Contact {...data} />

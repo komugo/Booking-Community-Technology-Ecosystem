@@ -91,6 +91,8 @@ export const customers = sqliteTable(
     name: text().notNull(),
     email: text().unique(),
     phone: text().unique(),
+    emailVerifiedAt: integer(),
+    createdAt: integer(),
   },
   (t) => [check("customers_contact", sql`${t.email} is not null or ${t.phone} is not null`)],
 );
@@ -128,6 +130,12 @@ export const waivers = sqliteTable(
     signedAt: integer()
       .notNull()
       .$defaultFn(() => Date.now()),
+    version: text(),
+    locale: text(),
+    // CHECK (guardian IN (0,1)) is added by hand in 0002_checkout: a drizzle table check would rebuild the table.
+    guardian: integer({ mode: "boolean" }).notNull().default(false),
+    signerCustomerId: text(),
+    textSha256: text(),
   },
   (t) => [uniqueIndex("waivers_participant_operator").on(t.participantId, t.operatorId)],
 );
@@ -136,6 +144,7 @@ export const projActivities = sqliteTable("proj_activities", {
   id: text().primaryKey(),
   operatorId: text().notNull(),
   freeCancelHours: integer().notNull(),
+  bookingCutoffMinutes: integer().notNull().default(60),
   version: integer().notNull(),
 });
 
@@ -155,6 +164,7 @@ export const projOptions = sqliteTable(
     requiredCert: text(),
     minParticipants: integer(),
     active: integer({ mode: "boolean" }).notNull(),
+    asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),
   },
   (t) => [index("proj_options_activity").on(t.activityId)],
@@ -175,7 +185,7 @@ export const projAddOns = sqliteTable(
   (t) => [index("proj_add_ons_activity").on(t.activityId)],
 );
 
-// spots is not re-projected when a Timeslot starts: readers must also filter starts_at > now.
+// spots is not re-projected as time passes: readers must also filter starts_at - booking_cutoff_minutes > now.
 export const projTimeslots = sqliteTable(
   "proj_timeslots",
   {
@@ -238,4 +248,92 @@ export const projPayments = sqliteTable(
     version: integer().notNull(),
   },
   (t) => [index("proj_payments_operator").on(t.operatorId), index("proj_payments_status").on(t.status)],
+);
+
+export type AddOnPick = { id: string; qty: number; priceSen?: number };
+export type DraftParticipant = {
+  name: string;
+  birthDate: string;
+  weightKg: number | null;
+  certs: string[];
+  waiver: { guardian: boolean; signerName: string; textSha256: string; signedAt: number } | null;
+};
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    idHash: text().primaryKey(),
+    customerId: text().references(() => customers.id),
+    createdAt: integer().notNull(),
+    expiresAt: integer().notNull(),
+  },
+  (t) => [index("sessions_customer").on(t.customerId)],
+);
+
+export const otps = sqliteTable(
+  "otps",
+  {
+    id: id(),
+    email: text().notNull(),
+    checkoutId: text(),
+    codeHash: text().notNull(),
+    attempts: integer().notNull().default(0),
+    createdAt: integer().notNull(),
+    expiresAt: integer().notNull(),
+    usedAt: integer(),
+  },
+  (t) => [index("otps_email_created").on(t.email, t.createdAt)],
+);
+
+export const checkouts = sqliteTable(
+  "checkouts",
+  {
+    id: id(),
+    sessionId: text().notNull(),
+    customerId: text().references(() => customers.id),
+    operatorId: text().notNull(),
+    activityId: text().notNull(),
+    optionId: text().notNull(),
+    timeslotId: text().notNull(),
+    quantity: integer().notNull(),
+    addOns: json<AddOnPick[]>(),
+    draft: text({ mode: "json" }).$type<DraftParticipant[]>(),
+    participantIds: text({ mode: "json" }).$type<string[]>(),
+    contactName: text(),
+    contactEmail: text(),
+    contactPhone: text(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    holdId: text(),
+    holdSeq: integer().notNull().default(0),
+    holdExpiresAt: integer(),
+    amountSen: integer(),
+    bookingId: text().unique(),
+    refundReason: text(),
+    emailedAt: integer(),
+    createdAt: integer().notNull(),
+    updatedAt: integer().notNull(),
+  },
+  (t) => [
+    index("checkouts_session").on(t.sessionId),
+    index("checkouts_customer").on(t.customerId),
+    index("checkouts_hold").on(t.holdId),
+  ],
+);
+
+export const bills = sqliteTable(
+  "bills",
+  {
+    id: text().primaryKey(),
+    checkoutId: text().notNull(),
+    holdId: text().notNull().unique(),
+    amountSen: integer().notNull(),
+    url: text().notNull(),
+    createdAt: integer().notNull(),
+    paidAt: integer(),
+    deletedAt: integer(),
+    paidAmountSen: integer(),
+    refundReason: text(),
+    emailedAt: integer(),
+  },
+  (t) => [index("bills_paid_created").on(t.paidAt, t.createdAt)],
 );

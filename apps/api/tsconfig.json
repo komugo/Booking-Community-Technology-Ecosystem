@@ -1,7 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": []
+    "types": [
+      "@cloudflare/vitest-plugin/types"
+    ],
+    "lib": [
+      "ES2024"
+    ]
   },
-  "include": ["src", "worker-configuration.d.ts", "worker-runtime.d.ts"]
+  "include": [
+    "src",
+    "test",
+    "vitest.config.ts",
+    "worker-configuration.d.ts",
+    "worker-runtime.d.ts"
+  ]
 }

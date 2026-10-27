@@ -1,0 +1,9 @@
+---
+import Return from "../../views/checkout/Return.astro";
+import { returnStep } from "../../lib/checkout";
+
+const data = await returnStep(Astro, "en");
+if (data instanceof Response) return data;
+---
+
+<Return {...data} />

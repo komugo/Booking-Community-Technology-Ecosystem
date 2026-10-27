@@ -1,0 +1,12 @@
+---
+import type { Problems } from "../../lib/form";
+
+interface Props {
+  p: Problems;
+  id: string;
+}
+const { p, id } = Astro.props;
+const msg = p.fields.get(id);
+---
+
+{msg && <p id={`${id}-error`} class="mt-1.5 text-sm font-medium text-clay">{msg}</p>}

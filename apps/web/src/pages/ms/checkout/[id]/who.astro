@@ -1,0 +1,10 @@
+---
+import Who from "../../../../views/checkout/Who.astro";
+import { whoStep } from "../../../../lib/checkout";
+
+const data = await whoStep(Astro, "ms");
+if (data instanceof Response) return data;
+if (data.status !== 200) Astro.response.status = data.status;
+---
+
+<Who {...data} />

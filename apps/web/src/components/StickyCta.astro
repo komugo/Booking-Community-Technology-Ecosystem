@@ -6,14 +6,15 @@ import { t } from "../lib/i18n";
 interface Props {
   locale: Locale;
   fromSen: number | null;
+  bookHref: string | null;
 }
-const { locale, fromSen } = Astro.props;
+const { locale, fromSen, bookHref } = Astro.props;
 ---
 
 <div id="sticky-cta" class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
   <div class="wrap flex h-18 items-center justify-between gap-4">
     <p class="min-w-0 leading-tight">{fromSen !== null && <Price locale={locale} sen={fromSen} confirmed from />}</p>
-    <a href="#book" class="inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-5 font-semibold whitespace-nowrap text-white hover:bg-forest">{t[locale].howToBook}</a>
+    <a href={bookHref ?? "#book"} class="inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-5 font-semibold whitespace-nowrap text-white hover:bg-forest">{bookHref ? t[locale].bookNow : t[locale].howToBook}</a>
   </div>
 </div>
 

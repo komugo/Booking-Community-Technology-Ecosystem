@@ -1,0 +1,26 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import { path, t } from "../../lib/i18n";
+import type { returnStep } from "../../lib/checkout";
+
+type Props = Exclude<Awaited<ReturnType<typeof returnStep>>, Response>;
+const { locale: l, state, tries } = Astro.props;
+const c = t[l].checkout;
+const waiting = state === "pending" && tries < 20;
+const next = new URL(Astro.url);
+next.searchParams.set("n", String(tries + 1));
+const copy =
+  state === "invalid"
+    ? { title: c.errorTitle, body: c.badReturn }
+    : state === "booked"
+      ? { title: c.bookedTitle, body: c.bookedElsewhere }
+      : { title: c.pendingTitle, body: waiting ? c.pendingBody : c.emailLater };
+---
+
+<Checkout locale={l} title={copy.title} refresh={waiting ? `3;url=${next.pathname}${next.search}` : undefined}>
+  <div class="mt-6 flex items-start gap-3" role="status">
+    {waiting && <span aria-hidden="true" class="mt-1 size-5 shrink-0 animate-spin rounded-full border-3 border-line border-t-leaf" />}
+    <p class="text-lg">{copy.body}</p>
+  </div>
+  <a href={path(l)} class="mt-6 inline-flex min-h-12 items-center font-semibold text-leaf underline underline-offset-2">{t[l].backHome}</a>
+</Checkout>

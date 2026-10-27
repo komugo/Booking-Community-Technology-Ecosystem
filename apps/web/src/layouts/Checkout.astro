@@ -1,0 +1,195 @@
+---
+import type { Locale } from "@komugo/db";
+import Base from "./Base.astro";
+import { t } from "../lib/i18n";
+import type { Problems } from "../lib/form";
+
+interface Props {
+  locale: Locale;
+  title: string;
+  step?: 1 | 2 | 3 | 4;
+  back?: string;
+  problems?: Problems;
+  refresh?: string;
+}
+const { locale, title, step, back, problems, refresh } = Astro.props;
+const s = t[locale].checkout;
+const { pathname, search } = Astro.url;
+const bare = pathname.replace(/^\/ms(?=\/)/, "");
+const alternates = { en: bare + search, ms: "/ms" + bare + search };
+---
+
+<Base locale={locale} title={`${title} | Komugo`} description="" alternates={alternates} indexable={false} canonical={false} image={null} solid>
+  {refresh && <meta slot="head" http-equiv="refresh" content={refresh} />}
+  <div class="mx-auto w-full max-w-xl px-4 pt-5 pb-12">
+    {
+      step && (
+        <div class="flex items-center gap-3">
+          {back && (
+            <a href={back} class="-ml-3 flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-sand" aria-label={s.back}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </a>
+          )}
+          <ol aria-label={s.stepOf(step)} class="grid flex-1 grid-cols-4 gap-1.5 text-xs font-semibold">
+            {s.steps.map((label, i) => (
+              <li aria-current={i + 1 === step ? "step" : undefined} class:list={[i + 1 <= step ? "text-forest" : "text-muted"]}>
+                <span aria-hidden="true" class:list={["mb-1.5 block h-1.5 rounded-full", i + 1 <= step ? "bg-leaf" : "bg-line"]} />
+                {label}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )
+    }
+    <h1 class="mt-6 text-4xl font-extrabold">{title}</h1>
+    {
+      problems && problems.summary.length > 0 && (
+        <div id="error-summary" tabindex="-1" role="alert" aria-labelledby="error-title" class="mt-6 rounded-2xl border-2 border-clay bg-clay/5 p-4">
+          <h2 id="error-title" class="text-lg font-bold text-clay">{s.errorTitle}</h2>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            {problems.summary.map((e) => (
+              <li>{e.href ? <a href={e.href} class="underline underline-offset-2">{e.text}</a> : e.text}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+    <slot />
+  </div>
+</Base>
+
+<script>
+  const $$ = <T extends Element = HTMLInputElement>(sel: string, root: Pick<Document, "querySelectorAll"> = document) => [...root.querySelectorAll<T>(sel)];
+  const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
+  const num = (el: HTMLInputElement) => Number(el.value) || 0;
+
+  if (document.getElementById("error-summary")) {
+    history.replaceState(null, "", location.href);
+    document.getElementById("error-summary")!.focus();
+  }
+
+  for (const b of $$<HTMLButtonElement>("[data-by]")) {
+    const input = document.getElementById(b.dataset.for!) as HTMLInputElement;
+    b.hidden = false;
+    b.addEventListener("click", () => {
+      input.value = String(Math.min(Number(input.max), Math.max(Number(input.min), num(input) + Number(b.dataset.by))));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  const pick = document.querySelector<HTMLFormElement>("[data-pick]");
+  if (pick) {
+    const qty = pick.elements.namedItem("quantity") as HTMLInputElement;
+    const update = () => {
+      const slot = pick.querySelector<HTMLInputElement>("[data-spots]:checked");
+      const spots = Number(slot?.dataset.spots);
+      if (spots) qty.max = String(Math.min(10, spots));
+      const low = pick.querySelector<HTMLElement>("[data-low]")!;
+      low.hidden = !spots || spots > 3;
+      low.textContent = slot?.dataset.lowText ?? "";
+      if (num(qty) > Number(qty.max)) qty.value = qty.max;
+      let sen = num(qty) * Number(pick.dataset.pick);
+      for (const a of $$("[data-addon]", pick)) {
+        a.max = qty.value;
+        if (num(a) > num(qty)) a.value = qty.value;
+        sen += num(a) * Number(a.dataset.addon);
+      }
+      for (const b of $$<HTMLButtonElement>("[data-by]", pick)) {
+        const input = document.getElementById(b.dataset.for!) as HTMLInputElement;
+        b.disabled = b.dataset.by === "1" ? num(input) >= Number(input.max) : num(input) <= Number(input.min);
+      }
+      pick.querySelector("[data-total]")!.textContent = rm(sen);
+      for (const a of $$<HTMLAnchorElement>("a[data-day]", pick)) {
+        const u = new URL(a.href);
+        for (const x of [qty, ...$$("[data-addon]", pick)]) u.searchParams.set(x.name, x.value);
+        a.href = u.href;
+      }
+    };
+    pick.addEventListener("input", update);
+    pick.addEventListener("change", update);
+    update();
+  }
+
+  const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10).split("-").map(Number);
+  for (const card of $$<HTMLElement>("[data-person]")) {
+    const field = (f: string) => card.querySelector<HTMLInputElement>(`[data-f="${f}"]`)!;
+    const sync = () => {
+      const name = field("name").value.trim();
+      for (const n of $$<HTMLElement>("[data-name]", card)) n.textContent = name || n.dataset.name!;
+      const [d, m, y] = ["dd", "mm", "yyyy"].map((f) => num(field(f)));
+      const age = y > 1900 && m && d ? today[0] - y - (today[1] < m || (today[1] === m && today[2] < d) ? 1 : 0) : 99;
+      for (const el of $$<HTMLElement>("[data-minor]", card)) el.hidden = age >= 18;
+      for (const el of $$<HTMLElement>("[data-adult]", card)) el.hidden = age < 18;
+      const signedAs = card.querySelector<HTMLInputElement>("[data-signed-as]")!;
+      const as = age < 18 ? "minor" : "adult";
+      if (signedAs.value !== as) card.querySelector<HTMLInputElement>("input[type=checkbox]")!.checked = false;
+      signedAs.value = as;
+    };
+    card.addEventListener("input", (e) => {
+      const el = e.target as HTMLElement;
+      const f = el.dataset.f;
+      if (f && f !== "weight") {
+        card.querySelector<HTMLElement>("[data-waiver]")!.hidden = false;
+        card.querySelector<HTMLElement>("[data-signed-badge]")!.hidden = true;
+      }
+      const group = el.closest("fieldset") ?? el.closest("div");
+      for (const bad of $$<HTMLElement>("[aria-invalid]", group!)) {
+        bad.removeAttribute("aria-invalid");
+        document.getElementById(bad.getAttribute("aria-describedby")!)?.setAttribute("hidden", "");
+      }
+      sync();
+    });
+    for (const chip of $$<HTMLButtonElement>("[data-fill]", card)) {
+      chip.addEventListener("click", () => {
+        const v: Record<string, string> = JSON.parse(chip.dataset.fill!);
+        for (const [f, x] of Object.entries(v)) if (card.querySelector(`[data-f="${f}"]`)) field(f).value = x;
+        sync();
+        const signed = card.querySelector<HTMLElement>("[data-signed-badge]")!;
+        signed.hidden = !chip.dataset.signed;
+        signed.textContent = chip.dataset.signed ?? "";
+        card.querySelector<HTMLElement>("[data-waiver]")!.hidden = !!chip.dataset.signed;
+      });
+    }
+    sync();
+  }
+
+  const clock = document.querySelector<HTMLElement>("[data-expires]");
+  if (clock) {
+    const end = Number(clock.dataset.expires);
+    const live = document.querySelector<HTMLElement>("[data-live]")!;
+    const pay = document.querySelector<HTMLButtonElement>("[data-pay]");
+    let said = 0;
+    const tick = () => {
+      const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      if (!left) return location.reload();
+      clock.textContent = `${clock.dataset.label} ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+      document.querySelector<HTMLElement>("[data-hurry]")!.hidden = left >= 180;
+      if (pay) pay.disabled = left < 60;
+      const m = left <= 60 ? 1 : left <= 300 ? 5 : 0;
+      if (m && m !== said) {
+        said = m;
+        live.textContent = live.dataset[`m${m}`]!;
+      }
+      setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  const resend = document.querySelector<HTMLButtonElement>("[data-resend]");
+  if (resend) {
+    const label = resend.textContent!;
+    const until = Number(resend.dataset.resend) + 60_000;
+    const tick = () => {
+      const left = Math.ceil((until - Date.now()) / 1000);
+      resend.disabled = left > 0;
+      resend.textContent = left > 0 ? `${resend.dataset.wait} ${left}s` : label;
+      if (left > 0) setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  const code = document.querySelector<HTMLInputElement>("[autocomplete=one-time-code]");
+  code?.addEventListener("input", () => {
+    code.value = code.value.replace(/\D/g, "").slice(0, 6);
+  });
+</script>

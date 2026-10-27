@@ -58,7 +58,7 @@ describe("concurrency", () => {
   test("Reschedule then cancel applies the Cancellation Policy of the new Timeslot", async () => {
     const w = await rideWorld();
     const closed = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const soon = await w.slot(w.optionId, Date.now() + 3600_000);
+    const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
     const p = await w.participant(w.customerId);
     const {
       ticketIds: [ticketId],
@@ -71,7 +71,7 @@ describe("concurrency", () => {
   test("cancel then Reschedule: cancelled, and the Reschedule is invalid_state", async () => {
     const w = await rideWorld();
     const closed = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const soon = await w.slot(w.optionId, Date.now() + 3600_000);
+    const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
     const p = await w.participant(w.customerId);
     const {
       ticketIds: [ticketId],
@@ -291,7 +291,7 @@ describe("gating", () => {
     });
   });
 
-  test("Participants must be known, unique, the Customer's own, and not already on the Timeslot", async () => {
+  test("Participants must be known, unique, the Customer's own, and not already ticketed on the Timeslot", async () => {
     const w = await rideWorld();
     await w.resource();
     const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
@@ -300,7 +300,7 @@ describe("gating", () => {
     for (const ids of [[p, p], [stranger], [], [rid()]]) {
       await expect(w.hold(w.customerId, ts, ids)).rejects.toMatchObject({ code: "invalid_participant" });
     }
-    await w.hold(w.customerId, ts, [p]);
+    await w.book(w.customerId, ts, [p]);
     await expect(w.hold(w.customerId, ts, [p])).rejects.toMatchObject({ code: "invalid_participant" });
   });
 
@@ -396,7 +396,7 @@ describe("Closure, cancel and Packs", () => {
     expect(await w.cancel(w.customerId, early.ticketIds[0])).toEqual({ status: "cancelled" });
     await expect(w.cancel(w.customerId, early.ticketIds[0])).rejects.toMatchObject({ code: "invalid_state" });
 
-    const soon = await w.slot(w.optionId, Date.now() + 3600_000);
+    const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
     const {
       ticketIds: [late],
     } = await w.redeem(soon);

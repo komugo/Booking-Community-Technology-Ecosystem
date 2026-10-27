@@ -1,0 +1,9 @@
+---
+import Pay from "../../../views/checkout/Pay.astro";
+import { payStep } from "../../../lib/checkout";
+
+const data = await payStep(Astro, "en");
+if (data instanceof Response) return data;
+---
+
+<Pay {...data} />

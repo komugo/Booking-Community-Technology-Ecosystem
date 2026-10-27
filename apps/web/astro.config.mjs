@@ -7,6 +7,7 @@ export default defineConfig({
   output: "server",
   trailingSlash: "never",
   session: false,
+  security: { checkOrigin: false },
   adapter: cloudflare({ imageService: "passthrough", persistState: { path: "../../.wrangler/state" } }),
   i18n: {
     defaultLocale: "en",

@@ -96,6 +96,21 @@ export const migrations: string[][] = [
       price_sen INTEGER NOT NULL CHECK (price_sen >= 0),
       active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))) STRICT`,
   ],
+  [
+    `ALTER TABLE holds ADD COLUMN amount_sen INTEGER CHECK (amount_sen >= 0)`,
+    `CREATE TABLE hold_add_ons (hold_id TEXT NOT NULL REFERENCES holds(id), add_on_id TEXT NOT NULL REFERENCES add_ons(id),
+      quantity INTEGER NOT NULL CHECK (quantity > 0), price_sen INTEGER NOT NULL CHECK (price_sen >= 0),
+      PRIMARY KEY (hold_id, add_on_id)) STRICT`,
+    `CREATE INDEX holds_customer_active ON holds(customer_id) WHERE status = 'active'`,
+  ],
+  [
+    `UPDATE meta SET rev = rev + 1`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'option', id, (SELECT rev FROM meta) FROM options WHERE true
+      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
+  [
+    `ALTER TABLE activities ADD COLUMN booking_cutoff_minutes INTEGER NOT NULL DEFAULT 60 CHECK (booking_cutoff_minutes >= 0)`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

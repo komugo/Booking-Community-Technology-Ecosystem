@@ -1,0 +1,32 @@
+---
+interface Props {
+  id: string;
+  name: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  fewer: string;
+  more: string;
+  attrs?: Record<string, string | number>;
+}
+const { id, name, label, value, min, max, fewer, more, attrs = {} } = Astro.props;
+const btn = "flex size-12 items-center justify-center rounded-full border border-line bg-white text-2xl font-semibold disabled:opacity-40";
+---
+
+<div class="flex items-center gap-2">
+  <button type="button" class={btn} data-by="-1" data-for={id} aria-label={fewer} hidden>−</button>
+  <input
+    id={id}
+    name={name}
+    type="number"
+    inputmode="numeric"
+    min={min}
+    max={max}
+    value={value}
+    aria-label={label}
+    class="num h-12 w-16 rounded-xl border border-line bg-white text-center text-lg font-semibold"
+    {...attrs}
+  />
+  <button type="button" class={btn} data-by="1" data-for={id} aria-label={more} hidden>+</button>
+</div>

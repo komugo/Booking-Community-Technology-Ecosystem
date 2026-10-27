@@ -133,3 +133,7 @@
     translate: 0 12px;
   }
 }
+
+body:has([data-bar]) > footer {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}

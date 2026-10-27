@@ -1,6 +1,7 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { activities, categories, cities, createDb, customers, operators, participants, waivers } from "@komugo/db";
-import { booking, BookingError, type OptionInput, type ResourceInput, type ResourceKind } from "../src";
+import { WAIVER } from "@komugo/types";
+import { booking, BookingError, type AddOnPick, type OptionInput, type ResourceInput, type ResourceKind } from "../src";
 
 export const db = createDb(env.DB);
 export const kl = (local: string) => new Date(`${local}+08:00`).getTime();
@@ -100,11 +101,20 @@ export async function operator(freeCancelHours = 24) {
         .insert(participants)
         .values({ customerId, name: "Aisyah", birthDate: "1990-01-01", weightKg: 60, ...values })
         .returning();
-      if (waiver) await db.insert(waivers).values({ participantId: row.id, operatorId, signerName: "Aiman" });
+      if (waiver) {
+        await db.insert(waivers).values({ participantId: row.id, operatorId, signerName: "Aiman", version: WAIVER.version });
+      }
       return row.id;
     },
-    hold(customerId: string, timeslotId: string, participantIds: string[], requestId: string = rid()) {
-      return b.createHold({ requestId, customerId, timeslotId, participantIds });
+    hold(
+      customerId: string,
+      timeslotId: string,
+      participantIds: string[],
+      requestId: string = rid(),
+      addOns: AddOnPick[] = [],
+      replaces: string | null = null,
+    ) {
+      return b.createHold({ requestId, customerId, replaces, timeslotId, participantIds, addOns });
     },
     pay(h: { holdId: string; amountSen: number }, billId: string = rid()) {
       return b.confirmHold({ billId, holdId: h.holdId, amountSen: h.amountSen });

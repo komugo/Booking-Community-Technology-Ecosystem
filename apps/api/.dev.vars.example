@@ -1,0 +1,5 @@
+# Copy to .dev.vars for `pnpm dev`. Production values go in `wrangler secret put <NAME>`.
+APP_SECRET=dev-only-app-secret-change-me
+BILLPLZ_API_KEY=dev-fake-key
+BILLPLZ_X_SIGNATURE_KEY=dev-fake-x-signature-key
+RESEND_API_KEY=

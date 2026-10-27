@@ -41,6 +41,9 @@ A limit on how a horse may be used (max sessions per day, rest gap, max rider we
 A start time at which an Option can be booked, available only if its Resources are free.
 _Avoid_: Session, slot, schedule
 
+**Booking cutoff**:
+How many minutes before a Timeslot starts an Activity stops taking new bookings for it (default 60).
+
 **City**:
 Location hub grouping Activities (e.g. Putrajaya).
 
@@ -62,11 +65,19 @@ An eligibility rule a Participant must meet for an Option (min age, max weight, 
 _Avoid_: Restriction, criteria
 
 **Waiver**:
-A signed liability release for one Participant; signed by a guardian for minors.
+A signed liability release for one Participant at one Operator, for one version of the text. An adult Participant signs for themselves; a parent or legal guardian ticks and types their own name for a Participant under 18 on the signing date. A new version replaces the old signature.
 
 **Hold**:
 A temporary reservation of Resources while a Customer pays.
 _Avoid_: Lock, cart reservation
+
+**Checkout**:
+A Customer's in-progress purchase from Option pick to Booking; owns the current Hold and its bill. A new Hold for the Checkout replaces its previous Hold.
+_Avoid_: Cart, order
+
+**Sign-in**:
+Proving an email address with a 6-digit code sent to it. The first Sign-in creates the Customer; the browser then keeps a session for 30 days.
+_Avoid_: Login, account creation
 
 **Booking**:
 One completed checkout by a Customer, containing one or more Tickets.
@@ -93,7 +104,7 @@ One Billplz bill received for a Hold. Either **paid** (it produced the Booking) 
 _Avoid_: Transaction, charge
 
 **Refund**:
-Money returned to the Customer by Komugo.
+Money returned to the Customer by Komugo. Ops pays it out by hand from the refund_due Payments; the Customer gets an email saying it arrives within 7 working days.
 
 **Reschedule**:
 Moving a Ticket to another Timeslot of the same Option.

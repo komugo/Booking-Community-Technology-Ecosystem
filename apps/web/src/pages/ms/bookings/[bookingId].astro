@@ -1,0 +1,9 @@
+---
+import Ticket from "../../../views/checkout/Ticket.astro";
+import { ticketStep } from "../../../lib/checkout";
+
+const data = await ticketStep(Astro, "ms");
+if (data instanceof Response) return data;
+---
+
+<Ticket {...data} />

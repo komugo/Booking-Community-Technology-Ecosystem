@@ -5,6 +5,8 @@ import {
   DAY,
   type ActivityInput,
   type AddOnInput,
+  type AddOnPick,
+  type BookingView,
   type Idempotency,
   type OptionInput,
   type ParticipantFacts,
@@ -55,13 +57,39 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, idem, (sql, now) => engine.issuePack(sql, now, i));
   }
 
-  createHold(op: string, i: { requestId: string; customerId: string; timeslotId: string; participants: ParticipantFacts[] }) {
+  createHold(
+    op: string,
+    i: {
+      requestId: string;
+      customerId: string;
+      replaces: string | null;
+      timeslotId: string;
+      participants: ParticipantFacts[];
+      addOns: AddOnPick[];
+    },
+  ) {
     const idem = {
       requestId: i.requestId,
       method: "createHold",
-      fingerprint: [i.customerId, i.timeslotId, i.participants.map((p) => p.id)],
+      fingerprint: [
+        i.customerId,
+        i.replaces,
+        i.timeslotId,
+        i.participants.map((p) => p.id),
+        [...i.addOns].sort((a, b) => (a.id < b.id ? -1 : 1)).map((a) => [a.id, a.qty]),
+      ],
     };
     return this.#mutate(op, idem, (sql, now) => engine.createHold(sql, now, i));
+  }
+
+  bookingView(op: string, bookingId: string): Result<BookingView> {
+    if (!this.env.BOOKING.idFromName(op).equals(this.ctx.id)) throw new Error("wrong_operator");
+    try {
+      return { ok: true, value: engine.bookingView(this.ctx.storage.sql, bookingId) };
+    } catch (e) {
+      if (e instanceof BookingError) return { ok: false, error: e.code };
+      throw e;
+    }
   }
 
   confirmHold(op: string, i: { billId: string; holdId: string; amountSen: number }) {

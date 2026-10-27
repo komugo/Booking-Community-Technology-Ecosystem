@@ -4,6 +4,8 @@ export {
   BookingError,
   type ActivityInput,
   type AddOnInput,
+  type AddOnPick,
+  type BookingView,
   type BookingErrorCode,
   type ConfirmResult,
   type OptionInput,

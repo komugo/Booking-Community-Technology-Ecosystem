@@ -1,0 +1,106 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import BottomBar from "../../components/checkout/BottomBar.astro";
+import { klLongDay, klTime, path, rm, t } from "../../lib/i18n";
+import { named, type payStep } from "../../lib/checkout";
+
+type Props = Exclude<Awaited<ReturnType<typeof payStep>>, Response>;
+const { locale: l, co, problems: p } = Astro.props;
+const s = t[l];
+const c = s.checkout;
+const o = co.option;
+const total = co.amountSen ?? co.estimatedSen;
+const addOnSen = co.addOns.reduce((sum, a) => sum + a.priceSen * a.qty, 0);
+const optionSen = co.amountSen !== null ? co.amountSen - addOnSen : o.priceSen * co.quantity;
+const gone = co.refundReason === "unavailable";
+const left = (co.holdExpiresAt ?? 0) - Date.now();
+const failed = p.summary.length > 0 && new URL(Astro.url).searchParams.get("e") === "payment_failed";
+const btn = "inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest disabled:opacity-50";
+const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherTitle) : co.state === "expired" ? c.expiredTitle : c.payTitle;
+---
+
+<Checkout locale={l} title={title} step={co.state === "refund_due" ? undefined : 4} back={path(l, "checkout", co.id, "who")} problems={p}>
+  {
+    co.state === "held" && (
+      <div class="mt-4 rounded-2xl bg-forest p-4 text-white">
+        <p data-expires={co.holdExpiresAt} data-label={c.heldFor} class="num text-lg font-semibold">{c.heldUntil(klTime(l, co.holdExpiresAt!))}</p>
+        <p data-hurry hidden={left >= 180_000} class="mt-1 font-semibold text-lime">{c.hurry}</p>
+        <p data-live aria-live="polite" class="sr-only" data-m5={c.minutesLeft(5)} data-m1={c.minutesLeft(1)} />
+      </div>
+    )
+  }
+  {
+    co.state === "expired" && (
+      <div class="mt-4 rounded-2xl border-2 border-clay bg-clay/5 p-4">
+        <p>{c.expiredBody}</p>
+        <form method="post" class="mt-3">
+          <button name="action" value="hold" class={btn}>{c.holdAgain}</button>
+        </form>
+      </div>
+    )
+  }
+  {
+    co.state === "refund_due" && (
+      <div class="mt-4 rounded-2xl bg-sand p-4">
+        <p>{(gone ? c.refundBody : c.refundOther)(rm(co.refundSen ?? total))}</p>
+        <a href={path(l, "book", o.id)} class={`${btn} mt-4`}>{c.rebook}</a>
+      </div>
+    )
+  }
+
+  <section class="mt-6 rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]" aria-labelledby="summary">
+    <h2 id="summary" class="text-2xl font-extrabold">{named(co.activity, l)}</h2>
+    <p class="mt-1 font-semibold">{named(o, l)}</p>
+    {co.startsAt && <p class="mt-2">{klLongDay(l, co.startsAt)} · <span class="num">{klTime(l, co.startsAt)}</span></p>}
+    <p class="mt-1 text-sm text-muted">{co.participants.map((x) => x.name).join(", ")}</p>
+    <table class="mt-4 w-full text-sm">
+      <tbody>
+        <tr>
+          <th scope="row" class="py-1.5 text-left font-normal">{named(o, l)} × {co.quantity}</th>
+          <td class="num py-1.5 text-right">{rm(optionSen)}</td>
+        </tr>
+        {
+          co.addOns.map((a) => (
+            <tr>
+              <th scope="row" class="py-1.5 text-left font-normal">{named(a, l)} × {a.qty}</th>
+              <td class="num py-1.5 text-right">{rm(a.priceSen * a.qty)}</td>
+            </tr>
+          ))
+        }
+        <tr class="border-t border-line text-base font-bold">
+          <th scope="row" class="pt-3 text-left">{c.total}</th>
+          <td class="num pt-3 text-right">{rm(total)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  {
+    co.freeCancelHours !== null && (
+      <section class="mt-4 rounded-2xl bg-sand p-4" aria-labelledby="cancel">
+        <h2 id="cancel" class="text-lg font-bold">{s.cancellation}</h2>
+        <p class="mt-1 text-sm">{s.cancelText(co.freeCancelHours)}</p>
+      </section>
+    )
+  }
+
+  {
+    co.contact.email && (
+      <form method="post" class="mt-4 flex flex-wrap items-center gap-x-2 text-sm">
+        <span>{c.bookingAs} <strong>{co.contact.email}</strong> ·</span>
+        <button name="action" value="logout" class="min-h-12 font-semibold text-leaf underline underline-offset-2">{c.notYou}</button>
+      </form>
+    )
+  }
+
+  {
+    co.state === "held" && (
+      <form method="post">
+        <p class="mt-4 text-sm text-muted">{c.payNote}</p>
+        <BottomBar locale={l} label={c.total} sen={total}>
+          <button name="action" value="pay" data-pay class={btn} disabled={left < 60_000}>{failed ? c.retry : c.pay(rm(total))}</button>
+        </BottomBar>
+      </form>
+    )
+  }
+</Checkout>

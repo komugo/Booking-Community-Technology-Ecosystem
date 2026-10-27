@@ -208,6 +208,18 @@ const challengePark: ActivitySeed = {
 
 const SEEDS = [equestrian, challengePark];
 
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+// 30 days of 9am, 11am, 2pm and 4pm KL Timeslots so checkout can be tried locally.
+function devStarts() {
+  const now = Date.now();
+  const klMidnight = Math.floor((now + 8 * HOUR) / DAY) * DAY - 8 * HOUR;
+  return Array.from({ length: 30 }, (_, d) => [9, 11, 14, 16].map((h) => klMidnight + d * DAY + h * HOUR))
+    .flat()
+    .filter((t) => t > now);
+}
+
 export async function seed(env: Env): Promise<{ options: number; addOns: number }> {
   const db = createDb(env.DB);
   const hub = (table: typeof cities | typeof categories, { photo, ...h }: HubSeed) =>
@@ -252,6 +264,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
       });
     }
     for (const x of a.addOns) await b.upsertAddOn({ ...x, activityId: a.id, active: true });
+    for (const o of a.options) await b.createTimeslots({ optionId: o.id, startsAt: devStarts() });
   }
 
   const ops = SEEDS.map((a) => a.operator.id);
