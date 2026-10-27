@@ -4,6 +4,7 @@ import {
   BookingError,
   DAY,
   type ActivityInput,
+  type AddOnInput,
   type Idempotency,
   type OptionInput,
   type ParticipantFacts,
@@ -31,6 +32,10 @@ export class OperatorBooking extends DurableObject<Env> {
 
   upsertOption(op: string, o: OptionInput) {
     return this.#mutate(op, null, (sql, now) => engine.upsertOption(sql, now, o));
+  }
+
+  upsertAddOn(op: string, a: AddOnInput) {
+    return this.#mutate(op, null, (sql) => engine.upsertAddOn(sql, a));
   }
 
   upsertResource(op: string, r: ResourceInput) {

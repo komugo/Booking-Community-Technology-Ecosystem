@@ -39,9 +39,11 @@ export type OptionInput = {
   maxAge: number | null;
   maxWeightKg: number | null;
   requiredCert: string | null;
+  minParticipants: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
+export type AddOnInput = { id: string; activityId: string; nameEn: string; nameMs: string; priceSen: number; active: boolean };
 export type ResourceInput = {
   id: string;
   kind: ResourceKind;
@@ -393,12 +395,12 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", o.activityId))) throw new BookingError("invalid_state");
   sql.exec(
     `INSERT INTO options (id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age,
-       max_weight_kg, required_cert, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       max_weight_kg, required_cert, min_participants, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name_en = excluded.name_en, name_ms = excluded.name_ms,
        price_sen = excluded.price_sen, duration_minutes = excluded.duration_minutes, min_age = excluded.min_age,
        max_age = excluded.max_age, max_weight_kg = excluded.max_weight_kg, required_cert = excluded.required_cert,
-       active = excluded.active`,
+       min_participants = excluded.min_participants, active = excluded.active`,
     o.id,
     o.activityId,
     o.nameEn,
@@ -409,6 +411,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     o.maxAge,
     o.maxWeightKg,
     o.requiredCert,
+    o.minParticipants,
     o.active ? 1 : 0,
   );
   sql.exec("DELETE FROM option_resources WHERE option_id = ?", o.id);
@@ -417,6 +420,23 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   }
   mark(sql, "option", [o.id]);
   mark(sql, "timeslot", openFutureSlots(sql, now, o.id));
+  return null;
+}
+
+export function upsertAddOn(sql: SqlStorage, a: AddOnInput) {
+  if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", a.activityId))) throw new BookingError("invalid_state");
+  sql.exec(
+    `INSERT INTO add_ons (id, activity_id, name_en, name_ms, price_sen, active) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET activity_id = excluded.activity_id, name_en = excluded.name_en,
+       name_ms = excluded.name_ms, price_sen = excluded.price_sen, active = excluded.active`,
+    a.id,
+    a.activityId,
+    a.nameEn,
+    a.nameMs,
+    a.priceSen,
+    a.active ? 1 : 0,
+  );
+  mark(sql, "add_on", [a.id]);
   return null;
 }
 

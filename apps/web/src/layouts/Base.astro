@@ -1,23 +1,87 @@
 ---
+import type { Locale, Photo } from "@komugo/db";
+import displayFont from "@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url";
+import bodyFont from "@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2?url";
 import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import JsonLd from "../components/JsonLd.astro";
+import { t, type Alternates } from "../lib/i18n";
+import { ogImage, srcset } from "../lib/photo";
+import { abs } from "../lib/seo";
 
 interface Props {
+  locale: Locale;
   title: string;
   description: string;
+  alternates: Alternates;
+  indexable: boolean;
+  canonical?: boolean;
+  image: Photo | null;
+  hero?: { photo: Photo; sizes: string };
+  jsonLd?: Record<string, unknown>[];
 }
 
-const { title, description } = Astro.props;
+const { locale, title, description, alternates, indexable, canonical = true, image, hero, jsonLd = [] } = Astro.props;
+const s = t[locale];
+const other: Locale = locale === "en" ? "ms" : "en";
+const fonts = `
+@font-face{font-family:"Bricolage Grotesque Variable";font-style:normal;font-display:swap;font-weight:200 800;src:url(${displayFont}) format("woff2-variations")}
+@font-face{font-family:"Instrument Sans Variable";font-style:normal;font-display:swap;font-weight:400 700;src:url(${bodyFont}) format("woff2-variations")}`;
 ---
 
 <!doctype html>
-<html lang={Astro.currentLocale}>
+<html lang={s.htmlLang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="robots" content={indexable ? "index,follow" : "noindex,follow"} />
+    {
+      canonical && (
+        <>
+          <link rel="canonical" href={abs(Astro.site, alternates[locale])} />
+          <link rel="alternate" hreflang="en" href={abs(Astro.site, alternates.en)} />
+          <link rel="alternate" hreflang="ms" href={abs(Astro.site, alternates.ms)} />
+          <link rel="alternate" hreflang="x-default" href={abs(Astro.site, alternates.en)} />
+        </>
+      )
+    }
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#0B3D2E" />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="preload" href={displayFont} as="font" type="font/woff2" crossorigin />
+    {hero && <link rel="preload" as="image" imagesrcset={srcset(hero.photo)} imagesizes={hero.sizes} fetchpriority="high" />}
+    <style is:inline set:html={fonts} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Komugo" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={abs(Astro.site, alternates[locale])} />}
+    <meta property="og:locale" content={s.ogLocale} />
+    <meta property="og:locale:alternate" content={t[other].ogLocale} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {
+      image && (
+        <>
+          <meta property="og:image" content={ogImage(image)} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content={image.alt} />
+          <meta name="twitter:image" content={ogImage(image)} />
+        </>
+      )
+    }
+    {jsonLd.map((d) => <JsonLd data={d} />)}
   </head>
-  <body>
-    <slot />
+  <body class="min-h-dvh">
+    <Header locale={locale} alternates={alternates} />
+    <main>
+      <slot />
+    </main>
+    <Footer locale={locale} />
   </body>
 </html>

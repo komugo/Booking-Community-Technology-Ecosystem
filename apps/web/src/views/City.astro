@@ -1,0 +1,59 @@
+---
+import Base from "../layouts/Base.astro";
+import HubHero from "../components/HubHero.astro";
+import CategoryTile from "../components/CategoryTile.astro";
+import ActivityCard from "../components/ActivityCard.astro";
+import { path, t } from "../lib/i18n";
+import { heroSizes } from "../lib/photo";
+import { breadcrumbLd, itemListLd } from "../lib/seo";
+import { categoryFromSen, type CityData } from "../lib/catalog";
+
+type Props = CityData;
+const { locale, alternates, city, categories, activities, indexable } = Astro.props;
+const s = t[locale];
+const crumbs = [
+  { name: s.home, path: path(locale) },
+  { name: city.name, path: alternates[locale] },
+];
+---
+
+<Base
+  locale={locale}
+  title={s.cityTitle(city.name)}
+  description={s.cityDescription(city.name)}
+  alternates={alternates}
+  indexable={indexable}
+  image={city.photo}
+  hero={city.photo ? { photo: city.photo, sizes: heroSizes(city.photo) } : undefined}
+  jsonLd={[breadcrumbLd(Astro.site, crumbs), ...itemListLd(Astro.site, locale, activities)]}
+>
+  <HubHero locale={locale} photo={city.photo} lines={s.cityHeadline(city.name)} crumbs={crumbs} />
+
+  <div class="wrap">
+    <p class="mt-10 max-w-2xl text-xl leading-relaxed md:mt-16 md:text-2xl">{city.intro}</p>
+
+    {
+      categories.length > 0 && (
+        <h2 class="sr-only">{s.pickCategory}</h2>
+        <div class="mt-12 grid grid-cols-2 gap-3 md:gap-6">
+          {categories.map((c) => (
+            <CategoryTile hub={c} href={path(locale, city.slugs[locale], c.slugs[locale])} locale={locale} fromSen={categoryFromSen(activities, c.slugs.en)} />
+          ))}
+        </div>
+      )
+    }
+
+    <section class="mt-20" aria-labelledby="all">
+      <h2 id="all" class="text-4xl font-extrabold md:text-6xl">{s.allActivities}</h2>
+      {
+        activities.length ? (
+          <div class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            {activities.map((a) => <ActivityCard card={a} locale={locale} sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw" />)}
+          </div>
+        ) : (
+          <p class="mt-6 text-muted">{s.empty}</p>
+        )
+      }
+    </section>
+  </div>
+</Base>

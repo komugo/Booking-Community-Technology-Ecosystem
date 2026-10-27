@@ -1,0 +1,23 @@
+---
+interface Props {
+  items: { name: string; path: string }[];
+}
+const { items } = Astro.props;
+---
+
+<nav aria-label="Breadcrumb" class="text-sm">
+  <ol class="flex flex-wrap items-center gap-x-1.5">
+    {
+      items.map((it, i) => (
+        <li class:list={["flex items-center gap-x-1.5", i === items.length - 1 && "max-sm:hidden"]}>
+          {i > 0 && <span aria-hidden="true" class="opacity-60">/</span>}
+          {i === items.length - 1 ? (
+            <span aria-current="page" class="opacity-80">{it.name}</span>
+          ) : (
+            <a href={it.path} class="inline-flex min-h-11 items-center underline-offset-4 hover:underline">{it.name}</a>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>

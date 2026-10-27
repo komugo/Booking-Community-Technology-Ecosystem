@@ -88,6 +88,14 @@ export const migrations: string[][] = [
         AND a.block_start < NEW.block_end AND NEW.block_start < a.block_end)
       BEGIN SELECT RAISE(ABORT, 'allocations_no_overlap'); END`,
   ],
+  [
+    `ALTER TABLE options ADD COLUMN min_participants INTEGER CHECK (min_participants > 0)`,
+    `CREATE TABLE add_ons (id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id),
+      name_en TEXT NOT NULL CHECK (length(name_en) BETWEEN 1 AND 200),
+      name_ms TEXT NOT NULL CHECK (length(name_ms) BETWEEN 1 AND 200),
+      price_sen INTEGER NOT NULL CHECK (price_sen >= 0),
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))) STRICT`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

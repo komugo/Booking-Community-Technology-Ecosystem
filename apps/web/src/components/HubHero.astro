@@ -1,0 +1,37 @@
+---
+import type { Locale, Photo as PhotoT } from "@komugo/db";
+import Photo from "./Photo.astro";
+import Breadcrumbs from "./Breadcrumbs.astro";
+import { heroSizes } from "../lib/photo";
+
+interface Props {
+  locale: Locale;
+  photo: PhotoT | null;
+  lines: string[];
+  crumbs: { name: string; path: string }[];
+}
+const { locale, photo, lines, crumbs } = Astro.props;
+const cls = "scrim flex h-[70svh] max-h-[44rem] min-h-[28rem] flex-col justify-end bg-forest";
+---
+
+{
+  photo ? (
+    <Photo photo={photo} locale={locale} sizes={heroSizes(photo)} eager class={cls}>
+      <div class="wrap z-10 pt-24 pb-12 text-white md:pb-16">
+        <Breadcrumbs items={crumbs} />
+        <h1 class="mt-3 text-[clamp(3rem,12vw,7.5rem)] font-extrabold leading-[0.88]">
+          {lines.map((l) => <span class="block">{l}</span>)}
+        </h1>
+      </div>
+    </Photo>
+  ) : (
+    <div class={cls}>
+      <div class="wrap z-10 pt-24 pb-12 text-white md:pb-16">
+        <Breadcrumbs items={crumbs} />
+        <h1 class="mt-3 text-[clamp(3rem,12vw,7.5rem)] font-extrabold leading-[0.88]">
+          {lines.map((l) => <span class="block">{l}</span>)}
+        </h1>
+      </div>
+    </div>
+  )
+}

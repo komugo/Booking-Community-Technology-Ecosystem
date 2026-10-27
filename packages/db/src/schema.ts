@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export type Weekday = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
+export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+export type Faq = { q: string; a: string };
+
+const json = <T>() => text({ mode: "json" }).$type<T>().notNull().default(sql`'[]'`);
 
 const id = () =>
   text()
@@ -17,6 +23,9 @@ const hub = () => ({
   slugMs: text().notNull().unique(),
   nameEn: text().notNull(),
   nameMs: text().notNull(),
+  introEn: text().notNull().default(""),
+  introMs: text().notNull().default(""),
+  photoId: text(),
 });
 export const cities = sqliteTable("cities", hub());
 export const categories = sqliteTable("categories", hub());
@@ -40,8 +49,39 @@ export const activities = sqliteTable(
     nameMs: text().notNull(),
     descriptionEn: text().notNull(),
     descriptionMs: text().notNull(),
+    published: integer({ mode: "boolean" }).notNull().default(false),
+    streetAddress: text(),
+    postalCode: text(),
+    phone: text(),
+    lat: real(),
+    lng: real(),
+    openingHours: json<OpeningHours[]>(),
+    hoursNoteEn: text(),
+    hoursNoteMs: text(),
+    highlightsEn: json<string[]>(),
+    highlightsMs: json<string[]>(),
+    faqEn: json<Faq[]>(),
+    faqMs: json<Faq[]>(),
   },
   (t) => [index("activities_city_category").on(t.cityId, t.categoryId), index("activities_operator").on(t.operatorId)],
+);
+
+export const photos = sqliteTable(
+  "photos",
+  {
+    id: id(),
+    activityId: text().references(() => activities.id),
+    position: integer().notNull().default(0),
+    url: text().notNull(),
+    width: integer().notNull(),
+    height: integer().notNull(),
+    altEn: text().notNull(),
+    altMs: text().notNull(),
+    creditName: text().notNull(),
+    creditUrl: text().notNull(),
+    sourceUrl: text().notNull(),
+  },
+  (t) => [index("photos_activity_position").on(t.activityId, t.position)],
 );
 
 export const customers = sqliteTable(
@@ -113,10 +153,26 @@ export const projOptions = sqliteTable(
     maxAge: integer(),
     maxWeightKg: integer(),
     requiredCert: text(),
+    minParticipants: integer(),
     active: integer({ mode: "boolean" }).notNull(),
     version: integer().notNull(),
   },
   (t) => [index("proj_options_activity").on(t.activityId)],
+);
+
+export const projAddOns = sqliteTable(
+  "proj_add_ons",
+  {
+    id: text().primaryKey(),
+    operatorId: text().notNull(),
+    activityId: text().notNull(),
+    nameEn: text().notNull(),
+    nameMs: text().notNull(),
+    priceSen: integer().notNull(),
+    active: integer({ mode: "boolean" }).notNull(),
+    version: integer().notNull(),
+  },
+  (t) => [index("proj_add_ons_activity").on(t.activityId)],
 );
 
 // spots is not re-projected when a Timeslot starts: readers must also filter starts_at > now.

@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { cancelTicket } from "../src/engine";
 import { drain, mark } from "../src/outbox";
 import { tx } from "../src/tx";
-import { DAY, kl, rideWorld } from "./helpers";
+import { DAY, kl, rid, rideWorld } from "./helpers";
 
 const d1 = (query: string, ...params: unknown[]) =>
   env.DB.prepare(query)
@@ -58,6 +58,28 @@ test("confirm projects Tickets, Payment and Timeslot spots, then empties the out
     { name_en: "Ride", price_sen: 10000, active: 1 },
   ]);
   expect(await w.count("SELECT count(*) AS n FROM outbox")).toBe(0);
+});
+
+test("an Add-on and an Option's min_participants reach proj_*", async () => {
+  const w = await rideWorld();
+  await w.editOption(w.optionId, { minParticipants: 2 });
+  const addOnId = rid();
+  await w.b.upsertAddOn({ id: addOnId, activityId: w.activityId, nameEn: "Helmet", nameMs: "Topi keledar", priceSen: 500, active: true });
+  await w.flush();
+  expect(await d1("SELECT min_participants FROM proj_options WHERE id = ?", w.optionId)).toEqual([{ min_participants: 2 }]);
+  expect(await d1("SELECT * FROM proj_add_ons WHERE id = ?", addOnId)).toEqual([
+    expect.objectContaining({
+      operator_id: w.operatorId,
+      activity_id: w.activityId,
+      name_en: "Helmet",
+      name_ms: "Topi keledar",
+      price_sen: 500,
+      active: 1,
+    }),
+  ]);
+  await expect(
+    w.b.upsertAddOn({ id: rid(), activityId: rid(), nameEn: "x", nameMs: "x", priceSen: 0, active: true }),
+  ).rejects.toThrow("invalid_state");
 });
 
 test("redeem and cancel update proj_packs.sessions_used", async () => {

@@ -1,0 +1,33 @@
+---
+import type { Locale, OpeningHours } from "@komugo/db";
+import { t, time, todayKL, WEEKDAYS } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  hours: OpeningHours[];
+}
+const { locale, hours } = Astro.props;
+const s = t[locale];
+const today = todayKL();
+const rows = WEEKDAYS.map((d, i) => {
+  const h = hours.find((x) => x.days.includes(d));
+  return { day: s.weekdays[i], today: d === today, text: h ? `${time(locale, h.opens)} – ${time(locale, h.closes)}` : s.closed };
+});
+---
+
+<table class="w-full text-left">
+  <caption class="sr-only">{s.hours}</caption>
+  <tbody class="num">
+    {
+      rows.map((r) => (
+        <tr class:list={["border-b border-line last:border-0", r.today && "font-semibold"]}>
+          <th scope="row" class="py-2 font-[inherit]">
+            {r.day}
+            {r.today && <span class="ml-2 rounded-full bg-lime px-2 py-0.5 text-xs">{s.today}</span>}
+          </th>
+          <td class="py-2 text-right">{r.text}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

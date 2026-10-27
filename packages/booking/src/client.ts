@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   BookingError,
   type ActivityInput,
+  type AddOnInput,
   type OptionInput,
   type ParticipantFacts,
   type ResourceInput,
@@ -56,6 +57,7 @@ export function booking(env: Env, operatorId: string) {
   return {
     upsertActivity: (a: ActivityInput) => call((s) => s.upsertActivity(op, a)),
     upsertOption: (o: OptionInput) => call((s) => s.upsertOption(op, o)),
+    upsertAddOn: (a: AddOnInput) => call((s) => s.upsertAddOn(op, a)),
     upsertResource: (r: ResourceInput) => call((s) => s.upsertResource(op, r)),
     createTimeslots: (i: { optionId: string; startsAt: number[] }) => call((s) => s.createTimeslots(op, i)),
     closeTimeslot: (timeslotId: string) => call((s) => s.closeTimeslot(op, timeslotId)),

@@ -2,5 +2,7 @@
   "name": "komugo-web",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./dist" }
+  "assets": { "directory": "./dist" },
+  "vars": { "SHOW_DRAFTS": "false" },
+  "d1_databases": [{ "binding": "DB", "database_name": "komugo", "database_id": "00000000-0000-0000-0000-000000000000" }]
 }

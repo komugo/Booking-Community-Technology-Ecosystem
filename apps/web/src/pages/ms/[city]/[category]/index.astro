@@ -1,0 +1,9 @@
+---
+import Category from "../../../../views/Category.astro";
+import { loadCategory } from "../../../../lib/catalog";
+
+const data = await loadCategory(Astro.params, "ms", Astro.url.search);
+if (data instanceof Response) return data;
+---
+
+<Category {...data} />

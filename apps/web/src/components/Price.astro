@@ -1,0 +1,17 @@
+---
+import type { Locale } from "@komugo/db";
+import { rm, t } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  sen: number;
+  confirmed: boolean;
+  from?: boolean;
+}
+const { locale, sen, confirmed, from = false } = Astro.props;
+---
+
+<span class="num">
+  {from && <span class="font-normal">{t[locale].from} </span>}<span class="font-semibold whitespace-nowrap">{rm(sen)}</span>
+  {!confirmed && <span class="ml-1 text-[max(0.75rem,0.7em)] font-medium text-clay">{t[locale].unconfirmed}</span>}
+</span>

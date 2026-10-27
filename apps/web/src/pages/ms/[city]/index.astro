@@ -1,0 +1,9 @@
+---
+import City from "../../../views/City.astro";
+import { loadCity } from "../../../lib/catalog";
+
+const data = await loadCity(Astro.params, "ms", Astro.url.search);
+if (data instanceof Response) return data;
+---
+
+<City {...data} />

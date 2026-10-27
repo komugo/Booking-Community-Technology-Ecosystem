@@ -2,7 +2,7 @@
   "name": "komugo-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
-  "vars": { "CORS_ORIGINS": "http://localhost:4321,http://localhost:5173" },
+  "vars": { "CORS_ORIGINS": "http://localhost:4321,http://localhost:5173", "DEV_SEED": "0" },
   "d1_databases": [
     {
       "binding": "DB",

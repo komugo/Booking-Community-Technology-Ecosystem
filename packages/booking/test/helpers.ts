@@ -56,6 +56,7 @@ export async function operator(freeCancelHours = 24) {
         maxAge: null,
         maxWeightKg: null,
         requiredCert: null,
+        minParticipants: null,
         active: true,
         needs: needs.map(([kind, quantity]) => ({ kind, quantity })),
         ...o,

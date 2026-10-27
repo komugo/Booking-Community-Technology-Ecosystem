@@ -1,0 +1,269 @@
+---
+import Base from "../layouts/Base.astro";
+import Photo from "../components/Photo.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import Price from "../components/Price.astro";
+import OptionCard from "../components/OptionCard.astro";
+import HoursTable from "../components/HoursTable.astro";
+import Faq from "../components/Faq.astro";
+import ActivityCard from "../components/ActivityCard.astro";
+import StickyCta from "../components/StickyCta.astro";
+import { path, requirements, rm, t, time, todayKL } from "../lib/i18n";
+import { activityLd, breadcrumbLd } from "../lib/seo";
+import type { ActivityData } from "../lib/catalog";
+
+type Props = ActivityData;
+const a = Astro.props;
+const { locale, alternates, city, category, published } = a;
+const s = t[locale];
+const crumbs = [
+  { name: s.home, path: path(locale) },
+  { name: city.name, path: path(locale, city.slugs[locale]) },
+  { name: category.name, path: path(locale, city.slugs[locale], category.slugs[locale]) },
+  { name: a.name, path: alternates[locale] },
+];
+const fromSen = a.options.length ? Math.min(...a.options.map((o) => o.priceSen)) : null;
+const today = a.openingHours.find((h) => h.days.includes(todayKL()));
+const todayText = today ? s.openToday(`${time(locale, today.opens)} – ${time(locale, today.closes)}`) : s.closedToday;
+const address = [a.streetAddress, [a.postalCode, city.name].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const mapsQuery = a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : `${a.name}, ${address}`;
+const heroSizes = "(min-width: 1024px) 60vw, 100vw";
+const title = fromSen !== null ? s.activityTitle(a.name, category.name, rm(fromSen)) : `${a.name} | Komugo`;
+const lead = a.description.split("\n")[0];
+const cut = lead.slice(0, 156);
+const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" ")).replace(/[,;:]$/, "") + "…";
+---
+
+<Base
+  locale={locale}
+  title={title}
+  description={description}
+  alternates={alternates}
+  indexable={published}
+  image={a.photos[0] ?? null}
+  hero={a.photos[0] ? { photo: a.photos[0], sizes: heroSizes } : undefined}
+  jsonLd={[breadcrumbLd(Astro.site, crumbs), ...activityLd(Astro.site, locale, a)]}
+>
+  <section id="gallery" aria-roledescription="carousel" aria-label={s.gallery} class="relative">
+    <div id="gallery-row" class="snap-row auto-cols-[100%] gap-1 lg:auto-cols-[60%]" data-gallery tabindex="0">
+      {
+        a.photos.map((p, i) => (
+          <div role="group" aria-roledescription="slide" aria-label={`${i + 1} / ${a.photos.length}`}>
+            <Photo
+              photo={p}
+              locale={locale}
+              sizes={heroSizes}
+              eager={i === 0}
+              transition={i === 0 ? `act-${a.id}` : undefined}
+              class="h-[45svh] min-h-[18rem] lg:h-[62svh] lg:max-h-[40rem] lg:min-h-[22rem]"
+            />
+          </div>
+        ))
+      }
+    </div>
+    {
+      a.photos.length > 1 && (
+        <p aria-hidden="true" class="num pointer-events-none absolute bottom-4 left-4 z-10 rounded-full bg-ink/60 px-3 py-1 text-sm text-white backdrop-blur">
+          <span data-count>1</span> / {a.photos.length}
+        </p>
+      )
+    }
+    {
+      a.photos.length > 1 && (
+        <div class="absolute right-4 bottom-4 z-10 hidden gap-2 lg:flex">
+          {[["-1", s.prevPhoto, "M15 18l-6-6 6-6"], ["1", s.nextPhoto, "M9 18l6-6-6-6"]].map(([dir, label, d]) => (
+            <button type="button" data-step={dir} aria-label={label} aria-controls="gallery-row" class="flex size-12 items-center justify-center rounded-full bg-white/90 text-ink shadow hover:bg-white">
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d={d} /></svg>
+            </button>
+          ))}
+        </div>
+      )
+    }
+  </section>
+
+  <div class="wrap lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-16 lg:pb-0">
+    <div>
+      <div class="text-muted"><Breadcrumbs items={crumbs} /></div>
+
+      <header class="mt-2">
+        <a href={crumbs[2].path} class="inline-flex min-h-11 items-center rounded-full bg-sand px-3 text-sm font-semibold text-forest">{category.name}</a>
+        <h1 class="mt-4 text-5xl font-extrabold md:text-7xl">{a.name}</h1>
+        {a.operatorName !== a.name && <p class="mt-4 text-muted">{a.operatorName}</p>}
+        <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+          {address && <li>{address}</li>}
+          <li>{todayText}</li>
+        </ul>
+        {fromSen !== null && <p class="mt-5 text-3xl"><Price locale={locale} sen={fromSen} confirmed={published} from /></p>}
+      </header>
+
+      {
+        !published && (
+          <div role="note" class="mt-8 rounded-2xl border border-clay/30 bg-clay/5 p-5">
+            <p class="font-semibold text-clay">{s.draftTitle}</p>
+            <p class="mt-1 text-sm text-muted">{s.draftBody}</p>
+          </div>
+        )
+      }
+
+      {
+        a.highlights.length > 0 && (
+          <section class="mt-14" aria-labelledby="highlights">
+            <h2 id="highlights" class="text-3xl font-extrabold">{s.highlights}</h2>
+            <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+              {a.highlights.map((h) => (
+                <li class="flex gap-3">
+                  <span aria-hidden="true" class="mt-1.5 size-3 shrink-0 rounded-full bg-lime ring-4 ring-lime/30" />
+                  {h}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        a.options.length > 0 && (
+          <section class="mt-14" aria-labelledby="options">
+            <h2 id="options" class="text-3xl font-extrabold">{s.options}</h2>
+            <ul class="mt-5 grid gap-4">
+              {a.options.map((o) => <OptionCard option={o} locale={locale} confirmed={published} />)}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        a.addOns.length > 0 && (
+          <section class="mt-14" aria-labelledby="addons">
+            <h2 id="addons" class="text-3xl font-extrabold">{s.addOns}</h2>
+            <p class="mt-2 text-muted">{s.addOnsNote}</p>
+            <table class="mt-4 w-full">
+              <tbody>
+                {a.addOns.map((x) => (
+                  <tr class="border-b border-line last:border-0">
+                    <th scope="row" class="py-3 text-left font-normal">{x.name}</th>
+                    <td class="py-3 text-right"><Price locale={locale} sen={x.priceSen} confirmed={published} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )
+      }
+
+      <section class="mt-14" aria-labelledby="about">
+        <h2 id="about" class="text-3xl font-extrabold">{s.about}</h2>
+        <div class="mt-4 space-y-4 text-lg leading-relaxed">
+          {a.description.split(/\n+/).map((para) => <p>{para}</p>)}
+        </div>
+      </section>
+
+      <section class="mt-14" aria-labelledby="good">
+        <h2 id="good" class="text-3xl font-extrabold">{s.goodToKnow}</h2>
+        <div class="mt-5 grid gap-5 md:grid-cols-2">
+          {a.options.length > 0 && (
+            <div class="rounded-2xl bg-sand p-5">
+              <h3 class="text-xl font-bold">{s.requirements}</h3>
+              <ul class="mt-3 space-y-2 text-sm">
+                {a.options.map((o) => (
+                  <li><span class="font-semibold">{o.name}</span>: {requirements(locale, o).join(" · ") || "–"}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div class="rounded-2xl bg-sand p-5">
+            <h3 class="text-xl font-bold">{s.hours}</h3>
+            <div class="mt-3 text-sm"><HoursTable locale={locale} hours={a.openingHours} /></div>
+            {a.hoursNote && <p class="mt-3 text-sm text-muted">{a.hoursNote}</p>}
+          </div>
+          {a.freeCancelHours !== null && (
+            <div class="rounded-2xl bg-sand p-5 md:col-span-2">
+              <h3 class="text-xl font-bold">{s.cancellation}</h3>
+              <p class="mt-2">{s.cancelText(a.freeCancelHours)}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section class="mt-14" aria-labelledby="location">
+        <h2 id="location" class="text-3xl font-extrabold">{s.location}</h2>
+        <div class="mt-5 rounded-2xl bg-forest p-6 text-white">
+          <p class="text-xl font-semibold">{a.name}</p>
+          {address && <p class="mt-1 text-white/80">{address}</p>}
+          <div class="mt-5 flex flex-wrap gap-3">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+              class="inline-flex min-h-11 items-center rounded-full bg-lime px-5 font-semibold text-ink"
+            >
+              {s.openMaps}
+            </a>
+            {
+              a.phone && (
+                <a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`} class="num inline-flex min-h-11 items-center rounded-full border border-white/40 px-5 font-semibold hover:bg-white/10">
+                  {s.call} {a.phone}
+                </a>
+              )
+            }
+          </div>
+        </div>
+      </section>
+
+      {
+        a.faq.length > 0 && (
+          <section class="mt-14" aria-labelledby="faq">
+            <h2 id="faq" class="text-3xl font-extrabold">{s.faq}</h2>
+            <div class="mt-4"><Faq items={a.faq} /></div>
+          </section>
+        )
+      }
+
+      <section id="book" class="mt-14 scroll-mt-6 rounded-2xl border-2 border-dashed border-leaf/40 p-6" aria-labelledby="book-title">
+        <h2 id="book-title" class="text-3xl font-extrabold">{s.book}</h2>
+        <p class="mt-2">{s.bookText}</p>
+        {a.phone && <a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`} class="num mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.call} {a.phone}</a>}
+      </section>
+    </div>
+
+    <aside class="hidden lg:block">
+      <div class="sticky top-6 mt-10 rounded-3xl bg-white p-6 shadow-[0_1px_0_var(--color-line),0_16px_40px_-20px_rgb(14_26_20/0.3)]">
+        {fromSen !== null && <p class="text-3xl"><Price locale={locale} sen={fromSen} confirmed={published} from /></p>}
+        <p class="mt-2 text-sm text-muted">{todayText}</p>
+        <a href="#book" class="mt-5 flex min-h-12 items-center justify-center rounded-full bg-leaf font-semibold text-white hover:bg-forest">{s.howToBook}</a>
+        {a.freeCancelHours !== null && <p class="mt-4 text-sm text-muted">{s.cancelText(a.freeCancelHours)}</p>}
+      </div>
+    </aside>
+  </div>
+
+  {
+    a.related.length > 0 && (
+      <section class="wrap mt-20" aria-labelledby="related">
+        <h2 id="related" class="text-4xl font-extrabold md:text-5xl">{s.related}</h2>
+        <div class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          {a.related.map((c) => <ActivityCard card={c} locale={locale} sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw" />)}
+        </div>
+      </section>
+    )
+  }
+
+  <StickyCta locale={locale} fromSen={fromSen} />
+</Base>
+
+<script>
+  const row = document.querySelector<HTMLElement>("[data-gallery]");
+  const count = document.querySelector("[data-count]");
+  if (row && count) {
+    const n = row.children.length;
+    row.addEventListener(
+      "scroll",
+      () => {
+        const slide = row.firstElementChild as HTMLElement;
+        const atEnd = row.scrollLeft >= row.scrollWidth - row.clientWidth - 1;
+        count.textContent = String(atEnd ? n : Math.round(row.scrollLeft / (slide.offsetWidth + 4)) + 1);
+      },
+      { passive: true },
+    );
+    for (const b of document.querySelectorAll<HTMLButtonElement>("[data-step]")) {
+      b.addEventListener("click", () => row.scrollBy({ left: Number(b.dataset.step) * row.clientWidth * 0.6 }));
+    }
+  }
+</script>

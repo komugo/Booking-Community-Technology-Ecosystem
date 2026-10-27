@@ -1,0 +1,21 @@
+---
+import type { Faq } from "@komugo/db";
+
+interface Props {
+  items: Faq[];
+}
+---
+
+<div class="divide-y divide-line border-y border-line">
+  {
+    Astro.props.items.map((f) => (
+      <details class="group">
+        <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+          {f.q}
+          <span aria-hidden="true" class="grid size-8 shrink-0 place-items-center rounded-full bg-sand text-xl transition-transform group-open:rotate-45 motion-reduce:transition-none">+</span>
+        </summary>
+        <p class="pb-5 text-muted">{f.a}</p>
+      </details>
+    ))
+  }
+</div>

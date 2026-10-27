@@ -1,7 +1,7 @@
 import { DAY, expireDue, klDayStart, spots } from "./engine";
 import { tx } from "./tx";
 
-type Entity = "activity" | "option" | "timeslot" | "ticket" | "pack" | "payment";
+type Entity = "activity" | "option" | "add_on" | "timeslot" | "ticket" | "pack" | "payment";
 type Row = Record<string, SqlStorageValue>;
 type Key = { entity: string; entity_id: string };
 type Statement = { key: Key; query: string; params: SqlStorageValue[] };
@@ -40,7 +40,12 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     table: "proj_options",
     pk: "id",
     query: `SELECT id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age, max_weight_kg,
-      required_cert, active FROM options WHERE id = ?`,
+      required_cert, min_participants, active FROM options WHERE id = ?`,
+  },
+  add_on: {
+    table: "proj_add_ons",
+    pk: "id",
+    query: "SELECT id, activity_id, name_en, name_ms, price_sen, active FROM add_ons WHERE id = ?",
   },
   timeslot: { table: "proj_timeslots", pk: "id", query: "SELECT id, option_id, starts_at, closed_at FROM timeslots WHERE id = ?" },
   ticket: {

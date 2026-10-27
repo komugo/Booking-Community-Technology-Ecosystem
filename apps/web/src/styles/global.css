@@ -1,1 +1,135 @@
 @import "tailwindcss";
+
+@theme {
+  --color-paper: #fbfaf6;
+  --color-ink: #0e1a14;
+  --color-muted: #5b6b63;
+  --color-line: #e3e1d8;
+  --color-forest: #0b3d2e;
+  --color-leaf: #19744c;
+  --color-lime: #c8f169;
+  --color-sand: #efe7d6;
+  --color-clay: #a8441f;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Fallback", system-ui, sans-serif;
+  --font-sans: "Instrument Sans Variable", "Instrument Fallback", system-ui, sans-serif;
+}
+
+@font-face {
+  font-family: "Bricolage Fallback";
+  src: local("Arial");
+  size-adjust: 104%;
+  ascent-override: 90%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Instrument Fallback";
+  src: local("Arial");
+  size-adjust: 97%;
+  ascent-override: 98%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-lime);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .wrap {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 768px) {
+    .wrap {
+      padding-inline: 2rem;
+    }
+  }
+  .scrim::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgb(14 26 20 / 0.65), rgb(14 26 20 / 0.15) 55%, rgb(14 26 20 / 0.3));
+    pointer-events: none;
+  }
+  .stretch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (width < 64rem) {
+    body:has(#sticky-cta) > footer {
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+  }
+  .snap-row {
+    display: grid;
+    grid-auto-flow: column;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .snap-row > * {
+    scroll-snap-align: start;
+  }
+  .snap-row::-webkit-scrollbar {
+    display: none;
+  }
+  /* Ticket stub: notches cut into both edges where the perforation sits */
+  .ticket {
+    --notch: 10px;
+    --stub: 7.5rem;
+    mask:
+      radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle var(--notch) at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}

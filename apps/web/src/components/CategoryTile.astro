@@ -1,0 +1,32 @@
+---
+import type { Hub, Locale } from "@komugo/db";
+import Photo from "./Photo.astro";
+import Price from "./Price.astro";
+
+interface Props {
+  hub: Hub;
+  href: string;
+  locale: Locale;
+  fromSen?: number | null;
+}
+const { hub, href, locale, fromSen } = Astro.props;
+---
+
+<article>
+  {
+    hub.photo && (
+      <Photo photo={hub.photo} locale={locale} sizes="(min-width: 768px) 38rem, 50vw" class="scrim flex aspect-3/4 flex-col justify-end rounded-3xl md:aspect-4/5">
+        <div class="z-10 p-3 pb-9 text-white md:p-8 md:pb-12">
+          <h3 class="text-[clamp(1.25rem,6vw,1.875rem)] font-extrabold [overflow-wrap:anywhere] hyphens-auto md:text-6xl">
+            <a href={href} class="stretch">{hub.name}</a>
+          </h3>
+          {fromSen != null && (
+            <p class="mt-3 inline-block rounded-full bg-lime px-3 py-1 text-sm text-ink">
+              <Price locale={locale} sen={fromSen} confirmed from />
+            </p>
+          )}
+        </div>
+      </Photo>
+    )
+  }
+</article>

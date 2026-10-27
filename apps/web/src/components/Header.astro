@@ -1,0 +1,34 @@
+---
+import type { Locale } from "@komugo/db";
+import { path, t, type Alternates } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  alternates: Alternates;
+}
+const { locale, alternates } = Astro.props;
+const langs: Locale[] = ["en", "ms"];
+---
+
+<header class="absolute inset-x-0 top-0 z-20 bg-linear-to-b from-ink/45 to-transparent text-white">
+  <div class="wrap flex h-16 items-center justify-between">
+    <a href={path(locale)} class="font-display -ml-2 flex min-h-11 items-center px-2 text-2xl font-extrabold tracking-tight">
+      komugo<span class="text-lime">.</span>
+    </a>
+    <nav aria-label="Language" class="flex rounded-full bg-white/15 p-1 text-sm font-semibold backdrop-blur">
+      {
+        langs.map((l) => (
+          <a
+            href={alternates[l]}
+            hreflang={l}
+            lang={l}
+            aria-current={l === locale ? "page" : undefined}
+            class:list={["flex min-h-11 min-w-11 items-center justify-center rounded-full px-3", l === locale ? "bg-white text-ink" : "hover:bg-white/20"]}
+          >
+            {t[l].langName}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>

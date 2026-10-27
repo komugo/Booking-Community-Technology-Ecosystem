@@ -6,21 +6,21 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "wrangler dev",
-    "deploy": "astro build && wrangler deploy",
+    "deploy": "PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://komugo.my} astro build && wrangler deploy",
+    "typegen": "wrangler types --strict-vars=false",
     "typecheck": "astro check"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.4.2",
-    "@astrojs/react": "7.1.1",
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@komugo/db": "workspace:*",
     "astro": "7.4.2",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "drizzle-orm": "0.45.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "typescript": "6.0.3",
     "wrangler": "4.153.0"

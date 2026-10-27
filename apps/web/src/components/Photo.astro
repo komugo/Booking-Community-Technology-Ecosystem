@@ -1,0 +1,37 @@
+---
+import type { Locale, Photo } from "@komugo/db";
+import { src, srcset } from "../lib/photo";
+import { t } from "../lib/i18n";
+
+interface Props {
+  photo: Photo;
+  locale: Locale;
+  sizes: string;
+  eager?: boolean;
+  transition?: string;
+  class?: string;
+}
+const { photo, locale, sizes, eager = false, transition, class: cls } = Astro.props;
+---
+
+<figure class:list={["relative overflow-hidden bg-forest", cls]}>
+  <img
+    src={src(photo, 1080)}
+    srcset={srcset(photo)}
+    sizes={sizes}
+    alt={photo.alt}
+    width={photo.width}
+    height={photo.height}
+    loading={eager ? "eager" : "lazy"}
+    decoding={eager ? "sync" : "async"}
+    fetchpriority={eager ? "high" : undefined}
+    class="absolute inset-0 h-full w-full object-cover"
+    style={transition ? `view-transition-name: ${transition}` : undefined}
+  />
+  <slot />
+  <figcaption class="absolute right-1.5 bottom-1.5 z-10 flex items-center rounded-full bg-ink/55 px-1.5 text-[0.6875rem] leading-none whitespace-nowrap text-white backdrop-blur-sm">
+    <span class="max-sm:sr-only">{t[locale].photoBy}:</span><a href={photo.creditUrl} class="inline-flex min-h-6 min-w-6 items-center justify-center px-1 underline-offset-2 hover:underline">{photo.creditName}</a><span aria-hidden="true" class="max-sm:hidden">/</span><a
+      href={photo.sourceUrl}
+      class="max-sm:hidden inline-flex min-h-6 min-w-6 items-center justify-center px-1 underline-offset-2 hover:underline">Unsplash</a>
+  </figcaption>
+</figure>

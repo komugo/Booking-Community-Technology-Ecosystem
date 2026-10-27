@@ -3,17 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --persist-to ../../.wrangler/state --var DEV_SEED:1",
     "deploy": "wrangler deploy",
     "typegen": "wrangler types --strict-vars=false --include-runtime=false && wrangler types worker-runtime.d.ts --include-env=false",
-    "db:migrate:local": "wrangler d1 migrations apply komugo --local",
+    "db:migrate:local": "wrangler d1 migrations apply komugo --local --persist-to ../../.wrangler/state",
     "db:migrate:remote": "wrangler d1 migrations apply komugo --remote",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed": "curl -fsS -X POST http://localhost:8787/dev/seed"
   },
   "dependencies": {
     "@komugo/booking": "workspace:*",
+    "@komugo/db": "workspace:*",
     "@komugo/types": "workspace:*",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.14"
   },
   "devDependencies": {

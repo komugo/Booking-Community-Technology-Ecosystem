@@ -1,0 +1,19 @@
+---
+import type { Locale } from "@komugo/db";
+import { path, t } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+---
+
+<footer class="mt-24 bg-forest text-white/80">
+  <div class="wrap flex flex-col gap-6 py-12 md:flex-row md:items-end md:justify-between">
+    <div>
+      <a href={path(locale)} class="font-display text-4xl font-extrabold tracking-tight text-white">komugo<span class="text-lime">.</span></a>
+      <p class="mt-2 max-w-xs">{t[locale].footer}</p>
+    </div>
+    <p class="text-sm">{t[locale].photosFrom} <a class="underline underline-offset-2" href="https://unsplash.com/?utm_source=komugo&utm_medium=referral">Unsplash</a>. © {new Date().getFullYear()} Komugo</p>
+  </div>
+</footer>

@@ -1,0 +1,31 @@
+---
+import type { Locale } from "@komugo/db";
+import Price from "./Price.astro";
+import { duration, requirements, t } from "../lib/i18n";
+import type { ActivityData } from "../lib/catalog";
+
+interface Props {
+  option: ActivityData["options"][number];
+  locale: Locale;
+  confirmed: boolean;
+}
+const { option: o, locale, confirmed } = Astro.props;
+const s = t[locale];
+---
+
+<li id={`option-${o.id}`} class="ticket reveal grid scroll-mt-24 grid-cols-[minmax(0,1fr)_var(--stub)] rounded-2xl bg-white shadow-[0_1px_0_var(--color-line),0_8px_24px_-12px_rgb(14_26_20/0.18)]">
+  <div class="p-5 pr-4">
+    <h3 class="text-xl font-bold">{o.name}</h3>
+    <ul class="mt-3 flex flex-wrap gap-1.5 text-sm" aria-label={s.requirements}>
+      <li class="rounded-full bg-sand px-2.5 py-0.5 num">{duration(locale, o.durationMinutes)}</li>
+      {requirements(locale, o).map((r) => <li class="rounded-full border border-line px-2.5 py-0.5 text-muted">{r}</li>)}
+    </ul>
+  </div>
+  <div class="flex flex-col items-center justify-center gap-3 border-l-2 border-dashed border-line p-3 text-center">
+    <p class="text-2xl leading-tight">
+      <Price locale={locale} sen={o.priceSen} confirmed />
+      {!confirmed && <span class="block text-xs font-medium text-clay">{s.unconfirmed}</span>}
+    </p>
+    <a href="#book" class="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-leaf px-3 font-semibold text-white hover:bg-forest">{s.select}<span class="sr-only">: {o.name}</span></a>
+  </div>
+</li>

@@ -1,0 +1,106 @@
+---
+import Base from "../layouts/Base.astro";
+import Photo from "../components/Photo.astro";
+import CategoryTile from "../components/CategoryTile.astro";
+import ActivityCard from "../components/ActivityCard.astro";
+import { path, t } from "../lib/i18n";
+import { homeHero } from "../lib/photo";
+import { homeLd } from "../lib/seo";
+import { categoryFromSen, type HomeData } from "../lib/catalog";
+
+type Props = HomeData;
+const { locale, alternates, cities, categories, activities } = Astro.props;
+const s = t[locale];
+const hero = homeHero(s.heroAlt);
+const city = activities.length ? cities[0] : undefined;
+const live = city
+  ? categories
+      .filter((c) => activities.some((a) => a.category.en === c.slugs.en))
+      .map((c) => ({ hub: c, href: path(locale, city.slugs[locale], c.slugs[locale]), fromSen: categoryFromSen(activities, c.slugs.en) }))
+  : [];
+---
+
+<Base
+  locale={locale}
+  title={s.homeTitle}
+  description={s.homeDescription}
+  alternates={alternates}
+  indexable={true}
+  image={hero}
+  hero={{ photo: hero, sizes: "100vw" }}
+  jsonLd={homeLd(Astro.site, locale)}
+>
+  <Photo photo={hero} locale={locale} sizes="100vw" eager class="scrim flex h-[92svh] max-h-[56rem] min-h-[34rem] flex-col justify-end">
+    <div class="wrap z-10 pb-14 text-white md:pb-20">
+      <h1 class="text-[clamp(3.5rem,15vw,10rem)] font-extrabold leading-[0.86]">
+        {s.heroLines.map((line) => <span class="block">{line.slice(0, -1)}<span class="text-lime">.</span></span>)}
+      </h1>
+      <p class="mt-6 max-w-md text-lg text-white/90">{s.heroSub}</p>
+      {
+        live.length > 0 && (
+          <ul class="mt-6 flex flex-wrap gap-2">
+            {live.map(({ hub, href }) => (
+              <li>
+                <a href={href} class="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 font-semibold text-ink hover:bg-lime">
+                  {hub.name} <span aria-hidden="true">→</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </Photo>
+
+  {
+    live.length > 0 && (
+      <section class="wrap mt-16 md:mt-24" aria-labelledby="pick">
+        <h2 id="pick" class="text-4xl font-extrabold md:text-6xl">{s.pickCategory}</h2>
+        <div class="mt-8 grid grid-cols-2 gap-3 md:gap-6">
+          {live.map((c) => <CategoryTile {...c} locale={locale} />)}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    activities.length > 0 && (
+      <section class="mt-20 md:mt-28" aria-labelledby="featured">
+        <h2 id="featured" class="wrap text-4xl font-extrabold md:text-6xl">{s.featured}</h2>
+        <div class="snap-row wrap mt-8 auto-cols-[82%] gap-4 scroll-px-4 sm:auto-cols-[46%] md:scroll-px-8 lg:auto-cols-[calc((100%-4rem)/3)] lg:gap-8">
+          {activities.map((a) => <ActivityCard card={a} locale={locale} sizes="(min-width: 1024px) 24rem, 82vw" />)}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    city?.photo && (
+      <section class="wrap mt-20 md:mt-28">
+        <article class="group relative">
+          <Photo photo={city.photo} locale={locale} sizes="(min-width: 1216px) 72rem, 100vw" class="scrim flex aspect-4/5 flex-col justify-end rounded-3xl sm:aspect-video">
+            <div class="z-10 p-6 pb-9 text-white md:p-12 md:pb-14">
+              <p class="font-medium text-lime">{s.cityCount(activities.length)}</p>
+              <h2 class="mt-2 text-6xl font-extrabold md:text-8xl">
+                <a href={path(locale, city.slugs[locale])} class="stretch">{city.name} <span aria-hidden="true" class="inline-block transition-transform group-hover:translate-x-2">→</span></a>
+              </h2>
+            </div>
+          </Photo>
+        </article>
+      </section>
+    )
+  }
+
+  <section class="mt-20 bg-sand py-16 md:mt-28 md:py-24">
+    <ul class="wrap grid gap-10 md:grid-cols-3">
+      {
+        s.trust.map(([title, body]) => (
+          <li class="reveal">
+            <h2 class="text-2xl font-bold">{title}</h2>
+            <p class="mt-3 text-muted">{body}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Base>

@@ -3,6 +3,7 @@ export { booking } from "./client";
 export {
   BookingError,
   type ActivityInput,
+  type AddOnInput,
   type BookingErrorCode,
   type ConfirmResult,
   type OptionInput,

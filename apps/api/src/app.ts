@@ -10,3 +10,8 @@ app.use(
 );
 
 app.get("/health", (c) => c.json<HealthResponse>({ ok: true }));
+
+// Lazy so app.ts stays loadable outside workerd (seed pulls in the DO class).
+app.post("/dev/seed", async (c) =>
+  c.env.DEV_SEED === "1" ? c.json(await (await import("./seed")).seed(c.env)) : c.notFound(),
+);
