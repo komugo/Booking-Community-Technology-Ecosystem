@@ -1,0 +1,64 @@
+---
+import type { Locale } from "@komugo/db";
+import { klDay, klDayMonth, klWeekday, t } from "../../lib/i18n";
+import type { Days } from "../../lib/slots";
+
+interface Props {
+  locale: Locale;
+  days: Days;
+  date: string;
+  href: (date: string) => string;
+}
+const { locale: l, days, date, href } = Astro.props;
+const c = t[l].checkout;
+const strip = days.slice(0, 14);
+const later = days.slice(14).filter((d) => d.open);
+const chip = "flex min-h-16 min-w-16 flex-col items-center justify-center rounded-2xl border px-2 text-sm leading-tight";
+---
+
+<fieldset class="min-w-0">
+  <legend class="text-xl font-bold">{c.date}</legend>
+  <ul class="snap-row -mx-4 mt-3 auto-cols-max gap-2 px-4 pb-1">
+    {
+      strip.map((d) => {
+        const body = (
+          <>
+            <span class="text-xs">{klWeekday(l, d.at)}</span>
+            <span class="num font-semibold">{klDayMonth(l, d.at)}</span>
+          </>
+        );
+        return (
+          <li>
+            {d.open ? (
+              <a
+                data-day href={href(d.date)}
+                aria-current={d.date === date ? "date" : undefined}
+                class:list={[chip, d.date === date ? "border-forest bg-forest text-white" : "border-line bg-white hover:border-leaf"]}
+              >
+                {body}
+              </a>
+            ) : (
+              <span class:list={[chip, "border-transparent text-muted line-through"]}>{body}</span>
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+  {
+    later.length > 0 && (
+      <details class="mt-3">
+        <summary class="inline-flex min-h-12 cursor-pointer items-center font-semibold text-leaf underline underline-offset-2">{c.moreDates}</summary>
+        <ul class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {later.map((d) => (
+            <li>
+              <a data-day href={href(d.date)} aria-current={d.date === date ? "date" : undefined} class:list={[chip, "w-full", d.date === date ? "border-forest bg-forest text-white" : "border-line bg-white"]}>
+                {klDay(l, d.at)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    )
+  }
+</fieldset>

@@ -22,8 +22,12 @@ _Avoid_: Package, variant, tier
 An optional extra bought with an Option (gear rental, photo package).
 _Avoid_: Extra, upsell
 
+**Pack offer**:
+What an Operator sells as a Pack on one Activity: name (EN/BM), sessions (1–50), price (≥ RM1), valid days (1–730), eligible Options (at least one, all of that Activity), active. Editing or deactivating an offer never changes a Pack already sold or an order already placed.
+_Avoid_: Plan, bundle, product
+
 **Pack**:
-A prepaid bundle of sessions with one Operator, redeemable before expiry.
+A prepaid bundle of sessions with one Operator, bought from a Pack offer. It snapshots the offer's sessions and eligible Options, and expires at the end of the KL day `valid days` after payment. Redeemable only on its eligible Options, for a Timeslot starting no later than expiry; one session = one Ticket, and no Add-ons on a Pack redemption. Customers redeem it at the Pay step ("Use Pack").
 _Avoid_: Bundle, membership, credits
 
 **Resource**:
@@ -83,7 +87,7 @@ A Customer's in-progress purchase from Option pick to Booking; owns the current 
 _Avoid_: Cart, order
 
 **Sign-in**:
-Proving an email address with a 6-digit code sent to it. The first Sign-in creates the Customer; the browser then keeps a session for 30 days.
+Proving an email address with a 6-digit code sent to it. The first Sign-in creates the Customer; the browser then keeps a session for 30 days. Happens in checkout or standalone (`/sign-in`) for My bookings and Pack purchase. The emailed Booking or Pack link (`k`) only lets its holder view it and make the Closure choice; a voluntary cancel or Reschedule needs the owner's Sign-in.
 _Avoid_: Login, account creation
 
 **Booking**:
@@ -104,21 +108,21 @@ _Avoid_: User, admin, account
 ### Money and changes
 
 **Cancellation Policy**:
-Per-Activity free-cancel window in hours before the Timeslot starts. A Customer cancel inside the window is a full Refund (a Pack session returns to the Pack); a later cancel is **forfeited** (no Refund, Pack session stays used). No cancel once the Timeslot has started.
+Per-Activity free-cancel window in hours before the Timeslot starts, applied per Ticket against its current Timeslot. Inside the window (`hours > 0` and now ≤ start − hours; so 0 means no free cancel) the Ticket is cancelled with a full Refund of its price plus its fixed share of the Booking's Add-ons (a Pack session returns to the Pack); later it is **forfeited** (no Refund, Pack session stays used). No cancel or Reschedule once the Timeslot has started or the Ticket is checked in. A Ticket on a closed Timeslot is always a full Refund. The Customer sees the outcome before confirming; if it changed meanwhile, the cancel is refused.
 
 **Closure**:
-An Operator cancelling a Timeslot, with a reason (weather, horse unfit, other). Each affected Customer is emailed once to choose a Refund or a Reschedule.
+An Operator cancelling a Timeslot, with a reason (weather, horse unfit, other). Each affected Customer is emailed once to choose a Refund or a Reschedule. The **Closure choice** is one per notice (one Booking, or one Customer's Pack Tickets, in that Timeslot) and applies to all its closed Tickets at once. For Pack Tickets a Refund returns the sessions. Unanswered Closures stay "Awaiting choice".
 _Avoid_: Operator cancellation
 
 **Payment**:
-One Billplz bill received for a Hold. Either **paid** (it produced the Booking) or **refund_due** with a reason (duplicate, amount mismatch, Timeslot unavailable, unknown Hold), which a Refund then settles.
+One Billplz bill received for a Hold, or for a Pack order (a Customer's purchase of a Pack offer; a late payment always issues the Pack). Either **paid** (it produced the Booking) or **refund_due** with a reason (duplicate, amount mismatch, Timeslot unavailable, unknown Hold), which a Refund then settles.
 _Avoid_: Transaction, charge
 
 **Refund**:
-Money returned to the Customer by Komugo. Ops pays it out by hand from the refund_due Payments; the Customer gets an email saying it arrives within 7 working days.
+Money returned to the Customer by Komugo: one row per refund_due Payment or per cancel action, with a reason (duplicate, amount mismatch, unavailable, unknown Hold, cancel, Closure). It is **due** until staff mark it refunded on "Refunds to pay" after paying it out by hand. The Customer is emailed when it is due ("within 7 working days") and when it is sent.
 
 **Reschedule**:
-Moving a Ticket to another Timeslot of the same Option.
+Moving Tickets of one Booking or Pack from one Timeslot to another of the same Option, same price, same Ticket (QR unchanged), with Resources re-allocated. By the Customer only inside the free-cancel window (Pack: to a Timeslot before expiry); after a Closure, always free to any future open Timeslot.
 
 **Commission**:
 Komugo's cut of each sale.
@@ -134,6 +138,7 @@ Komugo's scheduled transfer to an Operator, net of Commission and Refunds.
 - A **Booking** belongs to one **Customer** and contains one or more **Tickets**
 - A **Ticket** is for exactly one **Participant** and one **Timeslot**, and is issued only after the **Participant** meets the **Requirements** and has a **Waiver**
 - A **Participant** can't hold overlapping **Tickets** at one **Operator**; back-to-back is fine
+- A **Pack offer** belongs to one **Activity**; a **Pack** is redeemable only on its eligible **Options**
 - A **Pack** belongs to one **Customer** and one **Operator**; any **Participant** on that **Customer**'s account may redeem it, and each redemption produces a **Ticket**
 - A **Closure** lets the **Customer** choose a **Refund** or a **Reschedule**
 

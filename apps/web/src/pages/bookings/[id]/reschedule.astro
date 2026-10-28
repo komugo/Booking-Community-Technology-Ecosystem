@@ -1,0 +1,10 @@
+---
+import Reschedule from "../../../views/manage/Reschedule.astro";
+import { rescheduleStep } from "../../../lib/manage";
+
+const data = await rescheduleStep(Astro, "en", "booking");
+if (data instanceof Response) return data;
+Astro.response.status = data.status;
+---
+
+<Reschedule {...data} />

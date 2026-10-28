@@ -8,7 +8,11 @@ export default defineConfig({
   trailingSlash: "never",
   session: false,
   security: { checkOrigin: false },
-  adapter: cloudflare({ imageService: "passthrough", persistState: { path: "../../.wrangler/state" } }),
+  adapter: cloudflare({
+    imageService: "passthrough",
+    persistState: { path: process.env.PERSIST_TO ?? "../../.wrangler/state" },
+    inspectorPort: Number(process.env.INSPECTOR_PORT) || undefined,
+  }),
   i18n: {
     defaultLocale: "en",
     locales: ["en", "ms"],

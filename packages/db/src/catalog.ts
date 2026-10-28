@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, or, sql, type Column, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "./client";
-import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions } from "./schema";
+import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers } from "./schema";
 
 export type Locale = "en" | "ms";
 export type Slugs = { en: string; ms: string };
@@ -52,6 +52,9 @@ const bySlug = (t: Sluggable, slug: string) => or(eq(t.slugEn, slug), eq(t.slugM
 const localeFirst = (t: Sluggable, l: Locale, slug: string) => sql`${l === "en" ? t.slugEn : t.slugMs} = ${slug} desc`;
 const draftGate = (q: CatalogQuery) => (q.includeDrafts ? undefined : eq(activities.published, true));
 
+// json_each keeps it to one bound parameter; D1 caps a statement at 100.
+export const within = (col: Column, ids: string[]) => sql`${col} IN (SELECT value FROM json_each(${JSON.stringify([...new Set(ids)])}))`;
+
 async function toHubs(db: Db, rows: HubRow[], l: Locale): Promise<Hub[]> {
   const ids = rows.flatMap((r) => (r.photoId ? [r.photoId] : []));
   const found = ids.length ? await db.select().from(photos).where(inArray(photos.id, ids)) : [];
@@ -90,11 +93,11 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
         minAge: projOptions.minAge,
       })
       .from(projOptions)
-      .where(and(inArray(projOptions.activityId, ids), eq(projOptions.active, true))),
+      .where(and(within(projOptions.activityId, ids), eq(projOptions.active, true))),
     db
       .select()
       .from(photos)
-      .where(and(inArray(photos.activityId, ids), eq(photos.position, 0))),
+      .where(and(within(photos.activityId, ids), eq(photos.position, 0))),
   ]);
   const min = (xs: (number | null)[]) => {
     const n = xs.filter((x): x is number => x !== null);
@@ -186,7 +189,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
   if (!row || cityRow?.id !== row.a.cityId || categoryRow?.id !== row.a.categoryId) return null;
   const { a } = row;
   const en = q.locale === "en";
-  const [[opts, extras, gallery], [city, category], related] = await Promise.all([
+  const [[opts, extras, gallery, offers], [city, category], related] = await Promise.all([
     db.batch([
       db
         .select()
@@ -199,6 +202,11 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
         .where(and(eq(projAddOns.activityId, a.id), eq(projAddOns.active, true)))
         .orderBy(asc(projAddOns.priceSen)),
       db.select().from(photos).where(eq(photos.activityId, a.id)).orderBy(asc(photos.position)),
+      db
+        .select()
+        .from(projPackOffers)
+        .where(and(eq(projPackOffers.activityId, a.id), eq(projPackOffers.active, true)))
+        .orderBy(asc(projPackOffers.priceSen)),
     ]),
     toHubs(db, [cityRow, categoryRow], q.locale),
     listCards(db, q, and(eq(activities.cityId, a.cityId), ne(activities.id, a.id))),
@@ -235,6 +243,14 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
       minParticipants: o.minParticipants,
     })),
     addOns: extras.map((x) => ({ id: x.id, name: en ? x.nameEn : x.nameMs, priceSen: x.priceSen })),
+    packOffers: offers.map((o) => ({
+      id: o.id,
+      name: en ? o.nameEn : o.nameMs,
+      sessions: o.sessions,
+      priceSen: o.priceSen,
+      validDays: o.validDays,
+      options: opts.filter((x) => o.optionIds.includes(x.id)).map((x) => (en ? x.nameEn : x.nameMs)),
+    })),
     photos: gallery.map((p) => toPhoto(p, q.locale)),
     related,
   };

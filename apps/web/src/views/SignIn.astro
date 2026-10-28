@@ -1,0 +1,63 @@
+---
+import Checkout from "../layouts/Checkout.astro";
+import BottomBar from "../components/checkout/BottomBar.astro";
+import FieldError from "../components/checkout/FieldError.astro";
+import { t } from "../lib/i18n";
+import { invalid } from "../lib/form";
+import type { signInStep } from "../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof signInStep>>, Response>;
+const { locale: l, email, sentAt, problems: p } = Astro.props;
+const s = t[l].signIn;
+const c = t[l].checkout;
+const input = "mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-2 aria-invalid:border-clay";
+const btn = "ml-auto inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest";
+---
+
+<Checkout locale={l} title={s.title} problems={p}>
+  {
+    sentAt ? (
+      <div class="mt-6">
+        <p>{c.codeSent(email)}</p>
+        <a href={Astro.url.pathname + Astro.url.search} class="mt-1 inline-flex min-h-12 items-center font-semibold text-leaf underline underline-offset-2">{c.changeEmail}</a>
+        <form method="post" class="mt-4" novalidate>
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="sentAt" value={sentAt} />
+          <label for="code" class="block font-semibold">{c.code}</label>
+          <input
+            id="code"
+            name="code"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="6"
+            autofocus={!p.summary.length}
+            class={`${input} num max-w-48 text-center text-2xl tracking-[0.4em]`}
+            {...invalid(p, "code")}
+          />
+          <FieldError p={p} id="code" />
+          <BottomBar locale={l} label="" sen={null}>
+            <button name="action" value="verify" class={btn}>{s.verify}</button>
+          </BottomBar>
+        </form>
+        <form method="post" class="mt-4">
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="sentAt" value={sentAt} />
+          <button name="action" value="resend" data-resend={sentAt} data-wait={c.resendIn} class="inline-flex min-h-12 items-center rounded-full border border-line bg-white px-5 font-semibold disabled:text-muted">{c.resend}</button>
+        </form>
+      </div>
+    ) : (
+      <form method="post" class="mt-6 space-y-5" novalidate>
+        <p class="text-lg">{s.body}</p>
+        <div>
+          <label for="email" class="block font-semibold">{c.email}</label>
+          <input id="email" name="email" type="email" value={email} autocomplete="email" inputmode="email" maxlength="254" class={input} {...invalid(p, "email")} />
+          <FieldError p={p} id="email" />
+        </div>
+        <BottomBar locale={l} label="" sen={null}>
+          <button name="action" value="send" class={btn}>{s.send}</button>
+        </BottomBar>
+      </form>
+    )
+  }
+</Checkout>

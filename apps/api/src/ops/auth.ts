@@ -4,7 +4,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { clientIp, consumeOtp, ipLimited, normEmail, sendOtp } from "../auth";
-import { DAY, emailRef, fail, limited, log, randomToken, sha256Hex, type Ctx } from "../lib";
+import { DAY, emailRef, fail, limited, log, randomToken, requireJson, sha256Hex, type Ctx } from "../lib";
 
 const COOKIE = "__Host-ops";
 const MAX_AGE_S = 30 * 24 * 60 * 60;
@@ -42,11 +42,8 @@ export const requireMember: MiddlewareHandler<Ops> = async (c, next) => {
         .where(and(eq(memberSessions.idHash, await sha256Hex(token)), gt(memberSessions.expiresAt, Date.now())))
     : [];
   if (!member) return fail(c, 401, { code: "signed_out" });
-  if (c.req.method !== "GET" && !c.req.header("content-type")?.startsWith("application/json")) {
-    return fail(c, 415, { code: "unsupported_media_type" });
-  }
   c.set("member", member);
-  await next();
+  return requireJson(c, next);
 };
 
 export const forOperator: MiddlewareHandler<Ops> = async (c, next) => {

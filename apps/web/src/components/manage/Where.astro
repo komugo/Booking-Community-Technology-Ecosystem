@@ -1,0 +1,22 @@
+---
+import type { Locale } from "@komugo/db";
+import type { Group } from "../../lib/api";
+import { t } from "../../lib/i18n";
+import { named } from "../../lib/checkout";
+
+interface Props {
+  locale: Locale;
+  activity: Group["activity"];
+}
+const { locale: l, activity: a } = Astro.props;
+const s = t[l];
+const address = [a.streetAddress, [a.postalCode, named(a.city, l)].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : `${named(a, l)}, ${address}`)}`;
+---
+
+<section class="mt-8 rounded-2xl bg-white p-4" aria-labelledby="where">
+  <h2 id="where" class="text-xl font-bold">{s.location}</h2>
+  <p class="mt-1">{named(a, l)}</p>
+  {address && <p class="text-sm text-muted">{address}</p>}
+  <a href={maps} class="mt-3 inline-flex min-h-12 items-center rounded-full bg-leaf px-5 font-semibold text-white hover:bg-forest">{s.openMaps}</a>
+</section>

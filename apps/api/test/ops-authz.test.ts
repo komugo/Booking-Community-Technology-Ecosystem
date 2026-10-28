@@ -48,6 +48,12 @@ async function routesFor(w: World) {
     ["GET", `/timeslots/${w.timeslotId}`, 200],
     ["POST", `/timeslots/${closable}/close`, 200, { reason: "weather" }],
     ["POST", "/check-ins", 200, { requestId: crypto.randomUUID(), code: "deadbeef" }],
+    [
+      "POST",
+      "/pack-offers",
+      201,
+      { activityId: w.activityId, nameEn: "4 rides", nameMs: "4 tunggangan", sessions: 4, priceSen: 25000, validDays: 30, optionIds: [w.optionId], active: true },
+    ],
   ] as [string, string, number, unknown?][];
 }
 

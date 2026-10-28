@@ -4,6 +4,7 @@ import Photo from "../components/Photo.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import Price from "../components/Price.astro";
 import OptionCard from "../components/OptionCard.astro";
+import PackOfferCard from "../components/PackOfferCard.astro";
 import HoursTable from "../components/HoursTable.astro";
 import Faq from "../components/Faq.astro";
 import ActivityCard from "../components/ActivityCard.astro";
@@ -128,6 +129,17 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
             <h2 id="options" class="scroll-mt-6 text-3xl font-extrabold">{s.options}</h2>
             <ul class="mt-5 grid gap-4">
               {a.options.map((o) => <OptionCard option={o} locale={locale} confirmed={published} bookable={bookable} />)}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        bookable && a.packOffers.length > 0 && (
+          <section class="mt-14" aria-labelledby="packs">
+            <h2 id="packs" class="scroll-mt-6 text-3xl font-extrabold">{s.packs.title}</h2>
+            <ul class="mt-5 grid gap-4 sm:grid-cols-2">
+              {a.packOffers.map((o) => <PackOfferCard offer={o} locale={locale} />)}
             </ul>
           </section>
         )

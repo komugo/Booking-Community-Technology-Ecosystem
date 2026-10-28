@@ -1,0 +1,10 @@
+---
+import Cancel from "../../../../views/manage/Cancel.astro";
+import { cancelStep } from "../../../../lib/manage";
+
+const data = await cancelStep(Astro, "ms", "pack");
+if (data instanceof Response) return data;
+Astro.response.status = data.status;
+---
+
+<Cancel {...data} />

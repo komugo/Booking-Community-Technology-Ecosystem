@@ -4,7 +4,7 @@ import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { validDate } from "../checkout";
-import { DAY, fail, type ApiError, type Ctx } from "../lib";
+import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
 import { recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
@@ -13,7 +13,6 @@ type Body = Record<string, unknown>;
 
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 const REASONS: ClosureReason[] = ["weather", "horse_unfit", "other"];
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const int = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
 const intOrNull = (v: unknown, min: number, max: number) => v === null || int(v, min, max);
@@ -187,7 +186,31 @@ function scheduleInput(body: Body) {
   };
 }
 
-type Kind = "options" | "addOns" | "resources" | "schedules";
+function packOfferInput(body: Body) {
+  return {
+    errors: invalid([
+      [name(body.nameEn), "nameEn"],
+      [name(body.nameMs), "nameMs"],
+      [int(body.sessions, 1, 50), "sessions"],
+      [int(body.priceSen, 100, 10_000_000), "priceSen"],
+      [int(body.validDays, 1, 730), "validDays"],
+      [list(body.optionIds, 20, (o) => typeof o === "string") && (body.optionIds as string[]).length > 0, "optionIds"],
+      [bool(body.active), "active"],
+    ]),
+    value: () => ({
+      activityId: body.activityId as string,
+      nameEn: (body.nameEn as string).trim(),
+      nameMs: (body.nameMs as string).trim(),
+      sessions: body.sessions as number,
+      priceSen: body.priceSen as number,
+      validDays: body.validDays as number,
+      optionIds: body.optionIds as string[],
+      active: body.active as boolean,
+    }),
+  };
+}
+
+type Kind = "options" | "addOns" | "resources" | "schedules" | "packOffers";
 
 // Ids are always minted here: a client-chosen id could overwrite another Operator's proj_* row.
 async function save<T>(
@@ -217,6 +240,8 @@ routes.post("/resources", (c) => save(c, null, "resources", resourceInput, c.var
 routes.put("/resources/:id", (c) => save(c, c.req.param("id"), "resources", resourceInput, c.var.b.upsertResource));
 routes.post("/schedules", (c) => save(c, null, "schedules", scheduleInput, c.var.b.upsertSchedule));
 routes.put("/schedules/:id", (c) => save(c, c.req.param("id"), "schedules", scheduleInput, c.var.b.upsertSchedule));
+routes.post("/pack-offers", (c) => save(c, null, "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+routes.put("/pack-offers/:id", (c) => save(c, c.req.param("id"), "packOffers", packOfferInput, c.var.b.upsertPackOffer));
 
 routes.post("/timeslots", async (c) => {
   const body = await json(c);

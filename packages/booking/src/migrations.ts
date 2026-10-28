@@ -137,6 +137,41 @@ export const migrations: string[][] = [
      SELECT 'timeslot', id, (SELECT rev FROM meta) FROM timeslots WHERE schedule_id IS NULL AND closed_reason = 'schedule'
      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
   ],
+  // Legacy Packs get no eligible Options, so they can't be redeemed. Every refund_due Payment gets a Refund row.
+  [
+    `CREATE TABLE pack_offers (id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id),
+      name_en TEXT NOT NULL CHECK (length(name_en) BETWEEN 1 AND 200),
+      name_ms TEXT NOT NULL CHECK (length(name_ms) BETWEEN 1 AND 200),
+      sessions INTEGER NOT NULL CHECK (sessions BETWEEN 1 AND 50),
+      price_sen INTEGER NOT NULL CHECK (price_sen >= 100),
+      valid_days INTEGER NOT NULL CHECK (valid_days BETWEEN 1 AND 730),
+      option_ids TEXT NOT NULL CHECK (json_valid(option_ids) AND json_array_length(option_ids) > 0),
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))) STRICT`,
+    `CREATE TABLE pack_orders (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, offer_id TEXT NOT NULL REFERENCES pack_offers(id),
+      price_sen INTEGER NOT NULL, sessions INTEGER NOT NULL, valid_days INTEGER NOT NULL,
+      option_ids TEXT NOT NULL CHECK (json_valid(option_ids)), created_at INTEGER NOT NULL,
+      bill_id TEXT UNIQUE, pack_id TEXT UNIQUE REFERENCES packs(id)) STRICT`,
+    `ALTER TABLE packs ADD COLUMN offer_id TEXT`,
+    `ALTER TABLE packs ADD COLUMN option_ids TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(option_ids))`,
+    `CREATE TABLE refunds (id TEXT PRIMARY KEY, customer_id TEXT, bill_id TEXT, booking_id TEXT,
+      amount_sen INTEGER NOT NULL CHECK (amount_sen > 0),
+      reason TEXT NOT NULL CHECK (reason IN ('duplicate','amount_mismatch','unavailable','unknown_hold','cancel','closure')),
+      created_at INTEGER NOT NULL, refunded_at INTEGER, refunded_by TEXT,
+      CHECK ((refunded_at IS NULL) = (refunded_by IS NULL))) STRICT`,
+    `CREATE INDEX refunds_booking ON refunds(booking_id)`,
+    `ALTER TABLE tickets ADD COLUMN refund_id TEXT`,
+    `CREATE TABLE closure_choices (id TEXT PRIMARY KEY, timeslot_id TEXT NOT NULL, group_id TEXT NOT NULL,
+      choice TEXT NOT NULL CHECK (choice IN ('refund','reschedule')), chosen_at INTEGER NOT NULL) STRICT`,
+    `CREATE INDEX closure_choices_group ON closure_choices(group_id)`,
+    `INSERT INTO refunds (id, customer_id, bill_id, amount_sen, reason, created_at)
+     SELECT 'bill:' || p.bill_id, h.customer_id, p.bill_id, p.amount_sen, p.refund_reason, p.received_at
+     FROM payments p LEFT JOIN holds h ON h.id = p.hold_id WHERE p.status = 'refund_due' AND p.amount_sen > 0`,
+    `UPDATE meta SET rev = max(rev + 1, unixepoch() * 1000000)`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'refund', id, (SELECT rev FROM meta) FROM refunds WHERE true
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'pack', id, (SELECT rev FROM meta) FROM packs WHERE true
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

@@ -1,0 +1,39 @@
+---
+import type { Locale } from "@komugo/db";
+import { renderSVG } from "uqr";
+import type { GroupTicket } from "../lib/api";
+import { klLongDay, klTime, t } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  ticket: GroupTicket;
+  n: number;
+  total: number;
+  option: string;
+  stamp: string | null;
+}
+const { locale: l, ticket: x, n, total, option, stamp } = Astro.props;
+const c = t[l].checkout;
+const code = x.id.slice(0, 8).toUpperCase();
+const qr = renderSVG(x.id, { border: 4 }).replace("<svg ", `<svg role="img" aria-label="${c.ticket} ${code}" class="size-56" `);
+---
+
+<li data-ticket={x.id} data-status={x.status} class="overflow-hidden rounded-3xl bg-white shadow-[0_1px_0_var(--color-line),0_16px_40px_-20px_rgb(14_26_20/0.3)]" aria-labelledby={`ticket-${x.id}`}>
+  <div class:list={["px-5 py-4", stamp ? "bg-sand text-ink" : "bg-forest text-white"]}>
+    <p class:list={["text-sm", stamp ? "text-muted" : "text-white/80"]}>{c.ticket} {n} / {total}</p>
+    <h3 id={`ticket-${x.id}`} class="mt-1 text-2xl font-extrabold">{x.participantName}</h3>
+  </div>
+  <div class="flex flex-col items-center px-5 py-5">
+    {
+      stamp ? (
+        <p data-stamp class="flex min-h-32 w-full items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 text-center text-lg font-semibold text-muted">{stamp}</p>
+      ) : (
+        <div set:html={qr} />
+      )
+    }
+    <p class="num mt-2 font-mono text-sm tracking-widest" data-code>{code}</p>
+    <p class="mt-3 text-center font-semibold">{option}</p>
+    <p class="text-center text-sm">{klLongDay(l, x.startsAt)} · <span class="num">{klTime(l, x.startsAt)}</span></p>
+    <slot />
+  </div>
+</li>

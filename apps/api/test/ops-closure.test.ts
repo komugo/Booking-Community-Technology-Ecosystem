@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { expect, test } from "vitest";
 import { cron } from "../src/cron";
 import { devInbox } from "../src/email";
-import { booked, client, d1, member, resend, world } from "./helpers";
+import { booked, boughtPack, client, customer, d1, later, member, packOffer, resend, rid, signedIn, slotAt, world } from "./helpers";
 
 test("closing a booked Timeslot emails each Customer once, in their language, with a link to choose", async () => {
   const w = await world();
@@ -30,8 +30,8 @@ test("closing a booked Timeslot emails each Customer once, in their language, wi
   expect(mail(en.email)[0].subject).toBe("Timeslot closed: Trail Riding");
 
   expect((await m.json("POST", url, { reason: "weather" })).body.affected.map((g: { notice: unknown }) => g.notice)).toEqual([
-    { emailedAt: expect.any(Number) },
-    { emailedAt: expect.any(Number) },
+    { emailedAt: expect.any(Number), choice: null, chosenAt: null },
+    { emailedAt: expect.any(Number), choice: null, chosenAt: null },
   ]);
   expect(mail(ms.email)).toHaveLength(1);
   expect(mail(en.email)).toHaveLength(1);
@@ -74,4 +74,28 @@ test("closing a started Timeslot is 409 and records nothing", async () => {
   const r = await m.json("POST", `/ops/operators/${w.operatorId}/timeslots/${w.timeslotId}/close`, { reason: "weather" });
   expect(r).toEqual({ status: 409, body: { code: "invalid_state" } });
   expect(await d1("SELECT count(*) AS n FROM closure_notices WHERE timeslot_id = ?", w.timeslotId)).toEqual([{ n: 0 }]);
+});
+
+test("a Pack group's notice links to its Pack and stays listed with the Customer's choice", async () => {
+  const w = await world();
+  const ts = await slotAt(w, later(72));
+  const c = await customer();
+  const packId = await boughtPack(w, c.id, (await packOffer(w)).id);
+  await booked(w, [{ name: "Ali" }], { timeslotId: ts, customer: c, packId });
+  const m = await member("operator", w.operatorId);
+  const closed = await m.json("POST", `/ops/operators/${w.operatorId}/timeslots/${ts}/close`, { reason: "weather" });
+  expect(closed.body.affected).toEqual([expect.objectContaining({ packId, notice: expect.objectContaining({ choice: null }) })]);
+  expect(await d1("SELECT pack_id, booking_id FROM closure_notices WHERE timeslot_id = ?", ts)).toEqual([{ pack_id: packId, booking_id: null }]);
+  const [email] = devInbox.filter((e) => e.to === c.email);
+  expect(email.text).toMatch(new RegExp(`Choose: new time or session back: https://web\\.test/packs/${packId}\\?k=`));
+
+  const owner = await signedIn(c.email);
+  const r = await owner.json("POST", `/packs/${packId}/cancel`, { requestId: rid(), t: `closed:${ts}`, expectSen: 0, expectForfeited: [] });
+  expect(r.body).toMatchObject({ reason: "closure", refund: null });
+  await w.flush();
+  const { body } = await m.json("GET", `/ops/operators/${w.operatorId}/timeslots/${ts}`);
+  expect(body.timeslots[0].groups).toEqual([
+    expect.objectContaining({ packId, tickets: [], notice: { emailedAt: expect.any(Number), choice: "refund", chosenAt: expect.any(Number) } }),
+  ]);
+  expect(await w.doSql("SELECT count(*) AS n FROM tickets WHERE pack_id = ? AND status = 'cancelled'", packId)).toEqual([{ n: 1 }]);
 });

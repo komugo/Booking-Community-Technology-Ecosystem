@@ -1,0 +1,10 @@
+---
+import Ticket from "../../views/checkout/Ticket.astro";
+import { groupStep } from "../../lib/manage";
+import type { Booking } from "../../lib/api";
+
+const data = await groupStep(Astro, "en", "booking");
+if (data instanceof Response) return data;
+---
+
+<Ticket {...data} g={data.g as Booking} />

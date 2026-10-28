@@ -6,7 +6,7 @@ import { holdReply, holdStep, ownedCheckout, persistDraft } from "./checkout";
 import { otpEmail, sendEmail } from "./email";
 import type { Locale } from "./details";
 import { DAY, emailRef, fail, HOUR, hmacHex, limited, log, logError, MIN, safeEqual, type Ctx } from "./lib";
-import { endSession, rotateSession } from "./session";
+import { endSession, readSession, rotateSession } from "./session";
 
 const OTP_TTL = 10 * MIN;
 const MAX_ATTEMPTS = 5;
@@ -14,6 +14,7 @@ const MAX_SENDS_PER_HOUR = 5;
 const MAX_SENDS_PER_DAY = 10;
 
 export const normEmail = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
+const validEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const codeHash = (env: Env, email: string, code: string) => hmacHex(env.APP_SECRET, `otp:${email}:${code}`);
 export const clientIp = (c: Ctx) => c.req.header("x-client-ip") ?? "unknown";
 export const ipLimited = (c: Ctx) => limited(c.env.RL_IP, `otp:${clientIp(c)}`);
@@ -86,7 +87,41 @@ export async function consumeOtp(c: Ctx, email: string, checkoutId: string | nul
   return used ? null : fail(c, 400, { code: "otp_expired", field: "code" });
 }
 
+async function upsertCustomer(c: Ctx, email: string, name: string) {
+  const now = Date.now();
+  const [customer] = await createDb(c.env.DB)
+    .insert(customers)
+    .values({ name, email, emailVerifiedAt: now, createdAt: now })
+    .onConflictDoUpdate({
+      target: customers.email,
+      set: { emailVerifiedAt: sql`coalesce(${customers.emailVerifiedAt}, excluded.email_verified_at)` },
+    })
+    .returning({ id: customers.id });
+  return customer.id;
+}
+
 export const auth = new Hono<{ Bindings: Env }>();
+
+auth.post("/sign-in", async (c) => {
+  const body = await c.req.json<{ email?: unknown; locale?: unknown }>().catch(() => ({}) as Record<string, unknown>);
+  if (await ipLimited(c)) return fail(c, 429, { code: "rate_limited" });
+  const email = normEmail(body.email);
+  if (!validEmail(email)) return fail(c, 400, { code: "email_invalid", field: "email" });
+  if (await limited(c.env.RL_OTP_EMAIL, `in:${email}`)) return fail(c, 429, { code: "rate_limited" });
+  return (await sendOtp(c, email, null, body.locale === "ms" ? "ms" : "en")) ?? c.body(null, 204);
+});
+
+auth.post("/sign-in/verify", async (c) => {
+  const body = await c.req.json<{ email?: unknown; code?: unknown }>().catch(() => ({}) as Record<string, unknown>);
+  if (await ipLimited(c)) return fail(c, 429, { code: "rate_limited" });
+  const email = normEmail(body.email);
+  const rejected = await consumeOtp(c, email, null, typeof body.code === "string" ? body.code.trim() : "");
+  if (rejected) return rejected;
+  const customerId = await upsertCustomer(c, email, email);
+  await rotateSession(c, await readSession(c), customerId);
+  log("signed_in", { customerId });
+  return c.body(null, 204);
+});
 
 auth.post("/otp", async (c) => {
   const body = await c.req.json<{ checkoutId?: unknown; name?: unknown; email?: unknown; phone?: unknown }>();
@@ -100,7 +135,7 @@ auth.post("/otp", async (c) => {
   const phone = typeof body.phone === "string" ? body.phone.replace(/[\s-]/g, "") : "";
   const errors = [
     ...(name ? [] : [{ code: "name_required", field: "name" }]),
-    ...(email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? [] : [{ code: "email_invalid", field: "email" }]),
+    ...(validEmail(email) ? [] : [{ code: "email_invalid", field: "email" }]),
     ...(!phone || /^\+?\d{8,15}$/.test(phone) ? [] : [{ code: "phone_invalid", field: "phone" }]),
   ];
   if (errors.length) return fail(c, 400, errors[0], errors);
@@ -130,22 +165,15 @@ auth.post("/otp/verify", async (c) => {
 
   const now = Date.now();
   const db = createDb(c.env.DB);
-  const [customer] = await db
-    .insert(customers)
-    .values({ name: checkout.contactName ?? email, email, emailVerifiedAt: now, createdAt: now })
-    .onConflictDoUpdate({
-      target: customers.email,
-      set: { emailVerifiedAt: sql`coalesce(${customers.emailVerifiedAt}, excluded.email_verified_at)` },
-    })
-    .returning({ id: customers.id });
-  await rotateSession(c, session, customer.id);
-  log("otp_verified", { checkoutId: checkout.id, customerId: customer.id });
+  const customerId = await upsertCustomer(c, email, checkout.contactName ?? email);
+  await rotateSession(c, session, customerId);
+  log("otp_verified", { checkoutId: checkout.id, customerId });
 
   if (!checkout.draft) {
-    await db.update(checkouts).set({ customerId: customer.id, updatedAt: now }).where(eq(checkouts.id, checkout.id));
+    await db.update(checkouts).set({ customerId, updatedAt: now }).where(eq(checkouts.id, checkout.id));
     return c.json({ next: "who" as const });
   }
-  const ids = await persistDraft(db, checkout, customer.id, checkout.draft);
+  const ids = await persistDraft(db, checkout, customerId, checkout.draft);
   return holdReply(c, await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), checkout.id, ids));
 });
 

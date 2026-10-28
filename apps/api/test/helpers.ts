@@ -1,6 +1,6 @@
 import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
-import { booking, type OptionInput } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, participants, waivers } from "@komugo/db";
+import { booking, type OptionInput, type PackOfferInput } from "@komugo/booking";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -11,6 +11,9 @@ export const db = createDb(env.DB);
 export const rid = () => crypto.randomUUID();
 export const kl = (local: string) => new Date(`${local}+08:00`).getTime();
 export const SLOT_AT = kl("2030-01-15T09:00");
+export const HOUR = 3_600_000;
+export const DAY_MS = 24 * HOUR;
+export const later = (hours: number) => Math.floor((Date.now() + hours * HOUR) / 60_000) * 60_000;
 
 export const resend: { calls: { key: string | null; to: string }[]; fail: number } = { calls: [], fail: 0 };
 
@@ -146,6 +149,58 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
 }
 export type World = Awaited<ReturnType<typeof world>>;
 
+export async function slotAt(w: World, startsAt: number) {
+  const {
+    ids: [id],
+  } = await w.b.createTimeslots({ optionId: w.optionId, startsAt: [startsAt] });
+  await w.flush();
+  return id;
+}
+
+export async function packOffer(w: World, o: Partial<PackOfferInput> = {}) {
+  const offer: PackOfferInput = {
+    id: `po_${rid()}`,
+    activityId: w.activityId,
+    nameEn: "4 rides",
+    nameMs: "4 tunggangan",
+    sessions: 4,
+    priceSen: 25000,
+    validDays: 30,
+    optionIds: [w.optionId],
+    active: true,
+    ...o,
+  };
+  await w.b.upsertPackOffer(offer);
+  await w.flush();
+  return offer;
+}
+
+// A Pack bought straight through the Durable Object, with its pack_orders row.
+export async function boughtPack(w: World, customerId: string, offerId: string, locale: "en" | "ms" = "en") {
+  const orderId = rid();
+  const { amountSen } = await w.b.orderPack({ orderId, customerId, offerId });
+  const r = await w.b.confirmPackBill({ billId: rid(), orderId, amountSen });
+  if (r.status !== "paid") throw new Error("pack not paid");
+  const now = Date.now();
+  await db.insert(packOrders).values({ id: orderId, customerId, operatorId: w.operatorId, offerId, amountSen, locale, packId: r.packId, emailedAt: now, createdAt: now });
+  await w.flush();
+  return r.packId;
+}
+
+export async function customer(email = `${rid()}@example.com`) {
+  const [row] = await db.insert(customers).values({ name: "Aiman Rahman", email }).returning();
+  return { id: row.id, email };
+}
+
+export async function signedIn(email: string) {
+  const cl = client();
+  const sent = await cl.call("POST", "/auth/sign-in", { email, locale: "en" });
+  if (sent.status !== 204) throw new Error(`sign-in ${sent.status} ${await sent.text()}`);
+  const v = await cl.call("POST", "/auth/sign-in/verify", { email, code: otpCode(email) });
+  if (v.status !== 204) throw new Error(`sign-in verify ${v.status} ${await v.text()}`);
+  return cl;
+}
+
 export const adult = (name = "Aisyah Rahman", extra: Record<string, unknown> = {}) => ({
   name,
   birthDate: "1990-05-01",
@@ -231,7 +286,14 @@ type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "
 export async function booked(
   w: World,
   people: Person[] = [{}],
-  o: { addOns?: { id: string; qty: number }[]; locale?: "en" | "ms"; phone?: string; timeslotId?: string; customer?: { id: string; email: string | null } } = {},
+  o: {
+    addOns?: { id: string; qty: number }[];
+    locale?: "en" | "ms";
+    phone?: string;
+    timeslotId?: string;
+    customer?: { id: string; email: string | null };
+    packId?: string;
+  } = {},
 ) {
   const [customer] = o.customer ? [o.customer] : await db.insert(customers).values({ name: "Aiman Rahman", email: `${rid()}@example.com` }).returning();
   const ids: string[] = [];
@@ -258,6 +320,11 @@ export async function booked(
     participantIds: ids,
     addOns: o.addOns ?? [],
   });
+  const base = { customerId: customer.id, email: customer.email!, participantIds: ids, holdId: hold.holdId };
+  if (o.packId) {
+    const r = await w.b.redeemPack({ requestId: rid(), customerId: customer.id, packId: o.packId, holdId: hold.holdId });
+    return { ...base, bookingId: "", ticketIds: r.ticketIds };
+  }
   const paid = await w.b.confirmHold({ billId: rid(), holdId: hold.holdId, amountSen: hold.amountSen });
   if (paid.status !== "paid") throw new Error("not paid");
   for (const [i, p] of people.entries()) {
@@ -284,5 +351,5 @@ export async function booked(
     createdAt: now,
     updatedAt: now,
   });
-  return { customerId: customer.id, email: customer.email!, participantIds: ids, bookingId: paid.bookingId, ticketIds: paid.ticketIds };
+  return { ...base, bookingId: paid.bookingId, ticketIds: paid.ticketIds };
 }

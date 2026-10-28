@@ -7,7 +7,9 @@ import {
   type AddOnInput,
   type AddOnPick,
   type ClosureReason,
+  type Group,
   type OptionInput,
+  type PackOfferInput,
   type ParticipantFacts,
   type ResourceInput,
   type Result,
@@ -72,11 +74,25 @@ export function booking(env: Env, operatorId: string) {
     checkIn: (i: { requestId: string; code: string }) => call((s) => s.checkIn(op, i)),
     setup: () => call((s) => s.setup(op)),
     timeslots: (q: { from: number; to: number } | { ids: string[] }) => call((s) => s.timeslots(op, q)),
-    issuePack: (i: { requestId: string; customerId: string; sessionsTotal: number; expiresAt: number }) =>
-      call((s) => s.issuePack(op, i)),
     confirmHold: (i: { billId: string; holdId: string; amountSen: number }) => call((s) => s.confirmHold(op, i)),
-    cancelTicket: (i: { requestId: string; customerId: string; ticketId: string }) =>
-      call((s) => s.cancelTicket(op, i)),
+    upsertPackOffer: (o: PackOfferInput) => call((s) => s.upsertPackOffer(op, o)),
+    orderPack: (i: { orderId: string; customerId: string; offerId: string }) => call((s) => s.orderPack(op, i)),
+    confirmPackBill: (i: { billId: string; orderId: string; amountSen: number }) => call((s) => s.confirmPackBill(op, i)),
+    redeemPack: (i: { requestId: string; customerId: string; packId: string; holdId: string }) =>
+      call((s) => s.redeemPack(op, i)),
+    cancelQuote: (i: { customerId: string; group: Group; ticketIds: string[]; onlyClosed: boolean }) =>
+      call((s) => s.cancelQuote(op, i)),
+    cancelTickets: (i: {
+      requestId: string;
+      customerId: string;
+      group: Group;
+      ticketIds: string[];
+      onlyClosed: boolean;
+      expectSen: number;
+      expectForfeited: string[];
+    }) => call((s) => s.cancelTickets(op, i)),
+    packView: (packId: string) => call((s) => s.packView(op, packId)),
+    markRefunded: (i: { refundId: string; memberId: string }) => call((s) => s.markRefunded(op, i)),
     async createHold({
       participantIds,
       ...i
@@ -92,31 +108,20 @@ export function booking(env: Env, operatorId: string) {
       return call((s) => s.createHold(op, { ...i, participants: people }));
     },
     bookingView: (bookingId: string) => call((s) => s.bookingView(op, bookingId)),
-    async redeemPack({
+    async rescheduleTickets({
       participantIds,
       ...i
     }: {
       requestId: string;
       customerId: string;
-      packId: string;
+      group: Group;
+      ticketIds: string[];
       timeslotId: string;
       participantIds: string[];
+      onlyClosed: boolean;
     }) {
       const people = await loadFacts(env, op, participantIds);
-      return call((s) => s.redeemPack(op, { ...i, participants: people }));
-    },
-    async rescheduleTicket({
-      participantId,
-      ...i
-    }: {
-      requestId: string;
-      customerId: string;
-      ticketId: string;
-      timeslotId: string;
-      participantId: string;
-    }) {
-      const [participant] = await loadFacts(env, op, [participantId]);
-      await call((s) => s.rescheduleTicket(op, { ...i, participant }));
+      return call((s) => s.rescheduleTickets(op, { ...i, participants: people }));
     },
   };
 }

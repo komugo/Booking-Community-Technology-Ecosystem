@@ -1,9 +1,10 @@
 import { activities, projActivities, projAddOns, projOptions, projTimeslots, type Locale } from "@komugo/db";
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
-import { api, errorsOf, see, type ApiError, type Booking, type Checkout } from "./api";
+import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
 import { db, showDrafts } from "./db";
 import { codeFrom, problems } from "./form";
-import { klDate, path } from "./i18n";
+import { path } from "./i18n";
+import { daysAndTimes } from "./slots";
 
 type Ctx = { request: Request; params: Record<string, string | undefined>; url: URL };
 
@@ -20,7 +21,7 @@ export function holdRedirect(l: Locale, co: { id: string; option: { id: string }
   return see(`${to}?e=${code}`, cookies);
 }
 
-async function form(request: Request) {
+export async function form(request: Request) {
   const f = await request.formData();
   return (k: string) => String(f.get(k) ?? "").trim();
 }
@@ -106,18 +107,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     }
   }
 
-  const byDate = new Map<string, typeof slots>();
-  for (const x of slots) byDate.set(klDate(x.startsAt), [...(byDate.get(klDate(x.startsAt)) ?? []), x]);
-  const today = klDate(now);
-  const days = Array.from({ length: 60 }, (_, i) => {
-    const at = Date.parse(`${today}T04:00:00Z`) + i * DAY;
-    const d = klDate(at);
-    return { date: d, at, open: byDate.has(d) };
-  });
-  const firstOpen = days.find((d) => d.open)?.date ?? null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !days.some((d) => d.date === date)) date = firstOpen ?? today;
-  const times = byDate.get(date) ?? [];
-  const nextOpen = times.length ? null : (days.find((d) => d.open && d.date > date) ?? null);
+  const { days, date: day, times, nextOpen } = daysAndTimes(slots, date, now);
   if (!times.some((x) => x.id === values.timeslotId)) {
     values.timeslotId = (times.find((x) => x.spots >= values.quantity) ?? times[0])?.id ?? "";
   }
@@ -129,7 +119,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     siblings,
     addOns,
     days,
-    date,
+    date: day,
     times,
     nextOpen,
     values,
@@ -150,7 +140,7 @@ const pad = (v: string, n: number) => v.replace(/\D/g, "").padStart(n, "0").slic
 export async function whoStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
-  if (co.state === "booked" || co.state === "refund_due") return see(step(l, co.id, "pay"));
+  if (co.state === "booked" || co.state === "refund_due" || co.state === "redeemed") return see(step(l, co.id, "pay"));
   let errors: ApiError[] = codeFrom(url);
   let values: Record<string, string> = {};
   if (request.method === "POST") {
@@ -210,10 +200,12 @@ export async function payStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
   if (co.state === "booked") return see(`${path(l, "bookings", co.bookingId!)}?k=${co.k}`);
+  if (co.state === "redeemed") return see(`${path(l, "packs", co.packId!)}?k=${co.k}&booked=${co.timeslotId}`);
   if (co.state === "draft") return see(step(l, co.id, !co.signedIn && co.draft ? "contact" : "who") + url.search);
   let errors: ApiError[] = codeFrom(url);
   if (request.method === "POST") {
-    const action = (await form(request))("action");
+    const get = await form(request);
+    const action = get("action");
     if (action === "logout") {
       const res = await api(request, "POST", "/auth/logout");
       return see(path(l, "book", co.option.id), res.cookies);
@@ -221,6 +213,11 @@ export async function payStep({ request, params, url }: Ctx, l: Locale) {
     if (action === "hold") {
       const res = await api(request, "POST", `/checkouts/${co.id}/hold`);
       return res.status === 200 ? see(step(l, co.id, "pay")) : holdRedirect(l, co, res.error.code);
+    }
+    if (action === "pack") {
+      const res = await api<{ packId: string; k: string }>(request, "POST", `/checkouts/${co.id}/redeem`, { packId: get("packId") });
+      if (res.data) return see(`${path(l, "packs", res.data.packId)}?k=${res.data.k}&booked=${co.timeslotId}`);
+      return see(`${step(l, co.id, "pay")}?e=${res.error.code}`);
     }
     const res = await api<{ url: string }>(request, "POST", `/checkouts/${co.id}/pay`);
     if (res.data && /^https?:\/\//.test(res.data.url)) return see(res.data.url);
@@ -230,21 +227,23 @@ export async function payStep({ request, params, url }: Ctx, l: Locale) {
   return { locale: l, co, problems: problems(l, errors) };
 }
 
-type Return = { state: "booked" | "refund_due" | "pending" | "failed"; checkoutId: string; bookingId?: string; k?: string };
+type Return =
+  | { state: "booked" | "refund_due" | "pending" | "failed"; checkoutId: string; bookingId?: string; k?: string }
+  | { state: "pack" | "refund_due" | "pending" | "failed"; offerId: string; packId?: string; k?: string };
 
 export async function returnStep({ request, url }: Ctx, l: Locale) {
   const res = await api<Return>(request, "GET", `/billplz/return${url.search}`);
   const r = res.data;
   const tries = Number(url.searchParams.get("n")) || 0;
   if (!r) return { locale: l, state: res.status === 403 || res.status === 404 ? ("invalid" as const) : ("pending" as const), tries };
+  if ("offerId" in r) {
+    if (r.state === "pack") return see(r.k ? `${path(l, "packs", r.packId!)}?k=${r.k}&new=1` : path(l, "bookings"));
+    if (r.state === "refund_due") return see(`${path(l, "bookings")}?e=pack_refund_due`);
+    if (r.state === "failed") return see(`${path(l, "packs", "buy", r.offerId)}?e=payment_failed`);
+    return { locale: l, state: r.state, tries };
+  }
   if (r.state === "booked" && r.bookingId && r.k) return see(`${path(l, "bookings", r.bookingId)}?k=${r.k}`);
   if (r.state === "refund_due") return see(step(l, r.checkoutId, "pay"));
   if (r.state === "failed") return see(`${step(l, r.checkoutId, "pay")}?e=payment_failed`);
   return { locale: l, state: r.state, tries };
-}
-
-export async function ticketStep({ request, params, url }: Ctx, l: Locale) {
-  const k = url.searchParams.get("k");
-  const res = await api<Booking>(request, "GET", `/bookings/${encodeURIComponent(params.bookingId!)}${k ? `?k=${encodeURIComponent(k)}` : ""}`);
-  return res.data ? { locale: l, b: res.data } : notFound();
 }

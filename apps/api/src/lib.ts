@@ -1,4 +1,4 @@
-import type { Context } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 
 export type Ctx = Context<{ Bindings: Env }>;
 export type ApiError = { code: string; field?: string; params?: Record<string, string | number> };
@@ -10,6 +10,15 @@ export const DAY = 24 * HOUR;
 
 export const fail = (c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 415 | 429 | 502 | 503, e: ApiError, errors?: ApiError[]) =>
   c.json({ ...e, ...(errors && errors.length > 1 ? { errors } : {}) }, status);
+
+export const requireJson: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+  if (c.req.method !== "GET" && !c.req.header("content-type")?.startsWith("application/json")) {
+    return fail(c, 415, { code: "unsupported_media_type" });
+  }
+  await next();
+};
+
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const enc = new TextEncoder();
 

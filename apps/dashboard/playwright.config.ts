@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const API = process.env.API_URL ?? "http://localhost:8790";
 const DASH = process.env.DASH_URL ?? "http://localhost:5180";
 const api = new URL(API);
+const REGISTRY = "WRANGLER_REGISTRY_PATH=../../.wrangler/registry-e2e";
 
 export default defineConfig({
   testDir: "e2e",
@@ -18,7 +19,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `pnpm --filter @komugo/api exec sh -c 'wrangler d1 migrations apply komugo --local --persist-to ../../.wrangler/state-e2e && wrangler dev --port ${api.port} --inspector-port 9240 --persist-to ../../.wrangler/state-e2e --var DEV_SEED:1 BOOK_DRAFTS:1 EMAIL_MODE:log PUBLIC_SITE_URL:http://localhost:4330 BILLPLZ_BASE:${API}/dev/billplz/api/v3 BILLPLZ_COLLECTION_ID:dev-collection'`,
+      command: `pnpm --filter @komugo/api exec sh -c 'wrangler d1 migrations apply komugo --local --persist-to ../../.wrangler/state-e2e && ${REGISTRY} wrangler dev --port ${api.port} --inspector-port 9240 --persist-to ../../.wrangler/state-e2e --var DEV_SEED:1 BOOK_DRAFTS:1 EMAIL_MODE:log PUBLIC_SITE_URL:http://localhost:4330 BILLPLZ_BASE:${API}/dev/billplz/api/v3 BILLPLZ_COLLECTION_ID:dev-collection'`,
       url: `${API}/health`,
       reuseExistingServer: !!process.env.REUSE,
       timeout: 120_000,

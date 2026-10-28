@@ -99,15 +99,13 @@ test("Pack redemption and Reschedule respect the Booking cutoff", async () => {
   const w = await rideWorld();
   const p = await w.participant(w.customerId);
   const soon = await w.slot(w.optionId, Date.now() + 30 * MIN);
-  const { packId } = await w.pack(w.customerId, 5, kl("2031-01-01T00:00"));
+  const { packId } = await w.buyPack(w.customerId, { sessions: 5, optionIds: [w.optionId] });
   await expect(w.redeem(w.customerId, packId, soon, [p])).rejects.toMatchObject({ code: "not_bookable" });
 
   const closed = await w.slot(w.optionId, S);
-  const {
-    ticketIds: [ticketId],
-  } = await w.book(w.customerId, closed, [p]);
+  const { bookingId, ticketIds } = await w.book(w.customerId, closed, [p]);
   await w.b.closeTimeslot(closed, "weather");
-  await expect(w.reschedule(w.customerId, ticketId, soon, p)).rejects.toMatchObject({ code: "not_bookable" });
+  await expect(w.reschedule(w.customerId, { bookingId }, ticketIds, soon, [p])).rejects.toMatchObject({ code: "not_bookable" });
 });
 
 test("the Booking cutoff is projected to proj_activities", async () => {

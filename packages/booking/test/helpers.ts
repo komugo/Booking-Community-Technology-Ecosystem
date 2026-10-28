@@ -1,12 +1,23 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { activities, categories, cities, createDb, customers, operators, participants, waivers } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
-import { booking, BookingError, type AddOnPick, type OptionInput, type ResourceInput, type ResourceKind } from "../src";
+import {
+  booking,
+  BookingError,
+  type AddOnPick,
+  type Group,
+  type OptionInput,
+  type PackOfferInput,
+  type ResourceInput,
+  type ResourceKind,
+} from "../src";
 
 export const db = createDb(env.DB);
 export const kl = (local: string) => new Date(`${local}+08:00`).getTime();
 export const DAY = "2030-01-15";
 export const rid = () => crypto.randomUUID();
+export const HOUR = 3_600_000;
+export const later = (hours: number) => Math.floor((Date.now() + hours * HOUR) / 60_000) * 60_000;
 
 export const codes = (results: PromiseSettledResult<unknown>[]) =>
   results.map((r) =>
@@ -125,17 +136,51 @@ export async function operator(freeCancelHours = 24) {
       if (r.status !== "paid") throw new Error(`not paid: ${r.reason}`);
       return r;
     },
-    pack(customerId: string, sessionsTotal: number, expiresAt: number) {
-      return b.issuePack({ requestId: rid(), customerId, sessionsTotal, expiresAt });
+    async offer(o: Partial<PackOfferInput> & { optionIds: string[] }) {
+      const input: PackOfferInput = {
+        id: rid(),
+        activityId,
+        nameEn: "4 rides",
+        nameMs: "4 tunggangan",
+        sessions: 4,
+        priceSen: 25000,
+        validDays: 30,
+        active: true,
+        ...o,
+      };
+      await b.upsertPackOffer(input);
+      return input;
     },
-    redeem(customerId: string, packId: string, timeslotId: string, participantIds: string[], requestId: string = rid()) {
-      return b.redeemPack({ requestId, customerId, packId, timeslotId, participantIds });
+    async buyPack(customerId: string, o: Partial<PackOfferInput> & { optionIds: string[] }) {
+      const offer = await w.offer(o);
+      const orderId = rid();
+      await b.orderPack({ orderId, customerId, offerId: offer.id });
+      const r = await b.confirmPackBill({ billId: rid(), orderId, amountSen: offer.priceSen });
+      if (r.status !== "paid") throw new Error(`pack not paid: ${r.reason}`);
+      return r;
     },
-    cancel(customerId: string, ticketId: string, requestId: string = rid()) {
-      return b.cancelTicket({ requestId, customerId, ticketId });
+    async redeem(customerId: string, packId: string, timeslotId: string, participantIds: string[]) {
+      const { holdId } = await w.hold(customerId, timeslotId, participantIds);
+      return b.redeemPack({ requestId: rid(), customerId, packId, holdId });
     },
-    reschedule(customerId: string, ticketId: string, timeslotId: string, participantId: string, requestId: string = rid()) {
-      return b.rescheduleTicket({ requestId, customerId, ticketId, timeslotId, participantId });
+    quote(customerId: string, group: Group, ticketIds: string[], onlyClosed = false) {
+      return b.cancelQuote({ customerId, group, ticketIds, onlyClosed });
+    },
+    async cancel(customerId: string, group: Group, ticketIds: string[], onlyClosed = false) {
+      const q = await w.quote(customerId, group, ticketIds, onlyClosed);
+      const expectForfeited = q.tickets.filter((t) => t.outcome === "forfeited").map((t) => t.id);
+      return b.cancelTickets({ requestId: rid(), customerId, group, ticketIds, onlyClosed, expectSen: q.refundSen, expectForfeited });
+    },
+    reschedule(
+      customerId: string,
+      group: Group,
+      ticketIds: string[],
+      timeslotId: string,
+      participantIds: string[],
+      requestId: string = rid(),
+      onlyClosed = false,
+    ) {
+      return b.rescheduleTickets({ requestId, customerId, group, ticketIds, timeslotId, participantIds, onlyClosed });
     },
     expireHold: (holdId: string) =>
       sql("UPDATE holds SET created_at = created_at - 120000, expires_at = created_at - 60000 WHERE id = ?", holdId),
@@ -148,6 +193,17 @@ export async function operator(freeCancelHours = 24) {
   };
   return w;
 }
+
+export const UNDO_V8 = [
+  "DROP TABLE closure_choices",
+  "DROP TABLE pack_orders",
+  "DROP TABLE pack_offers",
+  "DROP INDEX refunds_booking",
+  "DROP TABLE refunds",
+  "ALTER TABLE packs DROP COLUMN offer_id",
+  "ALTER TABLE packs DROP COLUMN option_ids",
+  "ALTER TABLE tickets DROP COLUMN refund_id",
+];
 
 export const UNDO_V6 = [
   "DROP INDEX timeslots_schedule",

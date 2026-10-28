@@ -6,11 +6,11 @@ The platform is all Cloudflare (Workers Paid, no Postgres, no Docker). Booking n
 
 ## Decision
 
-All booking state has its source of truth in one Durable Object per Operator (`OperatorBooking`, `new_sqlite_classes`): Option booking facts (price, duration, Requirements, Resource needs, names), Cancellation Policy, Resources and Welfare Rules, Timeslots, Holds (with hold-time Participant facts), Allocations, Bookings, Tickets, Packs and Payments. Every operation runs its checks and writes in one `ctx.storage.transactionSync` with no `await` between them. The `NotPromise` type stops an async callback at compile time; the runtime check only rolls back writes made before the first `await`.
+All booking state has its source of truth in one Durable Object per Operator (`OperatorBooking`, `new_sqlite_classes`): Option booking facts (price, duration, Requirements, Resource needs, names), Cancellation Policy, Resources and Welfare Rules, Timeslots, Holds (with hold-time Participant facts), Allocations, Bookings, Tickets, Pack offers, Pack orders, Packs, Payments and Refunds. Every operation runs its checks and writes in one `ctx.storage.transactionSync` with no `await` between them. The `NotPromise` type stops an async callback at compile time; the runtime check only rolls back writes made before the first `await`.
 
 D1 holds the catalogue copy, Operators, Customers, Participants and Waivers. The API loads Participant facts and the Waiver flag from D1 and passes them into the DO call; that is the only caller-trusted input.
 
-Every DO change writes an outbox row in the same transaction. The DO alarm drains it into D1 `proj_*` tables (activities, options, timeslots with `spots`, tickets, packs, payments) with upserts guarded by `version`. Versions come from `meta.rev`, floored at the clock, so they keep rising after a restore. Duplicate or out-of-order delivery is a no-op. A row D1 rejects stays queued without blocking the others. The alarm also expires Holds, prunes idempotency records after 7 days, and always re-arms (30 s after a failure).
+Every DO change writes an outbox row in the same transaction. The DO alarm drains it into D1 `proj_*` tables (activities, options, timeslots with `spots`, tickets, pack offers, packs, payments, refunds) with upserts guarded by `version`. Versions come from `meta.rev`, floored at the clock, so they keep rising after a restore. Duplicate or out-of-order delivery is a no-op. A row D1 rejects stays queued without blocking the others. The alarm also expires Holds, prunes idempotency records after 7 days, and always re-arms (30 s after a failure).
 
 ## Why not D1 batch plus a mutex, or Postgres
 

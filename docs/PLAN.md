@@ -75,10 +75,25 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - Local dev: run the API with `--port 8790` style flags if 8787 is taken and `API_URL=http://localhost:8790 pnpm --filter @komugo/dashboard dev`. Local state seeded before step 5 keeps its old one-off Timeslots; delete `.wrangler/state` and re-seed to get the Schedule-generated ones.
 - e2e: `pnpm --filter @komugo/dashboard e2e` starts its own API (8790, state in `.wrangler/state-e2e`) and dashboard (5180).
 
+## Customer changes (step 6)
+
+- [x] Pack offers in dashboard Setup (Packs tab); Activity page lists active offers; Pack purchase via Sign-in + Billplz, Pack issued on the paid callback (idempotent; late or duplicate payment → Refund row)
+- [x] "Use Pack" at the Pay step consumes the Checkout's Hold (Requirements, Waivers, eligible Options, expiry and remaining sessions enforced in the DO); no Add-ons with a Pack
+- [x] Standalone Sign-in (`/sign-in`) and My bookings (`/bookings`): Needs your choice, Upcoming, Packs, Past
+- [x] Cancel per Ticket with the outcome shown first (ticket price + Add-on share, or forfeited; Pack session returned); refused with `quote_changed` if the outcome moved
+- [x] Reschedule per Ticket inside the free-cancel window; after a Closure free to any future open Timeslot
+- [x] Closure choice from the emailed link (refund or new time), recorded in the Operator DO with the change and projected by the outbox onto `closure_notices`, shown in the dashboard
+- [x] Staff-only "Refunds to pay" (`/refunds`): mark refunded (idempotent) emails the Customer
+- [x] DO migration 7 and D1 `0006_customer_changes` are additive only
+- `free_cancel_hours = 0` now means no free cancel (it used to allow a free cancel up to the start)
+- e2e: `pnpm --filter @komugo/web exec playwright test` starts its own API (8790) and web (4330) on `.wrangler/state-e2e`, with a private dev registry (`WRANGLER_REGISTRY_PATH`/`MINIFLARE_REGISTRY_PATH=.wrangler/registry-e2e`) so the web's `API` service binding reaches that API and not another local one. `PERSIST_TO` and `INSPECTOR_PORT` point `astro dev` at the same D1 and a free inspector port; `--ignore-lock` keeps it in the foreground.
+
 ## Deferred
 
 - Payouts slice: Commission rate on `operators` plus a snapshot on `tickets` (and Pack purchases) at sale time.
-- Packs purchase/redemption UI and Reschedule/Cancel UI: step 6.
+- Auto-resolve unanswered Closures (needs an ops policy).
+- Payouts (step 7) net `proj_refunds` and count Pack sales from the DO `pack_orders`.
+- Pack purchase refunds are handled ad hoc by ops.
 
 ## Later
 

@@ -16,20 +16,26 @@ const langs: Locale[] = ["en", "ms"];
     <a href={path(locale)} class="font-display -ml-2 flex min-h-11 items-center px-2 text-2xl font-extrabold tracking-tight">
       komugo<span class:list={[solid ? "text-leaf" : "text-lime"]}>.</span>
     </a>
-    <nav aria-label="Language" class:list={["flex rounded-full p-1 text-sm font-semibold", solid ? "bg-sand" : "bg-white/15 backdrop-blur"]}>
-      {
-        langs.map((l) => (
-          <a
-            href={alternates[l]}
-            hreflang={l}
-            lang={l}
-            aria-current={l === locale ? "page" : undefined}
-            class:list={["flex min-h-11 min-w-11 items-center justify-center rounded-full px-3", l === locale ? "bg-white text-ink" : solid ? "hover:bg-white/60" : "hover:bg-white/20"]}
-          >
-            {t[l].langName}
-          </a>
-        ))
-      }
-    </nav>
+    <div class="flex items-center gap-1">
+      <a href={path(locale, "bookings")} data-my-bookings class:list={["flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold", solid ? "hover:bg-sand" : "hover:bg-white/15"]}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 0 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1zM14 5v14" /></svg>
+        {t[locale].myBookings}
+      </a>
+      <nav aria-label="Language" class:list={["flex rounded-full p-1 text-sm font-semibold", solid ? "bg-sand" : "bg-white/15 backdrop-blur"]}>
+        {
+          langs.map((l) => (
+            <a
+              href={alternates[l]}
+              hreflang={l}
+              lang={l}
+              aria-current={l === locale ? "page" : undefined}
+              class:list={["flex min-h-11 min-w-11 items-center justify-center rounded-full px-3", l === locale ? "bg-white text-ink" : solid ? "hover:bg-white/60" : "hover:bg-white/20"]}
+            >
+              {t[l].langName}
+            </a>
+          ))
+        }
+      </nav>
+    </div>
   </div>
 </header>

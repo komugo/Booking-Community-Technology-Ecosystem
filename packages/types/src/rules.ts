@@ -1,6 +1,12 @@
 const KL_OFFSET = 8 * 3_600_000;
 
+const DAY = 86_400_000;
+
 export const klDate = (t: number) => new Date(t + KL_OFFSET).toISOString().slice(0, 10);
+
+// A Pack is good until the end of the KL day, validDays after purchase.
+export const packExpiry = (now: number, validDays: number) =>
+  Math.floor((now + KL_OFFSET) / DAY) * DAY - KL_OFFSET + (validDays + 1) * DAY - 1;
 
 export function ageOn(birthDate: string, date: string) {
   const [by, bm, bd] = birthDate.split("-").map(Number);

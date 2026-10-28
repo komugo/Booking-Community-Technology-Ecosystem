@@ -230,9 +230,46 @@ export const projPacks = sqliteTable(
     sessionsTotal: integer().notNull(),
     sessionsUsed: integer().notNull(),
     expiresAt: integer().notNull(),
+    offerId: text(),
+    optionIds: json<string[]>(),
     version: integer().notNull(),
   },
   (t) => [index("proj_packs_customer").on(t.customerId)],
+);
+
+export const projPackOffers = sqliteTable(
+  "proj_pack_offers",
+  {
+    id: text().primaryKey(),
+    operatorId: text().notNull(),
+    activityId: text().notNull(),
+    nameEn: text().notNull(),
+    nameMs: text().notNull(),
+    sessions: integer().notNull(),
+    priceSen: integer().notNull(),
+    validDays: integer().notNull(),
+    optionIds: json<string[]>(),
+    active: integer({ mode: "boolean" }).notNull(),
+    version: integer().notNull(),
+  },
+  (t) => [index("proj_pack_offers_activity").on(t.activityId)],
+);
+
+export const projRefunds = sqliteTable(
+  "proj_refunds",
+  {
+    id: text().primaryKey(),
+    operatorId: text().notNull(),
+    customerId: text(),
+    billId: text(),
+    bookingId: text(),
+    amountSen: integer().notNull(),
+    reason: text({ enum: ["duplicate", "amount_mismatch", "unavailable", "unknown_hold", "cancel", "closure"] }).notNull(),
+    createdAt: integer().notNull(),
+    refundedAt: integer(),
+    version: integer().notNull(),
+  },
+  (t) => [index("proj_refunds_refunded_created").on(t.refundedAt, t.createdAt), index("proj_refunds_operator").on(t.operatorId)],
 );
 
 export const projPayments = sqliteTable(
@@ -310,6 +347,7 @@ export const checkouts = sqliteTable(
     holdExpiresAt: integer(),
     amountSen: integer(),
     bookingId: text().unique(),
+    packId: text(),
     refundReason: text(),
     emailedAt: integer(),
     createdAt: integer().notNull(),
@@ -336,8 +374,28 @@ export const bills = sqliteTable(
     paidAmountSen: integer(),
     refundReason: text(),
     emailedAt: integer(),
+    // A Pack bill's checkoutId and holdId are both its pack_orders id.
+    kind: text({ enum: ["booking", "pack"] }).notNull().default("booking"),
   },
   (t) => [index("bills_paid_created").on(t.paidAt, t.createdAt)],
+);
+
+export const packOrders = sqliteTable(
+  "pack_orders",
+  {
+    id: text().primaryKey(),
+    customerId: text()
+      .notNull()
+      .references(() => customers.id),
+    operatorId: text().notNull(),
+    offerId: text().notNull(),
+    amountSen: integer().notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    packId: text().unique(),
+    emailedAt: integer(),
+    createdAt: integer().notNull(),
+  },
+  (t) => [index("pack_orders_customer_offer").on(t.customerId, t.offerId, t.createdAt)],
 );
 
 export const members = sqliteTable(
@@ -379,9 +437,22 @@ export const closureNotices = sqliteTable(
       .notNull()
       .references(() => customers.id),
     bookingId: text(),
+    packId: text(),
     reason: text({ enum: ["weather", "horse_unfit", "other"] }).notNull(),
     createdAt: integer().notNull(),
     emailedAt: integer(),
+    choice: text({ enum: ["refund", "reschedule"] }),
+    chosenAt: integer(),
   },
   (t) => [primaryKey({ columns: [t.timeslotId, t.ref] }), index("closure_notices_unsent").on(t.emailedAt, t.createdAt)],
+);
+
+export const refundEmails = sqliteTable(
+  "refund_emails",
+  {
+    refundId: text().notNull(),
+    kind: text({ enum: ["due", "paid"] }).notNull(),
+    emailedAt: integer().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.refundId, t.kind] })],
 );

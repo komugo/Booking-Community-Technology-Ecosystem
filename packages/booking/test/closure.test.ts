@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
-import { DAY, kl, rideWorld } from "./helpers";
+import { later, rideWorld } from "./helpers";
 
 async function booked() {
   const w = await rideWorld();
   await w.resource();
-  const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
+  const ts = await w.slot(w.optionId, later(72));
   const p = await w.participant(w.customerId);
   const r = await w.book(w.customerId, ts, [p]);
   return { ...w, ts, p, ticketId: r.ticketIds[0], bookingId: r.bookingId };
@@ -22,7 +22,7 @@ test("a Closure stores its reason, deletes Ticket Allocations and releases activ
 
 test("affected lists the issued Tickets including a Pack Ticket; a re-close returns the same list and writes nothing", async () => {
   const w = await booked();
-  const { packId } = await w.pack(w.customerId, 2, kl("2030-12-31T00:00"));
+  const { packId } = await w.buyPack(w.customerId, { sessions: 2, optionIds: [w.optionId] });
   const p2 = await w.participant(w.customerId);
   const {
     ticketIds: [packTicket],
@@ -47,11 +47,11 @@ test("a started Timeslot cannot be closed", async () => {
 test("a rescheduled or cancelled Ticket leaves the affected list", async () => {
   const w = await booked();
   const p2 = await w.participant(w.customerId);
-  const {
-    ticketIds: [other],
-  } = await w.book(w.customerId, w.ts, [p2]);
+  const other = await w.book(w.customerId, w.ts, [p2]);
   await w.b.closeTimeslot(w.ts, "weather");
-  await w.reschedule(w.customerId, w.ticketId, await w.slot(w.optionId, kl(`${DAY}T11:00`)), w.p);
-  expect(await w.cancel(w.customerId, other)).toEqual({ status: "cancelled" });
+  await w.reschedule(w.customerId, { bookingId: w.bookingId }, [w.ticketId], await w.slot(w.optionId, later(74)), [w.p]);
+  expect(await w.cancel(w.customerId, { bookingId: other.bookingId }, other.ticketIds)).toMatchObject({
+    tickets: [{ outcome: "cancelled" }],
+  });
   expect(await w.b.closeTimeslot(w.ts, "weather")).toEqual({ affected: [] });
 });

@@ -1,0 +1,68 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import BottomBar from "../../components/checkout/BottomBar.astro";
+import { klDeadline, klLongDay, klTime, rm, t } from "../../lib/i18n";
+import { groupHref, type cancelStep } from "../../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof cancelStep>>, Response>;
+const { locale: l, g, t: which, quote, requestId, problems: p } = Astro.props;
+const m = t[l].manage;
+const back = groupHref(l, g);
+const ticket = new Map(g.tickets.map((x) => [x.id, x]));
+const addOnSen = g.addOns.reduce((s, a) => s + a.quantity * a.priceSen, 0);
+const priceSen = g.kind === "booking" ? (g.amountSen - addOnSen) / g.tickets.length : 0;
+const forfeited = quote?.tickets.filter((x) => x.outcome === "forfeited").map((x) => x.id) ?? [];
+const deadline = (startsAt: number) => klDeadline(l, startsAt - (g.freeCancelHours ?? 0) * 3_600_000);
+const label = !quote
+  ? ""
+  : quote.refundSen > 0
+    ? m.confirmRefund(quote.tickets.length, rm(quote.refundSen))
+    : g.kind === "pack" && forfeited.length < quote.tickets.length
+      ? m.confirmReturn
+      : m.confirmNoRefund;
+---
+
+<Checkout locale={l} title={m.cancelTitle} back={back} problems={p}>
+  {
+    quote ? (
+      <form method="post" class="mt-6 space-y-4">
+        <input type="hidden" name="requestId" value={requestId} />
+        <input type="hidden" name="t" value={which} />
+        <input type="hidden" name="expectSen" value={quote.refundSen} />
+        <input type="hidden" name="expectForfeited" value={forfeited.join(",")} />
+        <ul class="space-y-3">
+          {quote.tickets.map((q) => {
+            const x = ticket.get(q.id)!;
+            const share = q.refundSen - priceSen;
+            return (
+              <li data-outcome={q.outcome} class:list={["rounded-2xl border-l-4 bg-white p-4 shadow-[0_1px_0_var(--color-line)]", q.outcome === "cancelled" ? "border-leaf" : "border-clay"]}>
+                <p class="font-display text-xl font-bold">{x.participantName}</p>
+                <p class="text-sm text-muted">{klLongDay(l, x.startsAt)} · <span class="num">{klTime(l, x.startsAt)}</span></p>
+                <p class="mt-2">
+                  {g.kind === "pack" ? (
+                    q.outcome === "cancelled" ? m.returnsToPack : m.staysUsed
+                  ) : q.outcome === "forfeited" ? (
+                    <><strong>{m.noRefund}</strong> {m.noRefundWhy(deadline(x.startsAt))}</>
+                  ) : quote.reason === "closure" ? (
+                    <>{m.closureRefund} <strong class="num">{m.back(rm(q.refundSen))}</strong></>
+                  ) : share > 0 ? (
+                    <span class="num">{m.ticketLine(rm(priceSen), rm(share))} <strong>{m.back(rm(q.refundSen))}</strong></span>
+                  ) : (
+                    <strong class="num">{m.back(rm(q.refundSen))}</strong>
+                  )}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+        {quote.refundSen > 0 && <p class="rounded-2xl bg-sand p-4 font-semibold" data-total>{m.totalLine(rm(quote.refundSen))}</p>}
+        <a href={back} class="inline-flex min-h-12 items-center font-semibold text-leaf underline underline-offset-2">{m.keep}</a>
+        <BottomBar locale={l} label="" sen={null}>
+          <button data-confirm class="ml-auto inline-flex min-h-12 shrink items-center rounded-full bg-clay px-6 text-left leading-tight font-semibold text-white hover:bg-clay/90">{label}</button>
+        </BottomBar>
+      </form>
+    ) : (
+      <a href={back} class="mt-6 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{m.keep}</a>
+    )
+  }
+</Checkout>

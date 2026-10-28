@@ -15,10 +15,13 @@ export type Fixture = {
   codes: string[];
   email: string;
   staffEmail?: string;
+  bookingId: string;
+  k: string;
+  customerEmail: string;
 };
 type Email = { to: string; subject: string; text: string };
 
-export async function fixture(request: APIRequestContext, o: { locale?: "en" | "ms"; staff?: boolean } = {}): Promise<Fixture> {
+export async function fixture(request: APIRequestContext, o: { locale?: "en" | "ms"; staff?: boolean; inWindow?: boolean } = {}): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });
   expect(res.ok()).toBe(true);
   return res.json();
@@ -95,4 +98,26 @@ export function writeY4m(text: string, path: string) {
           );
   const uv = Buffer.alloc((W / 2) * (H / 2) * 2, 128);
   writeFileSync(path, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F10:1 Ip A1:1 C420jpeg\nFRAME\n`), y, uv]));
+}
+
+// Cancels Tickets as the Customer would: signed in, or with the emailed link `k` for a Closure choice.
+export async function customerCancel(request: APIRequestContext, fx: Fixture, t: string, viaLink = false) {
+  const headers = { "x-client-ip": `10.8.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}` };
+  if (!viaLink) {
+    expect((await request.post(`${API}/auth/sign-in`, { data: { email: fx.customerEmail }, headers })).status()).toBe(204);
+    let code = "";
+    for (let i = 0; i < 20 && !code; i++) {
+      code = (await emails(request)).filter((e) => e.to === fx.customerEmail).at(-1)?.text.match(/\b\d{6}\b/)?.[0] ?? "";
+      if (!code) await new Promise((r) => setTimeout(r, 250));
+    }
+    expect((await request.post(`${API}/auth/sign-in/verify`, { data: { email: fx.customerEmail, code }, headers })).status()).toBe(204);
+  }
+  const k = viaLink ? fx.k : undefined;
+  const quote = await (await request.get(`${API}/bookings/${fx.bookingId}/quote?t=${encodeURIComponent(t)}${k ? `&k=${k}` : ""}`, { headers })).json();
+  const res = await request.post(`${API}/bookings/${fx.bookingId}/cancel`, {
+    headers,
+    data: { requestId: crypto.randomUUID(), t, expectSen: quote.refundSen, expectForfeited: [], k },
+  });
+  expect(res.ok()).toBe(true);
+  return res.json();
 }

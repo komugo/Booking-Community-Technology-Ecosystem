@@ -1,46 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { API, bar, email, inbox, noAxeViolations, open, prefix, SHOTS, type Locale } from "./helpers";
 
-const API = process.env.API_URL ?? "http://localhost:8787";
-const SHOTS = process.env.SHOTS;
 const DIST = join(import.meta.dirname, "../dist");
-
-type Email = { to: string; subject: string; text: string };
-type Locale = "en" | "ms";
-
-async function inbox(page: Page, to: string, match: RegExp) {
-  for (let i = 0; i < 20; i++) {
-    const mail = ((await (await page.request.get(`${API}/dev/emails`)).json()) as Email[]).find((e) => e.to === to && match.test(e.text));
-    if (mail) return mail;
-    await page.waitForTimeout(500);
-  }
-  throw new Error(`no email for ${to}`);
-}
-
-async function noAxeViolations(page: Page, disable: string[] = []) {
-  const r = await new AxeBuilder({ page }).exclude("astro-dev-toolbar").disableRules(disable).analyze();
-  expect(r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
-}
-
-async function open(browser: Browser) {
-  const context = await browser.newContext({
-    viewport: { width: 375, height: 812 },
-    isMobile: true,
-    hasTouch: true,
-    extraHTTPHeaders: { "CF-Connecting-IP": `10.0.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}` },
-  });
-  const page = await context.newPage();
-  await page.addInitScript(() =>
-    addEventListener("DOMContentLoaded", () => document.head.insertAdjacentHTML("beforeend", "<style>astro-dev-toolbar{display:none!important}</style>")),
-  );
-  return { context, page };
-}
-
-const prefix = (l: Locale) => (l === "ms" ? "/ms" : "");
-const email = (tag: string) => `e2e+${tag}${Date.now()}${Math.floor(Math.random() * 1e4)}@example.com`;
-const bar = (page: Page) => page.locator("[data-bar] button");
 
 async function pickTime(page: Page, l: Locale, optionId: string, people = 1, minSpots = 1) {
   await page.goto(`${prefix(l)}/book/${optionId}`);
@@ -172,7 +135,7 @@ for (const locale of ["en", "ms"] as const) {
     await guest.context.close();
 
     await page.goto(`${prefix(locale)}/book/opt_cp_adult`);
-    await page.locator("a[data-day]").nth(10).click();
+    await page.locator("a[data-day]").nth(12).click();
     await page.locator('label:has(input[name=timeslotId]:not([data-spots="1"]))').first().click();
     await bar(page).click();
     await expect(page).toHaveURL(/\/who$/);

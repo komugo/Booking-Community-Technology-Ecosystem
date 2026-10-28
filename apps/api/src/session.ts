@@ -44,13 +44,17 @@ export async function ensureSession(c: Ctx): Promise<Session> {
   return s.session;
 }
 
-export async function rotateSession(c: Ctx, old: Session, customerId: string): Promise<Session> {
+export async function rotateSession(c: Ctx, old: Session | null, customerId: string): Promise<Session> {
   const db = createDb(c.env.DB);
   const s = await insertSession(c, customerId);
   await db.batch([
     s.insert,
-    db.update(checkouts).set({ sessionId: s.session.idHash }).where(eq(checkouts.sessionId, old.idHash)),
-    db.delete(sessions).where(eq(sessions.idHash, old.idHash)),
+    ...(old
+      ? [
+          db.update(checkouts).set({ sessionId: s.session.idHash }).where(eq(checkouts.sessionId, old.idHash)),
+          db.delete(sessions).where(eq(sessions.idHash, old.idHash)),
+        ]
+      : []),
   ]);
   s.commit();
   return s.session;

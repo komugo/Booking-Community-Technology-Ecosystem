@@ -7,8 +7,10 @@ import {
   type AddOnInput,
   type AddOnPick,
   type ClosureReason,
+  type Group,
   type Idempotency,
   type OptionInput,
+  type PackOfferInput,
   type ParticipantFacts,
   type ResourceInput,
   type Result,
@@ -74,9 +76,17 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#read(op, (sql, now) => engine.timeslots(sql, now, q));
   }
 
-  issuePack(op: string, i: { requestId: string; customerId: string; sessionsTotal: number; expiresAt: number }) {
-    const idem = { requestId: i.requestId, method: "issuePack", fingerprint: [i.customerId, i.sessionsTotal, i.expiresAt] };
-    return this.#mutate(op, idem, (sql, now) => engine.issuePack(sql, now, i));
+  upsertPackOffer(op: string, o: PackOfferInput) {
+    return this.#mutate(op, null, (sql) => engine.upsertPackOffer(sql, o));
+  }
+
+  orderPack(op: string, i: { orderId: string; customerId: string; offerId: string }) {
+    const idem = { requestId: i.orderId, method: "orderPack", fingerprint: [i.customerId, i.offerId] };
+    return this.#mutate(op, idem, (sql, now) => engine.orderPack(sql, now, i));
+  }
+
+  confirmPackBill(op: string, i: { billId: string; orderId: string; amountSen: number }) {
+    return this.#mutate(op, null, (sql, now) => engine.confirmPackBill(sql, now, i));
   }
 
   createHold(
@@ -112,33 +122,61 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, null, (sql, now) => engine.confirmHold(sql, now, i));
   }
 
-  redeemPack(
-    op: string,
-    i: { requestId: string; customerId: string; packId: string; timeslotId: string; participants: ParticipantFacts[] },
-  ) {
-    const idem = {
-      requestId: i.requestId,
-      method: "redeemPack",
-      fingerprint: [i.customerId, i.packId, i.timeslotId, i.participants.map((p) => p.id)],
-    };
+  redeemPack(op: string, i: { requestId: string; customerId: string; packId: string; holdId: string }) {
+    const idem = { requestId: i.requestId, method: "redeemPack", fingerprint: [i.customerId, i.packId, i.holdId] };
     return this.#mutate(op, idem, (sql, now) => engine.redeemPack(sql, now, i));
   }
 
-  rescheduleTicket(
+  cancelQuote(op: string, i: { customerId: string; group: Group; ticketIds: string[]; onlyClosed: boolean }) {
+    return this.#read(op, (sql, now) => engine.cancelQuote(sql, now, i));
+  }
+
+  cancelTickets(
     op: string,
-    i: { requestId: string; customerId: string; ticketId: string; timeslotId: string; participant: ParticipantFacts },
+    i: {
+      requestId: string;
+      customerId: string;
+      group: Group;
+      ticketIds: string[];
+      onlyClosed: boolean;
+      expectSen: number;
+      expectForfeited: string[];
+    },
   ) {
     const idem = {
       requestId: i.requestId,
-      method: "rescheduleTicket",
-      fingerprint: [i.customerId, i.ticketId, i.timeslotId, i.participant.id],
+      method: "cancelTickets",
+      fingerprint: [i.customerId, i.group, [...i.ticketIds].sort(), i.onlyClosed, i.expectSen, [...i.expectForfeited].sort()],
     };
-    return this.#mutate(op, idem, (sql, now) => engine.rescheduleTicket(sql, now, i));
+    return this.#mutate(op, idem, (sql, now) => engine.cancelTickets(sql, now, i));
   }
 
-  cancelTicket(op: string, i: { requestId: string; customerId: string; ticketId: string }) {
-    const idem = { requestId: i.requestId, method: "cancelTicket", fingerprint: [i.customerId, i.ticketId] };
-    return this.#mutate(op, idem, (sql, now) => engine.cancelTicket(sql, now, i));
+  rescheduleTickets(
+    op: string,
+    i: {
+      requestId: string;
+      customerId: string;
+      group: Group;
+      ticketIds: string[];
+      timeslotId: string;
+      participants: ParticipantFacts[];
+      onlyClosed: boolean;
+    },
+  ) {
+    const idem = {
+      requestId: i.requestId,
+      method: "rescheduleTickets",
+      fingerprint: [i.customerId, i.group, [...i.ticketIds].sort(), i.timeslotId],
+    };
+    return this.#mutate(op, idem, (sql, now) => engine.rescheduleTickets(sql, now, i));
+  }
+
+  packView(op: string, packId: string) {
+    return this.#read(op, (sql) => engine.packView(sql, packId));
+  }
+
+  markRefunded(op: string, i: { refundId: string; memberId: string }) {
+    return this.#mutate(op, null, (sql, now) => engine.markRefunded(sql, now, i));
   }
 
   async alarm() {

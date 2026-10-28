@@ -5,6 +5,7 @@ import { useT } from "./i18n";
 import { loadMe, useMe } from "./me";
 import Scan from "./pages/Scan";
 import Schedule from "./pages/Schedule";
+import Refunds from "./pages/Refunds";
 import Setup from "./pages/Setup";
 import SignIn from "./pages/SignIn";
 import Timeslot from "./pages/Timeslot";
@@ -58,6 +59,7 @@ function Signed({ me }: { me: Me }) {
   return (
     <Switch>
       <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
+      <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
       <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
       <Route component={NotFound} />
     </Switch>
@@ -82,7 +84,10 @@ function Shell({ me, op }: { me: Me; op: string }) {
               </Link>
             )}
           </div>
-          <LangPill />
+          <div className="flex items-center gap-1">
+            {me.member.role === "staff" && <RefundsLink />}
+            <LangPill />
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-4 pt-5">
@@ -108,7 +113,10 @@ function Operators({ me }: { me: Me }) {
         <LangPill />
       </header>
       <main className="pt-6 pb-12">
-        <h1 className="text-4xl font-extrabold">{t.pickOperator}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-4xl font-extrabold">{t.pickOperator}</h1>
+          {me.member.role === "staff" && <RefundsLink />}
+        </div>
         <ul className="mt-6 space-y-3">
           {me.operators.map((o) => (
             <li key={o.id}>
@@ -127,6 +135,15 @@ function Operators({ me }: { me: Me }) {
         <SignedInAs me={me} />
       </main>
     </div>
+  );
+}
+
+function RefundsLink() {
+  const { t } = useT();
+  return (
+    <Link href="/refunds" className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-leaf hover:bg-sand">
+      {t.refunds}
+    </Link>
   );
 }
 

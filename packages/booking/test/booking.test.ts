@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { codes, customer, DAY, kl, operator, rid, rideWorld } from "./helpers";
+import { codes, customer, DAY, kl, later, operator, rid, rideWorld } from "./helpers";
 
 describe("concurrency", () => {
   test("20 concurrent holds on the last free horse: exactly one wins", async () => {
@@ -27,13 +27,18 @@ describe("concurrency", () => {
 
   test("a Pack session cannot be double-redeemed concurrently", async () => {
     const w = await rideWorld();
-    for (let i = 0; i < 4; i++) await w.resource();
-    const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const { packId } = await w.pack(w.customerId, 1, kl("2030-12-31T00:00"));
-    const people = await Promise.all(Array.from({ length: 5 }, () => w.participant(w.customerId)));
-    const c = codes(await Promise.allSettled(people.map((p) => w.redeem(w.customerId, packId, ts, [p]))));
+    for (let i = 0; i < 2; i++) await w.resource();
+    const ts = await w.slot(w.optionId, later(72));
+    const { packId } = await w.buyPack(w.customerId, { sessions: 1, optionIds: [w.optionId] });
+    const people = await Promise.all(Array.from({ length: 3 }, () => w.participant(w.customerId)));
+    const holds = await Promise.all(people.map((p) => w.hold(w.customerId, ts, [p])));
+    const c = codes(
+      await Promise.allSettled(
+        holds.map((h) => w.b.redeemPack({ requestId: rid(), customerId: w.customerId, packId, holdId: h.holdId })),
+      ),
+    );
     expect(c.filter((x) => x === "ok")).toHaveLength(1);
-    expect(c.filter((x) => x === "pack_unavailable")).toHaveLength(4);
+    expect(c.filter((x) => x === "pack_used_up")).toHaveLength(2);
   });
 
   test("confirm then Closure: Tickets stay issued awaiting the Customer's choice, no allocations", async () => {
@@ -60,12 +65,13 @@ describe("concurrency", () => {
     const closed = await w.slot(w.optionId, kl(`${DAY}T09:00`));
     const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
     const p = await w.participant(w.customerId);
-    const {
-      ticketIds: [ticketId],
-    } = await w.book(w.customerId, closed, [p]);
+    const { bookingId, ticketIds } = await w.book(w.customerId, closed, [p]);
     await w.b.closeTimeslot(closed, "weather");
-    await w.reschedule(w.customerId, ticketId, soon, p);
-    expect(await w.cancel(w.customerId, ticketId)).toEqual({ status: "forfeited" });
+    await w.reschedule(w.customerId, { bookingId }, ticketIds, soon, [p]);
+    expect(await w.cancel(w.customerId, { bookingId }, ticketIds)).toMatchObject({
+      tickets: [{ outcome: "forfeited", refundSen: 0 }],
+      refund: null,
+    });
   });
 
   test("cancel then Reschedule: cancelled, and the Reschedule is invalid_state", async () => {
@@ -73,12 +79,10 @@ describe("concurrency", () => {
     const closed = await w.slot(w.optionId, kl(`${DAY}T09:00`));
     const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
     const p = await w.participant(w.customerId);
-    const {
-      ticketIds: [ticketId],
-    } = await w.book(w.customerId, closed, [p]);
+    const { bookingId, ticketIds } = await w.book(w.customerId, closed, [p]);
     await w.b.closeTimeslot(closed, "weather");
-    expect(await w.cancel(w.customerId, ticketId)).toEqual({ status: "cancelled" });
-    await expect(w.reschedule(w.customerId, ticketId, soon, p)).rejects.toMatchObject({ code: "invalid_state" });
+    expect(await w.cancel(w.customerId, { bookingId }, ticketIds)).toMatchObject({ tickets: [{ outcome: "cancelled" }] });
+    await expect(w.reschedule(w.customerId, { bookingId }, ticketIds, soon, [p])).rejects.toMatchObject({ code: "invalid_state" });
   });
 
   test("concurrent confirms with one billId return the same Booking; a second bill is a duplicate", async () => {
@@ -95,12 +99,12 @@ describe("concurrency", () => {
   });
 });
 
-test("last slot across overlapping Options: holds and Pack redemptions race, exactly one wins", async () => {
+test("last slot across overlapping Options: Holds and Hold-then-redeem race, exactly one wins", async () => {
   const w = await rideWorld();
   const optionB = await w.option();
-  const a = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-  const b = await w.slot(optionB, kl(`${DAY}T09:30`));
-  const { packId } = await w.pack(w.customerId, 1, kl("2030-12-31T00:00"));
+  const a = await w.slot(w.optionId, later(72));
+  const b = await w.slot(optionB, later(72.5));
+  const { packId } = await w.buyPack(w.customerId, { sessions: 1, optionIds: [w.optionId] });
   const people = await Promise.all(Array.from({ length: 25 }, () => w.participant(w.customerId)));
   const c = codes(
     await Promise.allSettled([
@@ -110,7 +114,7 @@ test("last slot across overlapping Options: holds and Pack redemptions race, exa
     ]),
   );
   expect(c.filter((x) => x === "ok")).toHaveLength(1);
-  expect(c.filter((x) => x !== "ok" && x !== "no_availability" && x !== "pack_unavailable")).toEqual([]);
+  expect(c.filter((x) => x !== "ok" && x !== "no_availability")).toEqual([]);
   expect(await w.allocationCount()).toBe(1);
   const active = await w.count("SELECT count(*) AS n FROM holds WHERE status = 'active'");
   const issued = await w.count("SELECT count(*) AS n FROM tickets WHERE status = 'issued'");
@@ -318,17 +322,13 @@ describe("gating", () => {
     await expect(w.hold(w.customerId, await w.slot(lesson, kl(`${DAY}T11:00`)), [p])).resolves.toBeDefined();
   });
 
-  test("Waiver is required before a Hold and at Pack redemption", async () => {
+  test("Waiver is required before a Hold, so before a Pack redemption too", async () => {
     const w = await rideWorld();
     const p = await w.participant(w.customerId, { waiver: false });
     await expect(w.hold(w.customerId, await w.slot(w.optionId, kl(`${DAY}T09:00`)), [p])).rejects.toMatchObject({
       code: "waiver_missing",
     });
     expect(await w.count("SELECT count(*) AS n FROM holds")).toBe(0);
-    const { packId } = await w.pack(w.customerId, 5, kl("2030-12-31T00:00"));
-    await expect(
-      w.redeem(w.customerId, packId, await w.slot(w.optionId, kl(`${DAY}T12:00`)), [p]),
-    ).rejects.toMatchObject({ code: "waiver_missing" });
   });
 
   test("closed, past, and Resource-less Timeslots are not bookable", async () => {
@@ -346,9 +346,9 @@ describe("gating", () => {
 });
 
 describe("Closure, cancel and Packs", () => {
-  async function packWorld(expiresAt = kl("2030-12-31T00:00")) {
+  async function packWorld(validDays = 30) {
     const w = await rideWorld();
-    const { packId } = await w.pack(w.customerId, 2, expiresAt);
+    const { packId } = await w.buyPack(w.customerId, { sessions: 2, validDays, optionIds: [w.optionId] });
     const p = await w.participant(w.customerId);
     const redeem = (timeslotId: string) => w.redeem(w.customerId, packId, timeslotId, [p]);
     const used = () => w.count("SELECT count(*) AS n FROM tickets WHERE pack_id = ? AND status <> 'cancelled'", packId);
@@ -357,50 +357,33 @@ describe("Closure, cancel and Packs", () => {
 
   test("Closure frees Resources; Refund returns the Pack session", async () => {
     const w = await packWorld();
-    const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const {
-      ticketIds: [ticketId],
-    } = await w.redeem(ts);
+    const ts = await w.slot(w.optionId, later(72));
+    const { ticketIds } = await w.redeem(ts);
     expect(await w.used()).toBe(1);
     await w.b.closeTimeslot(ts, "weather");
     expect(await w.allocationCount()).toBe(0);
     const other = await w.option();
-    await w.hold(w.customerId, await w.slot(other, kl(`${DAY}T09:00`)), [await w.participant(w.customerId)]);
-    expect(await w.cancel(w.customerId, ticketId)).toEqual({ status: "cancelled" });
-    expect(await w.used()).toBe(0);
-  });
-
-  test("Reschedule only from a closed Timeslot, same Option, ignoring Pack expiry", async () => {
-    const w = await packWorld(kl(`${DAY}T12:00`));
-    const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const later = await w.slot(w.optionId, kl("2030-02-01T09:00"));
-    const otherOption = await w.slot(await w.option(), kl("2030-02-01T12:00"));
-    const {
-      ticketIds: [ticketId],
-    } = await w.redeem(ts);
-    await expect(w.reschedule(w.customerId, ticketId, later, w.p)).rejects.toMatchObject({ code: "invalid_state" });
-    await w.b.closeTimeslot(ts, "weather");
-    await expect(w.reschedule(w.customerId, ticketId, otherOption, w.p)).rejects.toMatchObject({
-      code: "invalid_state",
+    await w.hold(w.customerId, await w.slot(other, later(72)), [await w.participant(w.customerId)]);
+    expect(await w.cancel(w.customerId, { packId: w.packId }, ticketIds, true)).toEqual({
+      tickets: [{ id: ticketIds[0], outcome: "cancelled", refundSen: 0 }],
+      refundSen: 0,
+      reason: "closure",
+      refund: null,
     });
-    await w.reschedule(w.customerId, ticketId, later, w.p);
-    expect(await w.sql("SELECT timeslot_id, status FROM tickets")).toEqual([{ timeslot_id: later, status: "issued" }]);
-    expect(await w.sql("SELECT ticket_id FROM allocations")).toEqual([{ ticket_id: ticketId }]);
-    await expect(w.reschedule(w.customerId, ticketId, later, w.p)).rejects.toMatchObject({ code: "invalid_state" });
+    expect(await w.used()).toBe(0);
   });
 
   test("Cancellation Policy: in window cancelled, late forfeited and the Pack session stays used", async () => {
     const w = await packWorld();
     const p2 = await w.participant(w.customerId);
     const early = await w.book(w.customerId, await w.slot(w.optionId, kl(`${DAY}T09:00`)), [p2]);
-    expect(await w.cancel(w.customerId, early.ticketIds[0])).toEqual({ status: "cancelled" });
-    await expect(w.cancel(w.customerId, early.ticketIds[0])).rejects.toMatchObject({ code: "invalid_state" });
+    const group = { bookingId: early.bookingId };
+    expect(await w.cancel(w.customerId, group, early.ticketIds)).toMatchObject({ tickets: [{ outcome: "cancelled" }] });
+    await expect(w.cancel(w.customerId, group, early.ticketIds)).rejects.toMatchObject({ code: "invalid_state" });
 
     const soon = await w.slot(w.optionId, Date.now() + 2 * 3600_000);
-    const {
-      ticketIds: [late],
-    } = await w.redeem(soon);
-    expect(await w.cancel(w.customerId, late)).toEqual({ status: "forfeited" });
+    const { ticketIds } = await w.redeem(soon);
+    expect(await w.cancel(w.customerId, { packId: w.packId }, ticketIds)).toMatchObject({ tickets: [{ outcome: "forfeited" }] });
     expect(await w.used()).toBe(1);
     expect(await w.allocationCount()).toBe(0);
   });
@@ -409,23 +392,23 @@ describe("Closure, cancel and Packs", () => {
     const w = await rideWorld({ maxSessionsPerDay: 1 });
     const p = await w.participant(w.customerId);
     const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    const {
-      ticketIds: [ticketId],
-    } = await w.book(w.customerId, ts, [p]);
+    const { bookingId, ticketIds } = await w.book(w.customerId, ts, [p]);
     await w.startSlot(ts);
-    await expect(w.cancel(w.customerId, ticketId)).rejects.toMatchObject({ code: "invalid_state" });
+    await expect(w.cancel(w.customerId, { bookingId }, ticketIds)).rejects.toMatchObject({ code: "started" });
     await expect(w.b.closeTimeslot(ts, "weather")).rejects.toMatchObject({ code: "invalid_state" });
     expect(await w.allocationCount()).toBe(1);
   });
 
-  test("Pack expiry and another Operator's Timeslot are pack_unavailable", async () => {
-    const w = await packWorld(kl(`${DAY}T00:00`));
-    await expect(w.redeem(await w.slot(w.optionId, kl(`${DAY}T09:00`)))).rejects.toMatchObject({
-      code: "pack_unavailable",
-    });
+  test("Pack expiry is pack_expired and another Operator's Timeslot is pack_unavailable", async () => {
+    const w = await packWorld(1);
+    await expect(w.redeem(await w.slot(w.optionId, later(72)))).rejects.toMatchObject({ code: "pack_expired" });
     const other = await operator();
     await other.resource();
     const foreign = await other.slot(await other.option(), kl("2029-06-01T09:00"));
-    await expect(w.redeem(foreign)).rejects.toMatchObject({ code: "pack_unavailable" });
+    const otherCustomer = w.customerId;
+    const { holdId } = await other.hold(otherCustomer, foreign, [await other.participant(otherCustomer)]);
+    await expect(
+      other.b.redeemPack({ requestId: rid(), customerId: otherCustomer, packId: w.packId, holdId }),
+    ).rejects.toMatchObject({ code: "pack_unavailable" });
   });
 });

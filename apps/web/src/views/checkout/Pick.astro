@@ -3,7 +3,8 @@ import Checkout from "../../layouts/Checkout.astro";
 import BottomBar from "../../components/checkout/BottomBar.astro";
 import FieldError from "../../components/checkout/FieldError.astro";
 import Stepper from "../../components/checkout/Stepper.astro";
-import { duration, klDay, klDayMonth, klTime, klWeekday, path, requirements, rm, t } from "../../lib/i18n";
+import DateStrip from "../../components/checkout/DateStrip.astro";
+import { duration, klDay, klTime, path, requirements, rm, t } from "../../lib/i18n";
 import type { pickStep } from "../../lib/checkout";
 
 type Props = Exclude<Awaited<ReturnType<typeof pickStep>>, Response>;
@@ -12,8 +13,6 @@ const s = t[l];
 const c = s.checkout;
 const here = path(l, "book", o.id);
 const name = l === "ms" ? o.nameMs : o.nameEn;
-const strip = days.slice(0, 14);
-const later = days.slice(14).filter((d) => d.open);
 const total = o.priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
 const carried = new URLSearchParams({
   quantity: String(values.quantity),
@@ -21,7 +20,6 @@ const carried = new URLSearchParams({
 });
 const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
 const picked = times.find((x) => x.id === values.timeslotId);
-const chip = "flex min-h-16 min-w-16 flex-col items-center justify-center rounded-2xl border px-2 text-sm leading-tight";
 ---
 
 <Checkout locale={l} title={c.pickTitle} step={1} problems={p}>
@@ -53,52 +51,7 @@ const chip = "flex min-h-16 min-w-16 flex-col items-center justify-center rounde
       }
     </section>
 
-    <fieldset class="min-w-0">
-      <legend class="text-xl font-bold">{c.date}</legend>
-      <ul class="snap-row -mx-4 mt-3 auto-cols-max gap-2 px-4 pb-1">
-        {
-          strip.map((d) => {
-            const body = (
-              <>
-                <span class="text-xs">{klWeekday(l, d.at)}</span>
-                <span class="num font-semibold">{klDayMonth(l, d.at)}</span>
-              </>
-            );
-            return (
-              <li>
-                {d.open ? (
-                  <a
-                    data-day href={dayLink(d.date)}
-                    aria-current={d.date === date ? "date" : undefined}
-                    class:list={[chip, d.date === date ? "border-forest bg-forest text-white" : "border-line bg-white hover:border-leaf"]}
-                  >
-                    {body}
-                  </a>
-                ) : (
-                  <span class:list={[chip, "border-transparent text-muted line-through"]}>{body}</span>
-                )}
-              </li>
-            );
-          })
-        }
-      </ul>
-      {
-        later.length > 0 && (
-          <details class="mt-3">
-            <summary class="inline-flex min-h-12 cursor-pointer items-center font-semibold text-leaf underline underline-offset-2">{c.moreDates}</summary>
-            <ul class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {later.map((d) => (
-                <li>
-                  <a data-day href={dayLink(d.date)} aria-current={d.date === date ? "date" : undefined} class:list={[chip, "w-full", d.date === date ? "border-forest bg-forest text-white" : "border-line bg-white"]}>
-                    {klDay(l, d.at)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )
-      }
-    </fieldset>
+    <DateStrip locale={l} days={days} date={date} href={dayLink} />
 
     <fieldset id="time" class="min-w-0">
       <legend class="text-xl font-bold">{c.time} <span class="font-normal text-muted">· {klDay(l, Date.parse(`${date}T04:00:00Z`))}</span></legend>

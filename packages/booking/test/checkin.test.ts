@@ -51,7 +51,7 @@ test("5 concurrent scans give exactly one checked_in", async () => {
 test("cancelled, forfeited, closed and tomorrow's Tickets are reported, not checked in", async () => {
   const w = await arrived();
   expect((await w.checkIn(w.ticketIds[0])).outcome).toBe("not_today");
-  await w.cancel(w.customerId, w.ticketIds[0]);
+  await w.cancel(w.customerId, { bookingId: w.bookingId }, [w.ticketIds[0]]);
   await w.sql("UPDATE tickets SET status = 'forfeited' WHERE id = ?", w.ticketIds[1]);
   await w.today();
   expect((await w.checkIn(w.ticketIds[0])).outcome).toBe("cancelled");

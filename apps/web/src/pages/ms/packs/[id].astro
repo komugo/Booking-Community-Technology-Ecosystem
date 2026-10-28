@@ -1,0 +1,10 @@
+---
+import PackView from "../../../views/manage/Pack.astro";
+import { groupStep } from "../../../lib/manage";
+import type { Pack } from "../../../lib/api";
+
+const data = await groupStep(Astro, "ms", "pack");
+if (data instanceof Response) return data;
+---
+
+<PackView {...data} g={data.g as Pack} />

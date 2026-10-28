@@ -1,7 +1,7 @@
 ---
 import Checkout from "../../layouts/Checkout.astro";
 import BottomBar from "../../components/checkout/BottomBar.astro";
-import { klLongDay, klTime, path, rm, t } from "../../lib/i18n";
+import { klDayYear, klLongDay, klTime, path, rm, t } from "../../lib/i18n";
 import { named, type payStep } from "../../lib/checkout";
 
 type Props = Exclude<Awaited<ReturnType<typeof payStep>>, Response>;
@@ -16,6 +16,18 @@ const gone = co.refundReason === "unavailable";
 const left = (co.holdExpiresAt ?? 0) - Date.now();
 const failed = p.summary.length > 0 && new URL(Astro.url).searchParams.get("e") === "payment_failed";
 const btn = "inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest disabled:opacity-50";
+const quiet = "inline-flex min-h-12 shrink-0 items-center rounded-full border border-line bg-white px-6 font-semibold hover:bg-sand disabled:opacity-50";
+const k = s.packs;
+const packs = co.state === "held" ? co.packs : [];
+const usable = packs.some((x) => !x.why);
+const why = (x: (typeof packs)[number]) =>
+  x.why === "expired"
+    ? k.expired(klDayYear(l, x.expiresAt))
+    : x.why === "after_expiry"
+      ? k.afterExpiry(klDayYear(l, x.expiresAt))
+      : x.why === "used_up"
+        ? k.usedUp(co.quantity, x.left)
+        : k.addOns;
 const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherTitle) : co.state === "expired" ? c.expiredTitle : c.payTitle;
 ---
 
@@ -46,6 +58,29 @@ const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherT
         <a href={path(l, "book", o.id)} class={`${btn} mt-4`}>{c.rebook}</a>
       </div>
     )
+  }
+
+  {
+    packs.map((x) => (
+      <section data-use-pack={x.id} class:list={["mt-6 rounded-2xl p-4", x.why ? "bg-sand" : "bg-forest text-white"]} aria-labelledby={`pack-${x.id}`}>
+        <h2 id={`pack-${x.id}`} class="text-2xl font-extrabold">{k.useTitle}</h2>
+        <p class="mt-1 font-semibold">{named(x, l)}</p>
+        {x.why ? (
+          <>
+            <p class="mt-2" data-why={x.why}>{why(x)}</p>
+            {x.why !== "expired" && x.why !== "used_up" && (
+              <a href={path(l, "book", o.id)} class="mt-2 inline-flex min-h-12 items-center font-semibold text-leaf underline underline-offset-2">{x.why === "add_ons" ? c.back : k.pickEarlier}</a>
+            )}
+          </>
+        ) : (
+          <form method="post" class="mt-3">
+            <p class="num text-white/80">{k.uses(co.quantity, x.left - co.quantity)}</p>
+            <input type="hidden" name="packId" value={x.id} />
+            <button name="action" value="pack" class="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-lime px-6 font-semibold text-ink hover:bg-white sm:w-auto">{k.usePack}</button>
+          </form>
+        )}
+      </section>
+    ))
   }
 
   <section class="mt-6 rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]" aria-labelledby="summary">
@@ -98,7 +133,7 @@ const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherT
       <form method="post">
         <p class="mt-4 text-sm text-muted">{c.payNote}</p>
         <BottomBar locale={l} label={c.total} sen={total}>
-          <button name="action" value="pay" data-pay class={btn} disabled={left < 60_000}>{failed ? c.retry : c.pay(rm(total))}</button>
+          <button name="action" value="pay" data-pay class={usable ? quiet : btn} disabled={left < 60_000}>{failed ? c.retry : usable ? k.orPay(rm(total)) : c.pay(rm(total))}</button>
         </BottomBar>
       </form>
     )

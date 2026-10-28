@@ -1,0 +1,52 @@
+---
+import type { Locale } from "@komugo/db";
+import type { Group } from "../../lib/api";
+import { klDay, klDeadline, klTime, rm, t } from "../../lib/i18n";
+import { changeHref } from "../../lib/manage";
+import { named } from "../../lib/checkout";
+
+interface Props {
+  locale: Locale;
+  g: Group;
+  closures: { timeslotId: string; reason: string; choice: "refund" | "reschedule" | null; startsAt: number; optionId: string; issued: number; refundSen: number }[];
+  cancelled: string | null;
+  moved: number | null;
+}
+const { locale: l, g, closures, cancelled, moved } = Astro.props;
+const m = t[l].manage;
+const optionName = (id: string) => named(g.kind === "pack" ? (g.options.find((o) => o.id === id) ?? g.option) : g.option, l);
+const done =
+  moved !== null
+    ? m.doneMoved(klDeadline(l, moved))
+    : cancelled === null
+      ? null
+      : cancelled === "r"
+        ? m.doneReturned
+        : Number(cancelled) > 0
+          ? m.doneCancelled(rm(Number(cancelled)))
+          : m.doneNoRefund;
+const btn = "inline-flex min-h-12 items-center justify-center rounded-full px-5 text-center font-semibold";
+---
+
+{done && <p role="status" class="mt-6 rounded-2xl bg-lime/40 p-4 font-semibold text-forest">{done}</p>}
+{
+  closures.map((c) =>
+    c.choice ? (
+      <p data-closure={c.timeslotId} data-choice={c.choice} class="mt-6 rounded-2xl bg-sand p-4 font-semibold">
+        {c.choice === "reschedule" ? m.choseMove : g.kind === "pack" ? m.choseReturn : m.choseRefund(rm(c.refundSen))}
+      </p>
+    ) : (
+      <section data-closure={c.timeslotId} aria-label={t[l].closed} class="mt-6 rounded-2xl border-2 border-clay bg-clay/5 p-4">
+        <p class="font-semibold">
+          {m.closedBanner(g.operatorName, optionName(c.optionId), `${klDay(l, c.startsAt)}, ${klTime(l, c.startsAt)}`, m.why[c.reason] ?? "")}
+        </p>
+        <div class="mt-4 grid gap-2 sm:grid-cols-2">
+          <a href={changeHref(l, g, "reschedule", `closed:${c.timeslotId}`)} class={`${btn} bg-leaf text-white hover:bg-forest`}>{m.moveFree}</a>
+          <a href={changeHref(l, g, "cancel", `closed:${c.timeslotId}`)} class={`${btn} border border-line bg-white hover:bg-sand`}>
+            {g.kind === "pack" ? m.returnSessions(c.issued) : m.refundFull(rm(c.refundSen))}
+          </a>
+        </div>
+      </section>
+    ),
+  )
+}

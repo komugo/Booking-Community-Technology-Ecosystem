@@ -10,6 +10,7 @@ export {
   isClosedDay,
   klDate,
   klWeekday,
+  packExpiry,
   participantKey,
   WEEKDAYS,
   type Weekday,

@@ -4,10 +4,10 @@ import { useLocation, useParams, useSearch } from "wouter";
 import { api, ApiError, useApi } from "../api";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
-import type { AddOn, Option, Resource, ResourceKind, Setup } from "../types";
+import type { AddOn, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
-const TABS = ["activity", "options", "add-ons", "resources"] as const;
+const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
 type Tab = (typeof TABS)[number];
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 
@@ -29,6 +29,7 @@ function closedParts(days: string[], t: Dict) {
 const closedSentence = (days: string[], t: Dict) => (days.length ? t.closedSentence(closedParts(days, t)) : t.openEveryDay);
 
 type Err = { field?: string; text: string } | null;
+type Item = Option | AddOn | PackOffer | Resource;
 
 function useSubmit(t: Dict) {
   const [busy, setBusy] = useState(false);
@@ -56,8 +57,8 @@ export default function SetupPage() {
   const [, navigate] = useLocation();
   const tab = (new URLSearchParams(useSearch()).get("tab") ?? "activity") as Tab;
   const setup = useApi<Setup>(`/operators/${op}/setup`);
-  const [editing, setEditing] = useState<{ kind: Exclude<Tab, "activity">; item: Option | AddOn | Resource | null } | null>(null);
-  const labels: Record<Tab, string> = { activity: t.activity, options: t.options, "add-ons": t.addOns, resources: t.resources };
+  const [editing, setEditing] = useState<{ kind: Exclude<Tab, "activity">; item: Item | null } | null>(null);
+  const labels: Record<Tab, string> = { activity: t.activity, options: t.options, "add-ons": t.addOns, packs: t.packs, resources: t.resources };
 
   if (!setup.data) return setup.error ? <p className="py-16 text-center text-muted">{errorText(setup.error, t)}</p> : <Spinner label={t.loading} />;
   const s = setup.data;
@@ -110,13 +111,18 @@ export default function SetupPage() {
                 ? editing.item
                   ? t.editAddOn
                   : t.newAddOn
-                : editing.item
-                  ? t.editResource
-                  : t.newResource
+                : editing.kind === "packs"
+                  ? editing.item
+                    ? t.editPackOffer
+                    : t.newPackOffer
+                  : editing.item
+                    ? t.editResource
+                    : t.newResource
         }
       >
         {editing?.kind === "options" && <OptionEditor op={op} setup={s} item={editing.item as Option | null} onSaved={done} />}
         {editing?.kind === "add-ons" && <AddOnEditor op={op} setup={s} item={editing.item as AddOn | null} onSaved={done} />}
+        {editing?.kind === "packs" && <PackOfferEditor op={op} setup={s} item={editing.item as PackOffer | null} onSaved={done} />}
         {editing?.kind === "resources" && <ResourceEditor op={op} item={editing.item as Resource | null} onSaved={done} />}
       </Sheet>
     </>
@@ -132,10 +138,15 @@ function List({
   setup: Setup;
   kind: Exclude<Tab, "activity">;
   onNew: () => void;
-  onEdit: (x: Option | AddOn | Resource) => void;
+  onEdit: (x: Item) => void;
 }) {
   const { t, l } = useT();
-  const rows: { item: Option | AddOn | Resource; title: string; detail: string }[] =
+  const optionNames = (ids: string[]) =>
+    setup.options
+      .filter((o) => ids.includes(o.id))
+      .map((o) => named(o, l))
+      .join(", ");
+  const rows: { item: Item; title: string; detail: string; sub?: string }[] =
     kind === "options"
       ? setup.options.map((o) => ({
           item: o,
@@ -144,7 +155,14 @@ function List({
         }))
       : kind === "add-ons"
         ? setup.addOns.map((a) => ({ item: a, title: named(a, l), detail: rm(a.priceSen) }))
-        : setup.resources.map((r) => ({
+        : kind === "packs"
+          ? setup.packOffers.map((p) => ({
+              item: p,
+              title: named(p, l),
+              detail: t.packRow(p.sessions, rm(p.priceSen), p.validDays),
+              sub: optionNames(p.optionIds),
+            }))
+          : setup.resources.map((r) => ({
             item: r,
             title: r.name,
             detail:
@@ -158,7 +176,7 @@ function List({
                     .join(" · ")
                 : t.kinds[r.kind],
           }));
-  const add = { options: t.newOption, "add-ons": t.newAddOn, resources: t.newResource }[kind];
+  const add = { options: t.newOption, "add-ons": t.newAddOn, packs: t.newPackOffer, resources: t.newResource }[kind];
   return (
     <>
       <button type="button" className="btn btn-primary" onClick={onNew}>
@@ -177,6 +195,7 @@ function List({
               <span className="min-w-0">
                 <span className="block font-display text-lg font-bold">{r.title}</span>
                 <span className="num block text-sm text-muted">{r.detail}</span>
+                {r.sub && <span className="block text-sm">{r.sub}</span>}
               </span>
               {!r.item.active && <span className="shrink-0 rounded-full bg-sand px-2.5 py-0.5 text-xs font-semibold">{t.inactive}</span>}
             </button>
@@ -583,6 +602,84 @@ function ResourceEditor({ op, item, onSaved }: { op: string; item: Resource | nu
       )}
       <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
       {item && <p className="text-sm text-muted">{t.deactivateHint}</p>}
+      <SaveBar busy={busy} error={error} onSave={save} />
+    </div>
+  );
+}
+
+const DAY_CHIPS = [30, 90, 180, 365];
+
+function PackOfferEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; item: PackOffer | null; onSaved: () => void }) {
+  const { t, l } = useT();
+  const [v, setV] = useState({
+    activityId: item?.activityId ?? setup.catalogue[0]?.id ?? "",
+    nameEn: item?.nameEn ?? "",
+    nameMs: item?.nameMs ?? "",
+    sessions: item?.sessions ?? 4,
+    price: item ? String(item.priceSen / 100) : "",
+    validDays: str(item?.validDays ?? 90),
+    optionIds: item?.optionIds ?? [],
+    active: item?.active ?? true,
+  });
+  const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
+  const { busy, error, submit, err } = useSubmit(t);
+  const options = setup.options.filter((o) => o.activityId === v.activityId);
+
+  const save = async () => {
+    const body = {
+      activityId: v.activityId,
+      nameEn: v.nameEn,
+      nameMs: v.nameMs,
+      sessions: v.sessions,
+      priceSen: sen(v.price),
+      validDays: num(v.validDays),
+      optionIds: v.optionIds,
+      active: v.active,
+    };
+    if (await submit(() => api(item ? "PUT" : "POST", `/operators/${op}/pack-offers${item ? `/${item.id}` : ""}`, body))) onSaved();
+  };
+
+  return (
+    <div className="space-y-6">
+      <ActivitySelect setup={setup} value={v.activityId} onChange={(activityId) => set({ activityId, optionIds: [] })} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label={t.nameEn} value={v.nameEn} onChange={(nameEn) => set({ nameEn })} error={err("nameEn")} />
+        <Input label={t.nameMs} value={v.nameMs} onChange={(nameMs) => set({ nameMs })} error={err("nameMs")} />
+      </div>
+      <Stepper label={t.sessions} value={v.sessions} min={1} max={50} onChange={(sessions) => set({ sessions })} />
+      <Input label={t.priceRm} value={v.price} onChange={(price) => set({ price })} error={err("priceSen")} numeric />
+      <div>
+        <Input label={t.validDays} value={v.validDays} onChange={(validDays) => set({ validDays })} error={err("validDays")} numeric />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {DAY_CHIPS.map((d) => (
+            <button key={d} type="button" className="chip num" aria-pressed={v.validDays === String(d)} onClick={() => set({ validDays: String(d) })}>
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+      <fieldset aria-describedby="eligible-note">
+        <legend className="label">{t.eligibleOptions}</legend>
+        <div className="space-y-2">
+          {options.map((o) => (
+            <label key={o.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-line bg-white px-3 has-checked:border-forest">
+              <input
+                type="checkbox"
+                className="size-5 accent-leaf"
+                checked={v.optionIds.includes(o.id)}
+                onChange={(e) => set({ optionIds: e.target.checked ? [...v.optionIds, o.id] : v.optionIds.filter((x) => x !== o.id) })}
+              />
+              <span className="font-semibold">{named(o, l)}</span>
+              <span className="num ml-auto text-sm text-muted">{rm(o.priceSen)}</span>
+            </label>
+          ))}
+        </div>
+        <p id="eligible-note" className={`mt-1 text-sm ${err("optionIds") ? "font-semibold text-clay" : "text-muted"}`}>
+          {err("optionIds") ?? t.eligibleHint}
+        </p>
+      </fieldset>
+      <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
+      {item && <p className="text-sm text-muted">{t.packHint}</p>}
       <SaveBar busy={busy} error={error} onSave={save} />
     </div>
   );

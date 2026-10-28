@@ -1,0 +1,58 @@
+---
+import { packExpiry } from "@komugo/types";
+import Checkout from "../layouts/Checkout.astro";
+import BottomBar from "../components/checkout/BottomBar.astro";
+import { klDayYear, rm, t } from "../lib/i18n";
+import { named } from "../lib/checkout";
+import { signInAt, type buyPackStep } from "../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof buyPackStep>>, Response>;
+const { locale: l, offer: o, activity, options, email, here, problems: p } = Astro.props;
+const s = t[l];
+const k = s.packs;
+const c = s.checkout;
+const useBy = packExpiry(Date.now(), o.validDays);
+const btn = "inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest";
+---
+
+<Checkout locale={l} title={k.buyTitle} problems={p}>
+  <section class="mt-6 rounded-3xl bg-forest p-5 text-white" aria-labelledby="offer">
+    <p class="text-sm text-white/80">{named(activity, l)}</p>
+    <h2 id="offer" class="mt-1 text-3xl font-extrabold">{named(o, l)}</h2>
+    <p class="num mt-4 text-3xl font-semibold text-lime">{rm(o.priceSen)}</p>
+    <p class="num text-white/80">{k.sessions(o.sessions)} · {k.perSession(rm(Math.round(o.priceSen / o.sessions)))}</p>
+    <ul class="mt-4 space-y-1 text-sm">
+      <li>{k.for(options.map((x) => named(x, l)).join(", "))}</li>
+      <li class="num font-semibold">{k.useBy(klDayYear(l, useBy))}</li>
+      <li class="text-white/80">{k.rule}</li>
+    </ul>
+  </section>
+
+  <section class="mt-4 rounded-2xl bg-sand p-4" aria-labelledby="how">
+    <h2 id="how" class="text-lg font-bold">{k.policyTitle}</h2>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      {k.policy.map((x) => <li>{x}</li>)}
+    </ul>
+  </section>
+
+  {
+    email ? (
+      <>
+        <form method="post" class="mt-4 flex flex-wrap items-center gap-x-2 text-sm">
+          <span>{k.buyingAs} <strong>{email}</strong> ·</span>
+          <button name="action" value="logout" class="min-h-12 font-semibold text-leaf underline underline-offset-2">{c.notYou}</button>
+        </form>
+        <form method="post">
+          <p class="mt-2 text-sm text-muted">{c.payNote}</p>
+          <BottomBar locale={l} label={c.total} sen={o.priceSen}>
+            <button name="action" value="pay" data-pay class={btn}>{c.pay(rm(o.priceSen))}</button>
+          </BottomBar>
+        </form>
+      </>
+    ) : (
+      <BottomBar locale={l} label={c.total} sen={o.priceSen}>
+        <a href={signInAt(l, here)} class={btn}>{k.signInToBuy}</a>
+      </BottomBar>
+    )
+  }
+</Checkout>

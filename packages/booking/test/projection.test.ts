@@ -1,9 +1,9 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { expect, test } from "vitest";
-import { cancelTicket } from "../src/engine";
+import { cancelTickets } from "../src/engine";
 import { drain, mark } from "../src/outbox";
 import { tx } from "../src/tx";
-import { DAY, kl, rid, rideWorld } from "./helpers";
+import { DAY, kl, later, rid, rideWorld } from "./helpers";
 
 const d1 = (query: string, ...params: unknown[]) =>
   env.DB.prepare(query)
@@ -84,16 +84,14 @@ test("an Add-on and an Option's min_participants reach proj_*", async () => {
 
 test("redeem and cancel update proj_packs.sessions_used", async () => {
   const w = await rideWorld();
-  const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-  const { packId } = await w.pack(w.customerId, 3, kl("2030-12-31T00:00"));
-  const {
-    ticketIds: [ticketId],
-  } = await w.redeem(w.customerId, packId, ts, [await w.participant(w.customerId)]);
+  const ts = await w.slot(w.optionId, later(72));
+  const { packId } = await w.buyPack(w.customerId, { sessions: 3, optionIds: [w.optionId] });
+  const { ticketIds } = await w.redeem(w.customerId, packId, ts, [await w.participant(w.customerId)]);
   await w.flush();
   expect(await d1("SELECT sessions_total, sessions_used FROM proj_packs WHERE id = ?", packId)).toEqual([
     { sessions_total: 3, sessions_used: 1 },
   ]);
-  await w.cancel(w.customerId, ticketId);
+  await w.cancel(w.customerId, { packId }, ticketIds);
   await w.flush();
   expect(await d1("SELECT sessions_used FROM proj_packs WHERE id = ?", packId)).toEqual([{ sessions_used: 0 }]);
 });
@@ -160,6 +158,7 @@ test("a change made while a batch is in flight stays queued and is re-drained wi
   const w = await rideWorld();
   const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
   const {
+    bookingId,
     ticketIds: [ticketId],
   } = await w.book(w.customerId, ts, [await w.participant(w.customerId)]);
   await w.flush();
@@ -174,7 +173,16 @@ test("a change made while a batch is in flight stays queued and is re-drained wi
       batch: async (stmts) => {
         if (!mutated) {
           mutated = true;
-          tx(s.storage, () => cancelTicket(s.storage.sql, Date.now(), { customerId: w.customerId, ticketId }));
+          tx(s.storage, () =>
+            cancelTickets(s.storage.sql, Date.now(), {
+              customerId: w.customerId,
+              group: { bookingId },
+              ticketIds: [ticketId],
+              onlyClosed: false,
+              expectSen: 10000,
+              expectForfeited: [],
+            }),
+          );
         }
         const r = await env.DB.batch(stmts);
         versions.push((await d1("SELECT version FROM proj_tickets WHERE id = ?", ticketId))[0]?.version);
@@ -192,11 +200,12 @@ test("projection versions keep rising after meta.rev is rewound, as by a restore
   const w = await rideWorld();
   const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
   const {
+    bookingId,
     ticketIds: [ticketId],
   } = await w.book(w.customerId, ts, [await w.participant(w.customerId)]);
   await w.flush();
   await w.sql("UPDATE meta SET rev = 1");
-  await w.cancel(w.customerId, ticketId);
+  await w.cancel(w.customerId, { bookingId }, [ticketId]);
   await w.flush();
   expect(await d1("SELECT status FROM proj_tickets WHERE id = ?", ticketId)).toEqual([{ status: "cancelled" }]);
 });

@@ -25,7 +25,7 @@ export type Group = {
   customerId: string;
   contact: { name: string; phone: string | null; email: string | null };
   addOns: (Named & { quantity: number })[];
-  notice: { emailedAt: number | null } | null;
+  notice: { emailedAt: number | null; choice: "refund" | "reschedule" | null; chosenAt: number | null } | null;
   tickets: Ticket[];
 };
 export type Timeslot = {
@@ -87,12 +87,33 @@ export type Schedule = {
   endsOn: string | null;
   active: boolean;
 };
+export type PackOffer = Named & {
+  id: string;
+  activityId: string;
+  sessions: number;
+  priceSen: number;
+  validDays: number;
+  optionIds: string[];
+  active: boolean;
+};
+export type RefundRow = {
+  id: string;
+  operatorName: string;
+  amountSen: number;
+  reason: "duplicate" | "amount_mismatch" | "unavailable" | "unknown_hold" | "cancel" | "closure";
+  createdAt: number;
+  refundedAt: number | null;
+  billId: string | null;
+  bookingId: string | null;
+  customer: { name: string | null; email: string | null; phone: string | null };
+};
 export type Setup = {
   activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
   options: Option[];
   addOns: AddOn[];
   resources: Resource[];
   schedules: Schedule[];
+  packOffers: PackOffer[];
   catalogue: (Named & { id: string; slugEn: string; slugMs: string; published: boolean })[];
 };
 export type Generated = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };

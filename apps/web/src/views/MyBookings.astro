@@ -1,0 +1,132 @@
+---
+import Checkout from "../layouts/Checkout.astro";
+import { klDayMonth, klDayYear, klTime, klWeekday, path, t } from "../lib/i18n";
+import { named } from "../lib/checkout";
+import type { meStep } from "../lib/manage";
+import type { Me } from "../lib/api";
+
+type Props = Exclude<Awaited<ReturnType<typeof meStep>>, Response>;
+const { locale: l, me, problems: p } = Astro.props;
+const s = t[l];
+const m = s.me;
+type Visit = Me["upcoming"][number];
+const href = (v: { kind: string; id: string; k: string }) => `${path(l, v.kind === "pack" ? "packs" : "bookings", v.id)}?k=${v.k}`;
+const chips = (v: Visit) =>
+  [...new Set(v.statuses)].flatMap((x) =>
+    x === "forfeited" ? [m.status.forfeited] : x === "cancelled" ? [v.kind === "pack" ? m.status.returned : m.status.cancelled] : [],
+  );
+const empty = !me.awaiting.length && !me.upcoming.length && !me.packs.length && !me.past.length;
+const row = "flex min-h-20 items-center gap-4 rounded-2xl bg-white p-3 pr-4 shadow-[0_1px_0_var(--color-line)] hover:bg-sand/40";
+---
+
+<Checkout locale={l} title={m.title} problems={p}>
+  {
+    me.awaiting.length > 0 && (
+      <section class="mt-8" aria-labelledby="awaiting">
+        <h2 id="awaiting" class="text-2xl font-extrabold text-clay">{m.awaiting}</h2>
+        <ul class="mt-3 space-y-2">
+          {me.awaiting.map((v) => (
+            <li>
+              <a href={href(v)} data-awaiting class={`${row} border-l-4 border-clay`}>
+                <span class="min-w-0 flex-1">
+                  <span class="block font-semibold">{named(v.activity, l)}</span>
+                  <span class="num block text-sm text-muted">{m.closed} · {klWeekday(l, v.startsAt)} {klDayMonth(l, v.startsAt)} {klTime(l, v.startsAt)}</span>
+                </span>
+                <span class="rounded-full bg-clay px-3 py-1 text-sm font-semibold text-white">{m.choose}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    me.upcoming.length > 0 && (
+      <section class="mt-8" aria-labelledby="upcoming">
+        <h2 id="upcoming" class="text-2xl font-extrabold">{m.upcoming}</h2>
+        <ul class="mt-3 space-y-2">
+          {me.upcoming.map((v) => (
+            <li>
+              <a href={href(v)} data-upcoming class={row}>
+                <span class="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl bg-forest text-white uppercase">
+                  <span class="text-xs">{klWeekday(l, v.startsAt)}</span>
+                  <span class="num text-sm leading-tight font-bold">{klDayMonth(l, v.startsAt)}</span>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="num block font-semibold">{klTime(l, v.startsAt)} · {named(v.option, l)}</span>
+                  <span class="block text-sm">{named(v.activity, l)}</span>
+                  <span class="block truncate text-sm text-muted">{v.participants.join(", ")}</span>
+                </span>
+                {v.kind === "pack" && <span class="rounded-full bg-lime px-2.5 py-0.5 text-xs font-semibold text-forest">{m.pack}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    me.packs.length > 0 && (
+      <section class="mt-8" aria-labelledby="packs">
+        <h2 id="packs" class="text-2xl font-extrabold">{m.packs}</h2>
+        <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+          {me.packs.map((x) => {
+            const left = x.sessionsTotal - x.sessionsUsed;
+            return (
+              <li>
+                <a href={href({ kind: "pack", ...x })} data-pack class:list={["block rounded-2xl p-4", x.expired ? "bg-sand text-muted" : "bg-forest text-white hover:bg-forest/95"]}>
+                  <span class="block font-display text-xl font-bold">{named(x, l)}</span>
+                  <span class="num mt-2 block font-semibold">{m.left(left, x.sessionsTotal)}</span>
+                  <span aria-hidden="true" class:list={["mt-2 block h-2 overflow-hidden rounded-full", x.expired ? "bg-line" : "bg-white/20"]}>
+                    <span class:list={["block h-full rounded-full", x.expired ? "bg-muted" : "bg-lime"]} style={`width:${(left / x.sessionsTotal) * 100}%`} />
+                  </span>
+                  <span class:list={["num mt-2 block text-sm", !x.expired && "text-white/80"]}>{(x.expired ? m.expiredOn : m.useBy)(klDayYear(l, x.expiresAt))}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    me.past.length > 0 && (
+      <section class="mt-8" aria-labelledby="past">
+        <h2 id="past" class="text-2xl font-extrabold">{m.past}</h2>
+        <ul class="mt-3 divide-y divide-line">
+          {me.past.map((v) => (
+            <li>
+              <a href={href(v)} data-past class="flex min-h-14 items-center justify-between gap-3 py-2 hover:bg-sand/40">
+                <span class="min-w-0">
+                  <span class="block font-semibold">{named(v.activity, l)}</span>
+                  <span class="num block text-sm text-muted">{klDayYear(l, v.startsAt)} · {named(v.option, l)}</span>
+                </span>
+                <span class="flex shrink-0 gap-1">
+                  {chips(v).map((x) => <span class="rounded-full bg-sand px-2.5 py-0.5 text-xs font-semibold">{x}</span>)}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    empty && (
+      <div class="mt-8 rounded-3xl bg-sand p-6">
+        <p class="font-display text-2xl font-bold">{m.emptyTitle}</p>
+        <p class="mt-2">{m.emptyBody}</p>
+        <a href={path(l)} class="mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{m.find}</a>
+      </div>
+    )
+  }
+
+  <form method="post" class="mt-10 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+    <span>{m.signedInAs} <strong class="text-ink">{me.email}</strong> ·</span>
+    <button class="min-h-12 font-semibold text-leaf underline underline-offset-2">{m.signOut}</button>
+  </form>
+</Checkout>

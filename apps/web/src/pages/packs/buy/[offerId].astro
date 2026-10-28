@@ -1,0 +1,9 @@
+---
+import BuyPack from "../../../views/BuyPack.astro";
+import { buyPackStep } from "../../../lib/manage";
+
+const data = await buyPackStep(Astro, "en");
+if (data instanceof Response) return data;
+---
+
+<BuyPack {...data} />

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { booked, member, world } from "./helpers";
+import { booked, member, rid, world } from "./helpers";
 
 const D = 86_400_000;
 const klDay = (n: number) => new Date(Date.now() + 8 * 3_600_000 + n * D).toISOString().slice(0, 10);
@@ -89,5 +89,24 @@ describe("ops Setup", () => {
       active: true,
     });
     expect(r).toEqual({ status: 201, body: { id: expect.any(String), created: 14, removed: 0, kept: [] } });
+  });
+
+  test("Pack offers are created, updated and validated; another Operator's Option is 409", async () => {
+    const w = await world();
+    const other = await world();
+    const m = await member("operator", w.operatorId);
+    const base = `/ops/operators/${w.operatorId}`;
+    const offer = { activityId: w.activityId, nameEn: "8 rides", nameMs: "8 tunggangan", sessions: 8, priceSen: 52000, validDays: 90, optionIds: [w.optionId], active: true };
+    const r = await m.json<{ id: string }>("POST", `${base}/pack-offers`, offer);
+    expect(r.status).toBe(201);
+    expect((await m.json("PUT", `${base}/pack-offers/${r.body.id}`, { ...offer, priceSen: 50000, active: false })).status).toBe(200);
+    expect((await m.json("GET", `${base}/setup`)).body.packOffers).toEqual([{ ...offer, id: r.body.id, priceSen: 50000, active: false }]);
+    expect(await m.json("POST", `${base}/pack-offers`, { ...offer, optionIds: [other.optionId] })).toEqual({
+      status: 409,
+      body: { code: "invalid_state" },
+    });
+    const bad = await m.json("POST", `${base}/pack-offers`, { ...offer, sessions: 0, priceSen: 99, validDays: 731, optionIds: [] });
+    expect(bad.body.errors.map((e: { field: string }) => e.field)).toEqual(["sessions", "priceSen", "validDays", "optionIds"]);
+    expect((await m.json("PUT", `${base}/pack-offers/${rid()}`, offer)).status).toBe(404);
   });
 });

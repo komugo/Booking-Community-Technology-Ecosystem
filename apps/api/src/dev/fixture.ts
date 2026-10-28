@@ -1,11 +1,29 @@
 import { booking } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, participants, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, waivers } from "@komugo/db";
+import { eq } from "drizzle-orm";
 import { WAIVER } from "@komugo/types";
-import { DAY, HOUR, MIN } from "../lib";
+import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
+import { groupLink } from "../manage";
+import { recordClosure } from "../ops/closure";
 import { ticketCode } from "../ops/enrich";
 
-// An isolated Operator with one booked Timeslot today, so each e2e test owns its data.
-export async function fixture(env: Env, o: { locale?: unknown; staff?: unknown }) {
+// An isolated Operator with one booked Timeslot (today, or 3 days ahead inWindow), so each e2e test owns its data.
+// viaPack books it with a Pack instead of paying.
+export async function fixture(
+  env: Env,
+  waitUntil: WaitUntil,
+  o: {
+    locale?: unknown;
+    staff?: unknown;
+    inWindow?: unknown;
+    packOffer?: unknown;
+    packSessions?: unknown;
+    packValidDays?: unknown;
+    viaPack?: unknown;
+    extraSlots?: unknown;
+    close?: unknown;
+  },
+) {
   const db = createDb(env.DB);
   const rid = crypto.randomUUID().slice(0, 8);
   const now = Date.now();
@@ -57,9 +75,32 @@ export async function fixture(env: Env, o: { locale?: unknown; staff?: unknown }
   const helmetId = `addon_${rid}_helmet`;
   await b.upsertAddOn({ id: helmetId, activityId, nameEn: "Helmet", nameMs: "Topi keledar", priceSen: 500, active: true });
   const klMidnight = Math.floor((now + 8 * HOUR) / DAY) * DAY - 8 * HOUR;
+  const minute = Math.floor(now / MIN) * MIN;
   const {
     ids: [timeslotId],
-  } = await b.createTimeslots({ optionId, startsAt: [Math.min(now + 2 * HOUR, klMidnight + DAY - 5 * MIN)] });
+  } = await b.createTimeslots({
+    optionId,
+    startsAt: [o.inWindow === true ? minute + 3 * DAY : Math.min(now + 2 * HOUR, klMidnight + DAY - 5 * MIN)],
+  });
+  const extra = Number.isInteger(o.extraSlots) ? Math.min(o.extraSlots as number, 3) : 0;
+  const { ids: extraSlotIds } = extra
+    ? await b.createTimeslots({ optionId, startsAt: Array.from({ length: extra }, (_, i) => minute + (i + 1) * DAY + HOUR) })
+    : { ids: [] };
+  const offerId = `po_${rid}`;
+  const viaPack = o.viaPack === true;
+  if (o.packOffer === true || viaPack) {
+    await b.upsertPackOffer({
+      id: offerId,
+      activityId,
+      nameEn: "4 rides",
+      nameMs: "4 tunggangan",
+      sessions: Number.isInteger(o.packSessions) ? (o.packSessions as number) : 4,
+      priceSen: 25000,
+      validDays: Number.isInteger(o.packValidDays) ? (o.packValidDays as number) : 30,
+      optionIds: [optionId],
+      active: true,
+    });
+  }
 
   const [customer] = await db
     .insert(customers)
@@ -90,10 +131,22 @@ export async function fixture(env: Env, o: { locale?: unknown; staff?: unknown }
     replaces: null,
     timeslotId,
     participantIds,
-    addOns: [{ id: helmetId, qty: 1 }],
+    addOns: viaPack ? [] : [{ id: helmetId, qty: 1 }],
   });
-  const paid = await b.confirmHold({ billId: `dev_${rid}`, holdId: hold.holdId, amountSen: hold.amountSen });
-  if (paid.status !== "paid") throw new Error(`fixture_not_paid:${paid.reason}`);
+  let group: { kind: "booking" | "pack"; id: string; ticketIds: string[] };
+  if (viaPack) {
+    const orderId = `order_${rid}`;
+    const { amountSen } = await b.orderPack({ orderId, customerId: customer.id, offerId });
+    const issued = await b.confirmPackBill({ billId: `dev_pack_${rid}`, orderId, amountSen });
+    if (issued.status !== "paid") throw new Error(`fixture_pack_not_paid:${issued.reason}`);
+    await db.insert(packOrders).values({ id: orderId, customerId: customer.id, operatorId, offerId, amountSen, locale, packId: issued.packId, emailedAt: now, createdAt: now });
+    const { ticketIds } = await b.redeemPack({ requestId: `fixture:${rid}:redeem`, customerId: customer.id, packId: issued.packId, holdId: hold.holdId });
+    group = { kind: "pack", id: issued.packId, ticketIds };
+  } else {
+    const paid = await b.confirmHold({ billId: `dev_${rid}`, holdId: hold.holdId, amountSen: hold.amountSen });
+    if (paid.status !== "paid") throw new Error(`fixture_not_paid:${paid.reason}`);
+    group = { kind: "booking", id: paid.bookingId, ticketIds: paid.ticketIds };
+  }
   await db.insert(checkouts).values({
     sessionId: `fixture:${rid}`,
     customerId: customer.id,
@@ -110,19 +163,31 @@ export async function fixture(env: Env, o: { locale?: unknown; staff?: unknown }
     locale,
     holdId: hold.holdId,
     amountSen: hold.amountSen,
-    bookingId: paid.bookingId,
+    ...(group.kind === "booking" ? { bookingId: group.id } : { packId: group.id }),
     emailedAt: now,
     createdAt: now,
     updatedAt: now,
   });
+  if (o.close === true) {
+    // The Closure email reads proj_timeslots, which the outbox drains a moment after the write.
+    const projected = async () => (await db.select({ id: projTimeslots.id }).from(projTimeslots).where(eq(projTimeslots.id, timeslotId))).length > 0;
+    for (let i = 0; i < 50 && !(await projected()); i++) await new Promise((r) => setTimeout(r, 100));
+    await recordClosure(env, waitUntil, operatorId, timeslotId, "weather");
+  }
   return {
     operatorId,
     activityId,
     optionId,
     timeslotId,
-    ticketIds: paid.ticketIds,
-    codes: paid.ticketIds.map(ticketCode),
+    extraSlotIds,
+    ticketIds: group.ticketIds,
+    codes: group.ticketIds.map(ticketCode),
+    ...(group.kind === "booking" ? { bookingId: group.id } : { packId: group.id }),
+    k: await groupLink(env, group.kind, group.id),
+    customerEmail: customer.email!,
+    activityPath: `/${hub.slugEn}/${hub.slugEn}/${hub.slugEn}`,
     email,
     ...(staffEmail ? { staffEmail } : {}),
+    ...(o.packOffer === true || viaPack ? { offerId } : {}),
   };
 }

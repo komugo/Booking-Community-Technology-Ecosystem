@@ -2,9 +2,10 @@ import { booking, BookingError, type ConfirmResult } from "@komugo/booking";
 import { bills, checkouts, createDb } from "@komugo/db";
 import { Hono } from "hono";
 import { and, eq, isNull } from "drizzle-orm";
-import { bookingLink } from "./bookings";
 import { sendBookedEmail, sendRefundEmail } from "./email";
 import { fail, hmacHex, log, logError, safeEqual, type WaitUntil } from "./lib";
+import { bookingLink } from "./manage";
+import { confirmPackOrder, packReturn } from "./packs";
 import { owns, readSession } from "./session";
 
 type Fields = Record<string, string>;
@@ -68,26 +69,42 @@ export async function deleteBill(env: Env, id: string) {
   return res.ok || res.status === 404;
 }
 
-export type CheckoutState = "draft" | "held" | "expired" | "booked" | "refund_due";
+export type CheckoutState = "draft" | "held" | "expired" | "booked" | "redeemed" | "refund_due";
+export type BillRow = typeof bills.$inferSelect;
 
 export const checkoutState = (
-  c: { bookingId: string | null; refundReason: string | null; holdId: string | null; holdExpiresAt: number | null },
+  c: { bookingId: string | null; packId: string | null; refundReason: string | null; holdId: string | null; holdExpiresAt: number | null },
   now = Date.now(),
 ): CheckoutState =>
-  c.bookingId ? "booked" : c.refundReason ? "refund_due" : !c.holdId ? "draft" : c.holdExpiresAt! > now ? "held" : "expired";
+  c.bookingId
+    ? "booked"
+    : c.packId
+      ? "redeemed"
+      : c.refundReason
+        ? "refund_due"
+        : !c.holdId
+          ? "draft"
+          : c.holdExpiresAt! > now
+            ? "held"
+            : "expired";
 
 export async function confirmBill(env: Env, waitUntil: WaitUntil, billId: string, amountSen: number) {
-  const db = createDb(env.DB);
-  const [row] = await db
-    .select({ bill: bills, checkout: checkouts })
-    .from(bills)
-    .innerJoin(checkouts, eq(checkouts.id, bills.checkoutId))
-    .where(eq(bills.id, billId));
-  if (!row) {
+  const [bill] = await createDb(env.DB).select().from(bills).where(eq(bills.id, billId));
+  if (!bill) {
     log("billplz_unknown_bill", { billId });
     return null;
   }
-  const { bill, checkout } = row;
+  return bill.kind === "pack" ? confirmPackOrder(env, waitUntil, bill, amountSen) : confirmBooking(env, waitUntil, bill, amountSen);
+}
+
+async function confirmBooking(env: Env, waitUntil: WaitUntil, bill: BillRow, amountSen: number) {
+  const db = createDb(env.DB);
+  const billId = bill.id;
+  const [checkout] = await db.select().from(checkouts).where(eq(checkouts.id, bill.checkoutId));
+  if (!checkout) {
+    log("billplz_unknown_bill", { billId });
+    return null;
+  }
   const checkoutId = checkout.id;
   if (amountSen !== bill.amountSen) logError("billplz_amount_mismatch", { billId, checkoutId });
   let result: ConfirmResult | null = null;
@@ -121,13 +138,21 @@ export async function confirmBill(env: Env, waitUntil: WaitUntil, billId: string
       waitUntil(sendBookedEmail(env, checkoutId).catch((e) => logError("checkout_email_failed", { checkoutId, error: String(e) })));
     } else {
       // Only the current Hold's refund ends the Checkout; a stray bill's refund leaves it bookable.
-      const ends = !checkout.bookingId && bill.holdId === checkout.holdId;
+      const ends = !checkout.bookingId && !checkout.packId && bill.holdId === checkout.holdId;
       await db.batch([
         paid,
         db
           .update(checkouts)
           .set({ refundReason: result.reason, updatedAt: now })
-          .where(and(eq(checkouts.id, checkoutId), eq(checkouts.holdId, bill.holdId), isNull(checkouts.bookingId), isNull(checkouts.refundReason))),
+          .where(
+            and(
+              eq(checkouts.id, checkoutId),
+              eq(checkouts.holdId, bill.holdId),
+              isNull(checkouts.bookingId),
+              isNull(checkouts.packId),
+              isNull(checkouts.refundReason),
+            ),
+          ),
       ]);
       (ends ? log : logError)("billplz_refund_due", { billId, checkoutId, reason: result.reason });
       waitUntil(sendRefundEmail(env, billId).catch((e) => logError("refund_email_failed", { billId, error: String(e) })));
@@ -172,11 +197,12 @@ billplz.get("/return", async (c) => {
     log("billplz_unknown_bill", { billId });
     return fail(c, 404, { code: "not_found" });
   }
+  if (bill.kind === "pack") return packReturn(c, bill, fields);
   let checkout;
   let state: CheckoutState | "pending" | "failed";
   if (fields.billplzpaid === "true") {
     try {
-      const r = (await confirmBill(c.env, (p) => c.executionCtx.waitUntil(p), billId, bill.amountSen))!;
+      const r = (await confirmBooking(c.env, (p) => c.executionCtx.waitUntil(p), bill, bill.amountSen))!;
       checkout = r.checkout;
       const s = checkoutState(checkout);
       state = s === "booked" ? s : r.result?.status === "refund_due" || s === "refund_due" ? "refund_due" : "pending";

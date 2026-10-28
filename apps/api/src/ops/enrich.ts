@@ -1,20 +1,17 @@
 import type { CheckInResult, TimeslotRow } from "@komugo/booking";
-import { checkouts, closureNotices, createDb, customers, participants, projAddOns, projOptions, waivers } from "@komugo/db";
+import { checkouts, closureNotices, createDb, customers, participants, projAddOns, projOptions, waivers, within } from "@komugo/db";
 import { ageOn, klDate, WAIVER } from "@komugo/types";
-import { and, eq, sql, type Column } from "drizzle-orm";
-
-// json_each keeps it to one bound parameter; D1 caps a statement at 100.
-const within = (col: Column, ids: string[]) => sql`${col} IN (SELECT value FROM json_each(${JSON.stringify([...new Set(ids)])}))`;
+import { and, eq } from "drizzle-orm";
 
 export const ticketCode = (id: string) => id.slice(0, 8).toUpperCase();
 export const groupRef = (t: { bookingId: string | null; customerId: string; packId: string | null }) =>
   t.bookingId ?? `${t.customerId}:${t.packId}`;
 
-type Lookup = { participantIds: string[]; customerIds?: string[]; bookingIds?: string[]; optionIds?: string[]; addOnIds?: string[]; timeslotIds?: string[] };
+type Lookup = { participantIds: string[]; customerIds?: string[]; bookingIds?: string[]; optionIds?: string[]; addOnIds?: string[] };
 
 async function load(env: Env, operatorId: string, q: Lookup) {
   const db = createDb(env.DB);
-  const [people, signed, contacts, buyers, options, addOns, notices] = await Promise.all([
+  const [people, signed, contacts, buyers, options, addOns] = await Promise.all([
     db
       .select({ id: participants.id, name: participants.name, birthDate: participants.birthDate, weightKg: participants.weightKg })
       .from(participants)
@@ -39,10 +36,6 @@ async function load(env: Env, operatorId: string, q: Lookup) {
       .select({ id: projAddOns.id, nameEn: projAddOns.nameEn, nameMs: projAddOns.nameMs })
       .from(projAddOns)
       .where(within(projAddOns.id, q.addOnIds ?? [])),
-    db
-      .select({ timeslotId: closureNotices.timeslotId, ref: closureNotices.ref, emailedAt: closureNotices.emailedAt })
-      .from(closureNotices)
-      .where(within(closureNotices.timeslotId, q.timeslotIds ?? [])),
   ]);
   const by = <T, K>(rows: T[], key: (r: T) => K) => new Map(rows.map((r) => [key(r), r]));
   const person = by(people, (p) => p.id);
@@ -52,7 +45,6 @@ async function load(env: Env, operatorId: string, q: Lookup) {
     contact: by(contacts, (c) => c.bookingId),
     customer: by(buyers, (c) => c.id),
     addOn: by(addOns, (a) => a.id),
-    notices,
     option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0 },
     participant(id: string, startsAt: number) {
       const p = person.get(id);
@@ -66,19 +58,40 @@ async function load(env: Env, operatorId: string, q: Lookup) {
   };
 }
 
+// A closed Timeslot keeps listing a group after its Customer chose, so the Closure list shows the choice.
 export async function enrichTimeslots(env: Env, operatorId: string, rows: TimeslotRow[]) {
   const tickets = rows.flatMap((r) => r.tickets);
+  const notices = await createDb(env.DB)
+    .select({
+      timeslotId: closureNotices.timeslotId,
+      ref: closureNotices.ref,
+      customerId: closureNotices.customerId,
+      bookingId: closureNotices.bookingId,
+      packId: closureNotices.packId,
+      emailedAt: closureNotices.emailedAt,
+      choice: closureNotices.choice,
+      chosenAt: closureNotices.chosenAt,
+    })
+    .from(closureNotices)
+    .where(within(closureNotices.timeslotId, rows.map((r) => r.id)));
   const x = await load(env, operatorId, {
     participantIds: tickets.map((t) => t.participantId),
-    customerIds: tickets.map((t) => t.customerId),
-    bookingIds: tickets.flatMap((t) => t.bookingId ?? []),
+    customerIds: [...tickets, ...notices].map((t) => t.customerId),
+    bookingIds: [...tickets, ...notices].flatMap((t) => t.bookingId ?? []),
     optionIds: rows.map((r) => r.optionId),
     addOnIds: rows.flatMap((r) => r.addOns.map((a) => a.addOnId)),
-    timeslotIds: rows.map((r) => r.id),
   });
   return rows.map((r) => {
-    const groups = new Map<string, typeof r.tickets>();
-    for (const t of r.tickets) groups.set(groupRef(t), [...(groups.get(groupRef(t)) ?? []), t]);
+    const groups = new Map<string, { customerId: string; bookingId: string | null; packId: string | null; tickets: typeof r.tickets }>();
+    const add = (ref: string, g: { customerId: string; bookingId: string | null; packId: string | null }, t?: (typeof r.tickets)[number]) =>
+      groups.set(ref, {
+        customerId: g.customerId,
+        bookingId: g.bookingId,
+        packId: g.packId,
+        tickets: [...(groups.get(ref)?.tickets ?? []), ...(t ? [t] : [])],
+      });
+    for (const t of r.tickets) add(groupRef(t), t, t);
+    if (r.closedAt !== null) for (const n of notices) if (n.timeslotId === r.id && !groups.has(n.ref)) add(n.ref, n);
     return {
       id: r.id,
       startsAt: r.startsAt,
@@ -86,11 +99,10 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
       closedReason: r.closedReason,
       spots: r.spots,
       option: x.option(r.optionId),
-      groups: [...groups.values()].map((ts) => {
-        const { bookingId, packId, customerId } = ts[0];
+      groups: [...groups.values()].map(({ bookingId, packId, customerId, tickets: ts }) => {
         const buyer = x.customer.get(customerId);
         const contact = bookingId ? x.contact.get(bookingId) : undefined;
-        const notice = x.notices.find((n) => n.timeslotId === r.id && n.ref === groupRef(ts[0]));
+        const notice = notices.find((n) => n.timeslotId === r.id && n.ref === groupRef({ bookingId, packId, customerId }));
         return {
           bookingId,
           packId,
@@ -99,7 +111,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
           addOns: r.addOns
             .filter((a) => a.bookingId === bookingId)
             .map((a) => ({ nameEn: x.addOn.get(a.addOnId)?.nameEn ?? "", nameMs: x.addOn.get(a.addOnId)?.nameMs ?? "", quantity: a.quantity })),
-          notice: notice ? { emailedAt: notice.emailedAt } : null,
+          notice: notice ? { emailedAt: notice.emailedAt, choice: notice.choice, chosenAt: notice.chosenAt } : null,
           tickets: ts.map((t) => ({
             id: t.id,
             code: ticketCode(t.id),

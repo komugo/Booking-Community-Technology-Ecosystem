@@ -6,6 +6,8 @@ import {
   createDb,
   customers,
   participants,
+  projPackOffers,
+  projPacks,
   waivers,
   type AddOnPick,
   type Db,
@@ -15,9 +17,10 @@ import { ageOn, klDate, participantKey, WAIVER, waiverText } from "@komugo/types
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { checkoutState, createBill, deleteBill } from "./billplz";
-import { bookingLink } from "./bookings";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
+import { sendBookedEmail } from "./email";
 import { fail, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
+import { bookingLink, groupLink } from "./manage";
 import { ensureSession, owns, readSession, type Session } from "./session";
 
 const MAX_PEOPLE = 10;
@@ -33,6 +36,7 @@ export async function ownedCheckout(c: Ctx, id: string) {
 }
 
 const busy = async (c: Ctx, s: Session) => limited(c.env.RL_CHECKOUT, s.idHash);
+const done = (co: Checkout) => !!(co.bookingId || co.refundReason || co.packId);
 
 async function saved(db: Db, customerId: string, operatorId: string) {
   return db
@@ -58,8 +62,6 @@ async function saved(db: Db, customerId: string, operatorId: string) {
 }
 
 // participant_ids only changes here while no Hold exists; after that holdStep moves it with the Hold.
-
-
 export async function persistDraft(db: Db, checkout: Checkout, customerId: string, draft: DraftParticipant[]) {
   const existing = new Map(
     (await db.select().from(participants).where(eq(participants.customerId, customerId))).map((p) => [
@@ -107,6 +109,32 @@ export async function persistDraft(db: Db, checkout: Checkout, customerId: strin
   );
   await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
   return ids;
+}
+
+// The signed-in Customer's Packs at this Operator that cover the Option, with why one can't pay for this Checkout.
+async function usablePacks(db: Db, co: Checkout, customerId: string, startsAt: number) {
+  const now = Date.now();
+  const rows = await db
+    .select({ pack: projPacks, nameEn: projPackOffers.nameEn, nameMs: projPackOffers.nameMs })
+    .from(projPacks)
+    .leftJoin(projPackOffers, eq(projPackOffers.id, projPacks.offerId))
+    .where(and(eq(projPacks.customerId, customerId), eq(projPacks.operatorId, co.operatorId)));
+  return rows
+    .filter((r) => r.pack.optionIds.includes(co.optionId) && r.pack.sessionsUsed < r.pack.sessionsTotal)
+    .map(({ pack: p, nameEn, nameMs }) => {
+      const left = p.sessionsTotal - p.sessionsUsed;
+      const why =
+        p.expiresAt < now
+          ? "expired"
+          : startsAt > p.expiresAt
+            ? "after_expiry"
+            : left < co.quantity
+              ? "used_up"
+              : co.addOns.length
+                ? "add_ons"
+                : null;
+      return { id: p.id, nameEn: nameEn ?? "", nameMs: nameMs ?? "", left, expiresAt: p.expiresAt, why };
+    });
 }
 
 async function releaseBill(env: Env, holdId: string) {
@@ -359,6 +387,7 @@ checkout.get("/:id", async (c) => {
   });
   const savedOf = new Map(savedPeople.map((p) => [p.id, p]));
   const people = (co.participantIds ?? []).flatMap((id) => savedOf.get(id) ?? []);
+  const packs = customerId ? await usablePacks(db, co, customerId, d.slot?.startsAt ?? 0) : [];
   const [refund] = co.refundReason
     ? await db
         .select({ sen: bills.paidAmountSen })
@@ -406,7 +435,9 @@ checkout.get("/:id", async (c) => {
     participants: people.map((p) => ({ id: p.id, name: p.name, birthDate: p.birthDate })),
     savedParticipants: savedPeople,
     bookingId: co.bookingId,
-    ...(co.bookingId ? { k: await bookingLink(c.env, co.bookingId) } : {}),
+    packId: co.packId,
+    ...(co.bookingId ? { k: await bookingLink(c.env, co.bookingId) } : co.packId ? { k: await groupLink(c.env, "pack", co.packId) } : {}),
+    packs: await Promise.all(packs.map(async (p) => ({ ...p, k: await groupLink(c.env, "pack", p.id) }))),
     refundReason: co.refundReason,
     refundSen: refund?.sen ?? co.amountSen,
   });
@@ -417,7 +448,7 @@ checkout.put("/:id/who", async (c) => {
   if (!owned) return fail(c, 404, { code: "not_found" });
   const { checkout: co, session } = owned;
   if (await busy(c, session)) return fail(c, 429, { code: "rate_limited" });
-  if (co.bookingId || co.refundReason) return fail(c, 409, { code: "invalid_state" });
+  if (done(co)) return fail(c, 409, { code: "invalid_state" });
   const body = await c.req.json<{ participants?: unknown }>();
   const inputs = Array.isArray(body.participants) ? (body.participants as WhoInput[]) : [];
   if (inputs.length !== co.quantity) return fail(c, 400, { code: "invalid_participant", field: "participants" });
@@ -445,7 +476,7 @@ checkout.post("/:id/hold", async (c) => {
   const owned = await ownedCheckout(c, c.req.param("id"));
   if (!owned) return fail(c, 404, { code: "not_found" });
   if (await busy(c, owned.session)) return fail(c, 429, { code: "rate_limited" });
-  if (owned.checkout.bookingId || owned.checkout.refundReason) return fail(c, 409, { code: "invalid_state" });
+  if (done(owned.checkout)) return fail(c, 409, { code: "invalid_state" });
   return holdReply(c, await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), owned.checkout.id));
 });
 
@@ -454,7 +485,7 @@ checkout.post("/:id/pay", async (c) => {
   if (!owned) return fail(c, 404, { code: "not_found" });
   const { checkout: co, session } = owned;
   if (await busy(c, session)) return fail(c, 429, { code: "rate_limited" });
-  if (co.bookingId || co.refundReason) return fail(c, 409, { code: "invalid_state" });
+  if (done(co)) return fail(c, 409, { code: "invalid_state" });
   if (!co.holdId || !co.amountSen || !co.customerId || co.holdExpiresAt! <= Date.now() + PAY_MARGIN) {
     return fail(c, 409, { code: "hold_expired" });
   }
@@ -507,4 +538,32 @@ checkout.post("/:id/pay", async (c) => {
   c.executionCtx.waitUntil(deleteBill(c.env, bill.id).catch(() => false));
   const [won] = await winner();
   return won ? c.json({ url: won.url }) : fail(c, 409, { code: "hold_expired" });
+});
+
+checkout.post("/:id/redeem", async (c) => {
+  const owned = await ownedCheckout(c, c.req.param("id"));
+  if (!owned) return fail(c, 404, { code: "not_found" });
+  const { checkout: co, session } = owned;
+  if (await busy(c, session)) return fail(c, 429, { code: "rate_limited" });
+  if (done(co) || !co.customerId) return fail(c, 409, { code: "invalid_state" });
+  if (co.addOns.length) return fail(c, 409, { code: "invalid_add_on" });
+  if (!co.holdId || co.holdExpiresAt! <= Date.now()) return fail(c, 409, { code: "hold_expired" });
+  const body = await c.req.json<{ packId?: unknown }>().catch(() => ({}) as { packId?: unknown });
+  const packId = String(body.packId ?? "");
+  const holdId = co.holdId;
+  try {
+    await booking(c.env, co.operatorId).redeemPack({ requestId: `${co.id}:redeem:${holdId}`, customerId: co.customerId, packId, holdId });
+  } catch (e) {
+    if (e instanceof BookingError) return fail(c, 409, { code: e.code });
+    throw e;
+  }
+  const db = createDb(c.env.DB);
+  await db
+    .update(checkouts)
+    .set({ packId, emailedAt: null, updatedAt: Date.now() })
+    .where(and(eq(checkouts.id, co.id), isNull(checkouts.bookingId), isNull(checkouts.packId)));
+  const waitUntil = (p: Promise<unknown>) => c.executionCtx.waitUntil(p);
+  waitUntil(releaseBill(c.env, holdId).catch((e) => logError("bill_release_failed", { checkoutId: co.id, error: String(e) })));
+  waitUntil(sendBookedEmail(c.env, co.id).catch((e) => logError("checkout_email_failed", { checkoutId: co.id, error: String(e) })));
+  return c.json({ packId, k: await groupLink(c.env, "pack", packId) });
 });

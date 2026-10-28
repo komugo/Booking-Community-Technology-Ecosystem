@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emails, fixture, newContext, shot, signIn } from "./helpers";
+import { customerCancel, emails, fixture, newContext, shot, signIn } from "./helpers";
 
 test("closing a booked Timeslot emails the customer once, even after an offline retry", async ({ browser, request }) => {
   const fx = await fixture(request, { locale: "ms" });
@@ -34,6 +34,14 @@ test("closing a booked Timeslot emails the customer once, even after an offline 
   await page.getByRole("button", { name: "Re-send emails" }).click();
   await page.waitForTimeout(1000);
   expect(await mine()).toHaveLength(1);
+
+  await customerCancel(request, fx, `closed:${fx.timeslotId}`, true);
+  // The choice reaches D1 through the outbox a moment after the cancel.
+  await expect(async () => {
+    await page.reload();
+    await expect(affected).toContainText("Chose refund", { timeout: 1000 });
+  }).toPass();
+  await expect(affected).not.toContainText("Awaiting choice");
 
   await page.getByRole("link", { name: "Today" }).first().click();
   await expect(page.locator(`[data-timeslot="${fx.timeslotId}"]`)).toContainText("Closed · Weather");

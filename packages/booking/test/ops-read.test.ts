@@ -16,7 +16,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
   const h = await w.hold(w.customerId, nine, people, rid(), [{ id: helmet, qty: 2 }]);
   const paid = await w.pay(h);
   if (paid.status !== "paid") throw new Error("not paid");
-  await w.cancel(w.customerId, paid.ticketIds[1]);
+  await w.cancel(w.customerId, { bookingId: paid.bookingId }, [paid.ticketIds[1]]);
 
   const day = await w.b.timeslots({ from: kl(`${DAY}T00:00`), to: kl(`${DAY}T00:00`) + 24 * H });
   expect(day.map((s) => s.id)).toEqual([nine, eleven]);
@@ -43,7 +43,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
   expect(day[1]).toMatchObject({ spots: 2, tickets: [], addOns: [] });
 
   await w.b.closeTimeslot(nine, "weather");
-  await w.reschedule(w.customerId, paid.ticketIds[0], tomorrow, people[0]);
+  await w.reschedule(w.customerId, { bookingId: paid.bookingId }, [paid.ticketIds[0]], tomorrow, [people[0]]);
   const [moved, closed] = await w.b.timeslots({ ids: [tomorrow, nine] }).then((r) => [r[1], r[0]]);
   expect(closed).toMatchObject({ id: nine, closedReason: "weather", spots: 0, tickets: [], addOns: [] });
   expect(moved).toMatchObject({

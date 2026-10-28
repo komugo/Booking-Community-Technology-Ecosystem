@@ -1,0 +1,10 @@
+---
+import SignIn from "../../views/SignIn.astro";
+import { signInStep } from "../../lib/manage";
+
+const data = await signInStep(Astro, "ms");
+if (data instanceof Response) return data;
+Astro.response.status = data.status;
+---
+
+<SignIn {...data} />

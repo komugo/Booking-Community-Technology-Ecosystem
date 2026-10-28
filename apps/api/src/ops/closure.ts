@@ -13,7 +13,7 @@ export async function recordClosure(env: Env, waitUntil: WaitUntil, operatorId: 
   const rows = [...groups].map(([ref, t]) =>
     db
       .insert(closureNotices)
-      .values({ timeslotId, ref, customerId: t.customerId, bookingId: t.bookingId, reason, createdAt: now })
+      .values({ timeslotId, ref, customerId: t.customerId, bookingId: t.bookingId, packId: t.packId, reason, createdAt: now })
       .onConflictDoNothing(),
   );
   if (rows.length) await db.batch(rows as [(typeof rows)[number], ...typeof rows]);

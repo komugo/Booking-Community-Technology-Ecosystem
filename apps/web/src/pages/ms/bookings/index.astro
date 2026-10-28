@@ -1,0 +1,9 @@
+---
+import MyBookings from "../../../views/MyBookings.astro";
+import { meStep } from "../../../lib/manage";
+
+const data = await meStep(Astro, "ms");
+if (data instanceof Response) return data;
+---
+
+<MyBookings {...data} />

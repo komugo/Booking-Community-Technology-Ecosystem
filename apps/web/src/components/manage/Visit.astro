@@ -1,0 +1,87 @@
+---
+import type { Locale } from "@komugo/db";
+import TicketCard from "../TicketCard.astro";
+import type { Group, GroupTicket } from "../../lib/api";
+import { klDeadline, klLongDay, klTime, rm, t } from "../../lib/i18n";
+import { changeHref, groupHref, inWindow, signInAt } from "../../lib/manage";
+import { named } from "../../lib/checkout";
+
+interface Props {
+  locale: Locale;
+  g: Group;
+  visit: { timeslotId: string; startsAt: number; closedAt: number | null; optionId: string; tickets: GroupTicket[] };
+}
+const { locale: l, g, visit: v } = Astro.props;
+const m = t[l].manage;
+const now = Date.now();
+const h = g.freeCancelHours ?? 0;
+const deadline = klDeadline(l, v.startsAt - h * 3_600_000);
+const started = v.startsAt <= now;
+const free = inWindow(h, v.startsAt, now);
+const option = g.kind === "pack" ? (g.options.find((o) => o.id === v.optionId) ?? g.option) : g.option;
+const changeable = v.closedAt === null && !started ? v.tickets.filter((x) => x.status === "issued") : [];
+const policy =
+  v.closedAt !== null || !v.tickets.some((x) => x.status === "issued")
+    ? null
+    : started
+      ? m.started
+      : free
+        ? null
+        : h
+          ? (g.kind === "pack" ? m.endedPack : m.ended)(deadline)
+          : m.noFree;
+const stamp = (x: GroupTicket) =>
+  x.status === "forfeited"
+    ? m.stampForfeited
+    : x.status === "cancelled"
+      ? g.kind === "pack"
+        ? m.stampReturned
+        : x.refundSen
+          ? m.stampRefund(rm(x.refundSen))
+          : m.stampCancelled
+      : x.closedAt !== null
+        ? m.stampClosed
+        : null;
+const link = "inline-flex min-h-11 items-center px-2 font-semibold text-leaf underline underline-offset-2";
+const ids = changeable.map((x) => x.id).join(",");
+---
+
+<section class="mt-8" aria-labelledby={`visit-${v.timeslotId}`} data-visit={v.timeslotId}>
+  <h2 id={`visit-${v.timeslotId}`} class="text-2xl font-extrabold">{klLongDay(l, v.startsAt)} · <span class="num">{klTime(l, v.startsAt)}</span></h2>
+  <p class="mt-1 font-semibold text-muted">{named(option, l)}</p>
+  {
+    free && changeable.length > 0 && (
+      <p class="mt-3 rounded-xl bg-lime/30 px-3 py-2 text-sm text-forest" data-policy>
+        {m.freeUntil} <strong class="num">{deadline}</strong>.
+      </p>
+    )
+  }
+  {policy && <p class="mt-3 rounded-xl bg-sand px-3 py-2 text-sm" data-policy>{policy}</p>}
+  <ul class="mt-4 space-y-5">
+    {
+      v.tickets.map((x, i) => (
+        <TicketCard locale={l} ticket={x} n={i + 1} total={v.tickets.length} option={named(option, l)} stamp={stamp(x)}>
+          {g.canChange && changeable.includes(x) && (
+            <div class="mt-3 -mb-2 flex flex-wrap justify-center gap-x-4">
+              {free && <a class={link} href={changeHref(l, g, "reschedule", x.id)}>{m.changeTime}</a>}
+              <a class={link} href={changeHref(l, g, "cancel", x.id)}>{m.cancel}</a>
+            </div>
+          )}
+        </TicketCard>
+      ))
+    }
+  </ul>
+  {
+    changeable.length > 0 &&
+      (g.canChange ? (
+        changeable.length > 1 && (
+          <div class="mt-4 flex flex-wrap gap-x-4">
+            {free && <a class={link} href={changeHref(l, g, "reschedule", ids)}>{m.moveAll}</a>}
+            <a class={`${link} text-clay`} href={changeHref(l, g, "cancel", ids)}>{m.cancelAll}</a>
+          </div>
+        )
+      ) : (
+        <a class={`${link} mt-3`} href={signInAt(l, groupHref(l, g))}>{m.signInToChange}</a>
+      ))
+  }
+</section>

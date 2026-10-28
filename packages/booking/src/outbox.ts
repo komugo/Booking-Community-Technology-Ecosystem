@@ -1,7 +1,7 @@
 import { DAY, expireDue, klDayStart, spots } from "./engine";
 import { tx } from "./tx";
 
-type Entity = "activity" | "option" | "add_on" | "timeslot" | "ticket" | "pack" | "payment";
+type Entity = "activity" | "option" | "add_on" | "timeslot" | "ticket" | "pack" | "payment" | "pack_offer" | "refund" | "closure_choice";
 type Row = Record<string, SqlStorageValue>;
 type Key = { entity: string; entity_id: string };
 type Statement = { key: Key; query: string; params: SqlStorageValue[] };
@@ -62,13 +62,29 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     table: "proj_packs",
     pk: "id",
     query: `SELECT id, customer_id, sessions_total,
-      (SELECT count(*) FROM tickets WHERE pack_id = packs.id AND status <> 'cancelled') AS sessions_used, expires_at
+      (SELECT count(*) FROM tickets WHERE pack_id = packs.id AND status <> 'cancelled') AS sessions_used, expires_at,
+      offer_id, option_ids
       FROM packs WHERE id = ?`,
   },
   payment: {
     table: "proj_payments",
     pk: "bill_id",
     query: "SELECT bill_id, hold_id, booking_id, amount_sen, status, refund_reason, received_at FROM payments WHERE bill_id = ?",
+  },
+  pack_offer: {
+    table: "proj_pack_offers",
+    pk: "id",
+    query: "SELECT id, activity_id, name_en, name_ms, sessions, price_sen, valid_days, option_ids, active FROM pack_offers WHERE id = ?",
+  },
+  closure_choice: {
+    table: "closure_notices",
+    pk: "",
+    query: "SELECT choice, chosen_at, timeslot_id, group_id FROM closure_choices WHERE id = ?",
+  },
+  refund: {
+    table: "proj_refunds",
+    pk: "id",
+    query: "SELECT id, customer_id, bill_id, booking_id, amount_sen, reason, created_at, refunded_at FROM refunds WHERE id = ?",
   },
 };
 
@@ -87,6 +103,13 @@ function upsert(key: Key, table: string, pk: string, row: Row): Statement {
     params: Object.values(row),
   };
 }
+
+// closure_notices is D1-owned; the DO's choice only fills it in once.
+const chosen = (key: Key, row: Row): Statement => ({
+  key,
+  query: "UPDATE closure_notices SET choice = ?, chosen_at = ? WHERE timeslot_id = ? AND ? IN (booking_id, pack_id) AND choice IS NULL",
+  params: [row.choice, row.chosen_at, row.timeslot_id, row.group_id],
+});
 
 export async function drain(
   storage: DurableObjectStorage,
@@ -112,6 +135,7 @@ export async function drain(
         const s = SELECTS[key.entity as Entity];
         const row = sql.exec<Row>(s.query, key.entity_id).toArray()[0];
         if (!row) return [];
+        if (key.entity === "closure_choice") return [chosen(key, row)];
         if (key.entity === "timeslot") row.spots = spots(sql, now, key.entity_id);
         return [upsert(key, s.table, s.pk, { ...row, operator_id: operatorId, version: rev })];
       });

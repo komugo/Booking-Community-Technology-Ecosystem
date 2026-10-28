@@ -2,7 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { waivers } from "@komugo/db";
 import { describe, expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
-import { customer, db, DAY, kl, rid, rideWorld, UNDO_V6 } from "./helpers";
+import { customer, db, DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
 
 const d1 = (query: string, ...params: unknown[]) =>
   env.DB.prepare(query)
@@ -165,7 +165,7 @@ describe("supersede", () => {
     const next = await w.hold(w.customerId, ts, [p], rid(), [], stale.holdId);
     const r = await w.pay(stale);
     if (r.status !== "paid") throw new Error(r.reason);
-    expect((await w.b.bookingView(r.bookingId)).holdId).toBe(next.holdId);
+    expect(await w.sql("SELECT hold_id FROM bookings WHERE id = ?", r.bookingId)).toEqual([{ hold_id: next.holdId }]);
     expect(await w.sql("SELECT status FROM holds WHERE id = ?", next.holdId)).toEqual([{ status: "confirmed" }]);
     expect(await w.allocationCount()).toBe(1);
     expect(await w.pay(next)).toEqual({ status: "refund_due", reason: "duplicate" });
@@ -182,12 +182,23 @@ test("bookingView returns the Booking's Tickets, Add-ons and total", async () =>
   if (r.status !== "paid") throw new Error("not paid");
   expect(await w.b.bookingView(r.bookingId)).toEqual({
     customerId: w.customerId,
-    holdId: h.holdId,
-    timeslotId: ts,
-    startsAt: kl(`${DAY}T09:00`),
     optionId: w.optionId,
     amountSen: 10500,
-    tickets: [{ id: r.ticketIds[0], participantId: p, status: "issued" }],
+    freeCancelHours: 24,
+    tickets: [
+      {
+        id: r.ticketIds[0],
+        participantId: p,
+        status: "issued",
+        optionId: w.optionId,
+        timeslotId: ts,
+        startsAt: kl(`${DAY}T09:00`),
+        closedAt: null,
+        refundId: null,
+        refundSen: 0,
+      },
+    ],
+    closureChoices: [],
     addOns: [{ addOnId: helmet, quantity: 1, priceSen: 500 }],
   });
   await expect(w.b.bookingView(rid())).rejects.toMatchObject({ code: "invalid_state" });
@@ -217,7 +228,7 @@ test("migrations 3 to 5 on a Durable Object with v2 data keep its Holds, re-proj
   const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of UNDO_V6) sql.exec(q);
+    for (const q of [...UNDO_V8, ...UNDO_V6]) sql.exec(q);
     sql.exec("DROP INDEX holds_customer_active");
     sql.exec("DROP TABLE hold_add_ons");
     sql.exec("ALTER TABLE holds DROP COLUMN amount_sen");

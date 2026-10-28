@@ -97,9 +97,17 @@ export default function TimeslotPage() {
                 {slot.groups.map((g) => (
                   <li key={g.bookingId ?? `${g.customerId}:${g.packId}`} className="card p-4" data-affected>
                     <Contact g={g} />
-                    <p className="mt-2 text-sm">{g.tickets.map((x) => x.participant.name).join(", ")}</p>
+                    {g.tickets.length > 0 && <p className="mt-2 text-sm">{g.tickets.map((x) => x.participant.name).join(", ")}</p>}
                     <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
-                      <span className="rounded-full bg-sand px-3 py-1">{t.awaiting}</span>
+                      <span data-choice={g.notice?.choice ?? ""} className={`rounded-full px-3 py-1 ${g.notice?.choice ? "bg-forest text-white" : "bg-sand"}`}>
+                        {g.notice?.choice === "reschedule"
+                          ? t.choseReschedule
+                          : g.notice?.choice
+                            ? g.packId
+                              ? t.sessionReturned
+                              : t.choseRefund
+                            : t.awaiting}
+                      </span>
                       <span data-email className={`num rounded-full px-3 py-1 ${g.notice?.emailedAt ? "bg-lime/40 text-forest" : "bg-sand"}`}>
                         {g.notice?.emailedAt ? t.emailSent(time(g.notice.emailedAt, l)) : t.emailSending}
                       </span>

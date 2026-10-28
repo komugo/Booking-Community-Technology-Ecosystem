@@ -6,10 +6,11 @@ type Named = { nameEn: string; nameMs: string };
 
 export type Checkout = {
   id: string;
-  state: "draft" | "held" | "expired" | "booked" | "refund_due";
+  state: "draft" | "held" | "expired" | "booked" | "refund_due" | "redeemed";
   locale: Locale;
   quantity: number;
   startsAt: number | null;
+  timeslotId: string;
   option: Named & {
     id: string;
     priceSen: number;
@@ -43,22 +44,70 @@ export type Checkout = {
   participants: { id: string; name: string; birthDate: string }[];
   savedParticipants: { id: string; name: string; birthDate: string; weightKg: number | null; certs: string[]; waiverSignedAt: number | null }[];
   bookingId: string | null;
+  packId: string | null;
   k?: string;
+  packs: (Named & { id: string; k: string; left: number; expiresAt: number; why: null | "expired" | "after_expiry" | "used_up" | "add_ons" })[];
   refundReason: string | null;
   refundSen: number | null;
 };
 
-export type Booking = {
-  bookingId: string;
-  checkoutId: string;
+export type GroupTicket = {
+  id: string;
+  participantId: string;
+  participantName: string;
+  status: "issued" | "cancelled" | "forfeited";
+  optionId: string;
+  timeslotId: string;
   startsAt: number;
-  amountSen: number;
+  closedAt: number | null;
+  refundId: string | null;
+  refundSen: number;
+};
+
+type GroupBase = {
+  id: string;
   option: Named & { id: string; durationMinutes: number };
   activity: Checkout["activity"] & { lat: number | null; lng: number | null };
   operatorName: string;
   freeCancelHours: number | null;
-  tickets: { id: string; participantId: string; participantName: string; status: string }[];
+  tickets: GroupTicket[];
   addOns: (Named & { addOnId: string; quantity: number; priceSen: number })[];
+  closure: { timeslotId: string; reason: string; choice: "refund" | "reschedule" | null; chosenAt: number | null }[];
+  canChange: boolean;
+  k: string;
+};
+
+export type Booking = GroupBase & { kind: "booking"; amountSen: number };
+export type Pack = GroupBase & {
+  kind: "pack";
+  offer: (Named & { id: string }) | null;
+  sessionsTotal: number;
+  sessionsUsed: number;
+  expiresAt: number;
+  options: (Named & { id: string })[];
+};
+export type Group = Booking | Pack;
+
+export type Quote = { tickets: { id: string; outcome: "cancelled" | "forfeited"; refundSen: number }[]; refundSen: number; reason: "cancel" | "closure" | null };
+
+type Visit = {
+  kind: "booking" | "pack";
+  id: string;
+  k: string;
+  timeslotId: string;
+  startsAt: number;
+  closed: boolean;
+  option: Named;
+  activity: Named;
+  participants: string[];
+  statuses: GroupTicket["status"][];
+};
+export type Me = {
+  email: string | null;
+  awaiting: Visit[];
+  upcoming: Visit[];
+  packs: (Named & { id: string; k: string; sessionsTotal: number; sessionsUsed: number; expiresAt: number; expired: boolean })[];
+  past: Visit[];
 };
 
 type Reply<T> = { status: number; data: T; error: ApiError & { errors?: ApiError[] }; cookies: string[] };

@@ -1,0 +1,54 @@
+---
+import Checkout from "../../layouts/Checkout.astro";
+import Notices from "../../components/manage/Notices.astro";
+import Visit from "../../components/manage/Visit.astro";
+import Where from "../../components/manage/Where.astro";
+import { klDayYear, path, t } from "../../lib/i18n";
+import { named } from "../../lib/checkout";
+import type { groupStep } from "../../lib/manage";
+import type { Pack } from "../../lib/api";
+
+type Props = Exclude<Awaited<ReturnType<typeof groupStep>>, Response> & { g: Pack };
+const { locale: l, g: p, visits, closures, fresh, booked, cancelled, moved } = Astro.props;
+const s = t[l];
+const m = s.manage;
+const name = p.offer ? named(p.offer, l) : s.me.pack;
+const left = p.sessionsTotal - p.sessionsUsed;
+const usable = left > 0 && p.expiresAt > Date.now();
+---
+
+<Checkout locale={l} title={fresh ? m.packReady : booked ? s.checkout.bookedTitle : name}>
+  <section class="mt-6 rounded-3xl bg-forest p-5 text-white" aria-labelledby="pack">
+    <p class="text-sm text-white/80">{named(p.activity, l)}</p>
+    <h2 id="pack" class="mt-1 text-3xl font-extrabold">{name}</h2>
+    <p class="num mt-4 text-lg font-semibold" data-left>{s.me.left(left, p.sessionsTotal)}</p>
+    <div class="mt-2 h-2 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
+      <div class="h-full rounded-full bg-lime" style={`width:${(left / p.sessionsTotal) * 100}%`} />
+    </div>
+    <p class="num mt-3 text-sm text-white/80">{(p.expiresAt > Date.now() ? s.me.useBy : s.me.expiredOn)(klDayYear(l, p.expiresAt))}</p>
+  </section>
+
+  <Notices locale={l} g={p} closures={closures} cancelled={cancelled} moved={moved} />
+
+  {
+    usable && (
+      <section class="mt-8" aria-labelledby="book">
+        <h2 id="book" class="text-2xl font-extrabold">{m.bookSession}</h2>
+        <ul class="mt-3 space-y-2">
+          {p.options.map((o) => (
+            <li>
+              <a href={path(l, "book", o.id)} class="flex min-h-14 items-center justify-between rounded-2xl bg-white px-4 font-semibold shadow-[0_1px_0_var(--color-line)] hover:bg-sand/40">
+                {named(o, l)}
+                <span aria-hidden="true" class="text-leaf">→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {visits.length ? visits.map((v) => <Visit locale={l} g={p} visit={v} />) : <p class="mt-8 text-muted">{m.noVisits}</p>}
+
+  <Where locale={l} activity={p.activity} />
+</Checkout>
