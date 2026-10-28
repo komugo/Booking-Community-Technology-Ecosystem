@@ -1,36 +1,5 @@
 @import "tailwindcss";
-
-@theme {
-  --color-paper: #fbfaf6;
-  --color-ink: #0e1a14;
-  --color-muted: #5b6b63;
-  --color-line: #e3e1d8;
-  --color-forest: #0b3d2e;
-  --color-leaf: #19744c;
-  --color-lime: #c8f169;
-  --color-sand: #efe7d6;
-  --color-clay: #a8441f;
-  --font-display: "Bricolage Grotesque Variable", "Bricolage Fallback", system-ui, sans-serif;
-  --font-sans: "Instrument Sans Variable", "Instrument Fallback", system-ui, sans-serif;
-}
-
-@font-face {
-  font-family: "Bricolage Fallback";
-  src: local("Arial");
-  size-adjust: 104%;
-  ascent-override: 90%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Instrument Fallback";
-  src: local("Arial");
-  size-adjust: 97%;
-  ascent-override: 98%;
-  descent-override: 25%;
-  line-gap-override: 0%;
-}
+@import "@komugo/theme/theme.css";
 
 @layer base {
   :root {

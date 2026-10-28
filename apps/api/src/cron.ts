@@ -1,23 +1,24 @@
-import { bills, checkouts, createDb, otps, sessions } from "@komugo/db";
+import { booking } from "@komugo/booking";
+import { bills, checkouts, createDb, memberSessions, operators, otps, sessions } from "@komugo/db";
 import { and, between, eq, inArray, isNotNull, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { confirmBill, deleteBill, getBill } from "./billplz";
 import { sendBookedEmail, sendRefundEmail } from "./email";
-import { DAY, HOUR, logError, MIN, type WaitUntil } from "./lib";
+import { DAY, each, HOUR, MIN, type WaitUntil } from "./lib";
+import { sendClosureNotices } from "./ops/closure";
+
+export const DAILY = "0 19 * * *";
 
 const BATCH = 20;
 
-async function each<T>(rows: T[], event: string, fn: (row: T) => Promise<unknown>) {
-  for (const r of rows) {
-    try {
-      await fn(r);
-    } catch (e) {
-      logError(event, { row: r, error: String(e) });
-    }
-  }
-}
-
-export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now()) {
+export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), schedule = "*/5 * * * *") {
   const db = createDb(env.DB);
+
+  // 03:00 KL: keep every Schedule's Timeslots 60 days ahead. The 5-minute trigger also fires now and does the rest.
+  if (schedule === DAILY) {
+    const all = await db.select({ id: operators.id }).from(operators);
+    await each(all, "cron_generate_failed", ({ id }) => booking(env, id).generateTimeslots());
+    return;
+  }
 
   const unsettled = await db
     .select({ id: bills.id })
@@ -65,6 +66,8 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now()) {
     .limit(BATCH);
   await each(refunds, "cron_refund_email_failed", ({ id }) => sendRefundEmail(env, id));
 
+  await sendClosureNotices(env, null, now);
+
   const live = db
     .select({ id: bills.checkoutId })
     .from(bills)
@@ -85,6 +88,7 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now()) {
       .delete(sessions)
       .where(or(lt(sessions.expiresAt, now), and(isNull(sessions.customerId), lt(sessions.createdAt, now - DAY)))),
     db.delete(otps).where(lt(otps.createdAt, now - DAY)),
+    db.delete(memberSessions).where(lt(memberSessions.expiresAt, now)),
     db
       .update(checkouts)
       .set({ draft: null, contactName: null, contactEmail: null, contactPhone: null })

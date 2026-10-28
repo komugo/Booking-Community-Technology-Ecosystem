@@ -8,7 +8,7 @@ export const MIN = 60_000;
 export const HOUR = 60 * MIN;
 export const DAY = 24 * HOUR;
 
-export const fail = (c: Ctx, status: 400 | 403 | 404 | 409 | 429 | 502 | 503, e: ApiError, errors?: ApiError[]) =>
+export const fail = (c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 415 | 429 | 502 | 503, e: ApiError, errors?: ApiError[]) =>
   c.json({ ...e, ...(errors && errors.length > 1 ? { errors } : {}) }, status);
 
 const enc = new TextEncoder();
@@ -41,6 +41,16 @@ export function safeEqual(a: string, b: string) {
 export const log = (event: string, data: Record<string, unknown> = {}) => console.log(JSON.stringify({ event, ...data }));
 export const logError = (event: string, data: Record<string, unknown> = {}) =>
   console.error(JSON.stringify({ event, ...data }));
+
+export async function each<T>(rows: T[], event: string, fn: (row: T) => Promise<unknown>) {
+  for (const r of rows) {
+    try {
+      await fn(r);
+    } catch (e) {
+      logError(event, { row: r, error: String(e) });
+    }
+  }
+}
 
 export const emailRef = async (email: string) => (await sha256Hex(email)).slice(0, 12);
 

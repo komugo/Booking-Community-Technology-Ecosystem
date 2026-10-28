@@ -111,6 +111,32 @@ export const migrations: string[][] = [
   [
     `ALTER TABLE activities ADD COLUMN booking_cutoff_minutes INTEGER NOT NULL DEFAULT 60 CHECK (booking_cutoff_minutes >= 0)`,
   ],
+  [
+    `ALTER TABLE activities ADD COLUMN closed_days TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(closed_days))`,
+    `CREATE TABLE schedules (id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id),
+      option_ids TEXT NOT NULL CHECK (json_valid(option_ids)), weekdays TEXT NOT NULL CHECK (json_valid(weekdays)),
+      times TEXT NOT NULL CHECK (json_valid(times)),
+      starts_on TEXT NOT NULL CHECK (starts_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      ends_on TEXT CHECK (ends_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1))) STRICT`,
+    `CREATE INDEX schedules_activity ON schedules(activity_id)`,
+    `ALTER TABLE timeslots ADD COLUMN schedule_id TEXT REFERENCES schedules(id)`,
+    `ALTER TABLE timeslots ADD COLUMN closed_reason TEXT CHECK (closed_reason IN ('weather','horse_unfit','other','schedule'))`,
+    `CREATE INDEX timeslots_schedule ON timeslots(schedule_id, starts_at)`,
+    `ALTER TABLE tickets ADD COLUMN checked_in_at INTEGER`,
+  ],
+  // Step-4 Timeslots predate Schedules: close the free future ones as 'schedule' so a Schedule reopens and adopts
+  // the times it wants and Closed days stay closed. Booked ones stay as one-offs.
+  [
+    `UPDATE timeslots SET closed_at = unixepoch() * 1000, closed_reason = 'schedule'
+     WHERE schedule_id IS NULL AND closed_at IS NULL AND starts_at > unixepoch() * 1000
+       AND NOT EXISTS (SELECT 1 FROM tickets WHERE timeslot_id = timeslots.id AND status = 'issued')
+       AND NOT EXISTS (SELECT 1 FROM holds WHERE timeslot_id = timeslots.id AND status = 'active')`,
+    `UPDATE meta SET rev = max(rev + 1, unixepoch() * 1000000)`,
+    `INSERT INTO outbox (entity, entity_id, rev)
+     SELECT 'timeslot', id, (SELECT rev FROM meta) FROM timeslots WHERE schedule_id IS NULL AND closed_reason = 'schedule'
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

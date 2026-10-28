@@ -36,6 +36,13 @@
       "when": 1793101397717,
       "tag": "0004_booking_cutoff",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793110423274,
+      "tag": "0005_operator_dashboard",
+      "breakpoints": true
     }
   ]
 }

@@ -41,7 +41,7 @@ describe("concurrency", () => {
     const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
     const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
     expect(await w.pay(h)).toMatchObject({ status: "paid" });
-    await w.b.closeTimeslot(ts);
+    await w.b.closeTimeslot(ts, "weather");
     expect(await w.allocationCount()).toBe(0);
     expect(await w.sql("SELECT status FROM tickets")).toEqual([{ status: "issued" }]);
   });
@@ -50,7 +50,7 @@ describe("concurrency", () => {
     const w = await rideWorld();
     const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
     const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
-    await w.b.closeTimeslot(ts);
+    await w.b.closeTimeslot(ts, "weather");
     expect(await w.pay(h)).toEqual({ status: "refund_due", reason: "unavailable" });
     expect(await w.allocationCount()).toBe(0);
   });
@@ -63,7 +63,7 @@ describe("concurrency", () => {
     const {
       ticketIds: [ticketId],
     } = await w.book(w.customerId, closed, [p]);
-    await w.b.closeTimeslot(closed);
+    await w.b.closeTimeslot(closed, "weather");
     await w.reschedule(w.customerId, ticketId, soon, p);
     expect(await w.cancel(w.customerId, ticketId)).toEqual({ status: "forfeited" });
   });
@@ -76,7 +76,7 @@ describe("concurrency", () => {
     const {
       ticketIds: [ticketId],
     } = await w.book(w.customerId, closed, [p]);
-    await w.b.closeTimeslot(closed);
+    await w.b.closeTimeslot(closed, "weather");
     expect(await w.cancel(w.customerId, ticketId)).toEqual({ status: "cancelled" });
     await expect(w.reschedule(w.customerId, ticketId, soon, p)).rejects.toMatchObject({ code: "invalid_state" });
   });
@@ -257,7 +257,7 @@ describe("holds", () => {
     const w = await rideWorld();
     const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
     const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
-    await w.b.closeTimeslot(ts);
+    await w.b.closeTimeslot(ts, "weather");
     expect(await w.pay(h)).toEqual({ status: "refund_due", reason: "unavailable" });
     expect(await w.allocationCount()).toBe(0);
   });
@@ -335,7 +335,7 @@ describe("gating", () => {
     const w = await rideWorld();
     const p = await w.participant(w.customerId);
     const closed = await w.slot(w.optionId, kl(`${DAY}T09:00`));
-    await w.b.closeTimeslot(closed);
+    await w.b.closeTimeslot(closed, "weather");
     const past = await w.slot(w.optionId, kl(`${DAY}T10:00`));
     await w.startSlot(past, kl("2020-01-01T09:00"));
     const bare = await w.slot(await w.option({}, []), kl(`${DAY}T09:00`));
@@ -362,7 +362,7 @@ describe("Closure, cancel and Packs", () => {
       ticketIds: [ticketId],
     } = await w.redeem(ts);
     expect(await w.used()).toBe(1);
-    await w.b.closeTimeslot(ts);
+    await w.b.closeTimeslot(ts, "weather");
     expect(await w.allocationCount()).toBe(0);
     const other = await w.option();
     await w.hold(w.customerId, await w.slot(other, kl(`${DAY}T09:00`)), [await w.participant(w.customerId)]);
@@ -379,7 +379,7 @@ describe("Closure, cancel and Packs", () => {
       ticketIds: [ticketId],
     } = await w.redeem(ts);
     await expect(w.reschedule(w.customerId, ticketId, later, w.p)).rejects.toMatchObject({ code: "invalid_state" });
-    await w.b.closeTimeslot(ts);
+    await w.b.closeTimeslot(ts, "weather");
     await expect(w.reschedule(w.customerId, ticketId, otherOption, w.p)).rejects.toMatchObject({
       code: "invalid_state",
     });
@@ -414,7 +414,7 @@ describe("Closure, cancel and Packs", () => {
     } = await w.book(w.customerId, ts, [p]);
     await w.startSlot(ts);
     await expect(w.cancel(w.customerId, ticketId)).rejects.toMatchObject({ code: "invalid_state" });
-    await expect(w.b.closeTimeslot(ts)).rejects.toMatchObject({ code: "invalid_state" });
+    await expect(w.b.closeTimeslot(ts, "weather")).rejects.toMatchObject({ code: "invalid_state" });
     expect(await w.allocationCount()).toBe(1);
   });
 

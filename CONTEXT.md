@@ -44,6 +44,13 @@ _Avoid_: Session, slot, schedule
 **Booking cutoff**:
 How many minutes before a Timeslot starts an Activity stops taking new bookings for it (default 60).
 
+**Schedule**:
+A weekly pattern of start times for some Options of one Activity. It keeps Timeslots generated 60 days ahead; a one-off Timeslot sits outside any Schedule.
+_Avoid_: Recurrence, template
+
+**Closed day**:
+A day an Activity never runs, every week (every Monday) or by week of the month (1st and 3rd Monday). Schedules skip it; a one-off Timeslot may still be added.
+
 **City**:
 Location hub grouping Activities (e.g. Putrajaya).
 
@@ -88,7 +95,11 @@ Admission for exactly one Participant to one Timeslot.
 _Avoid_: Pass, voucher
 
 **Check-in**:
-The Operator scanning a Ticket on arrival.
+The Operator scanning a Ticket on arrival (its QR, or the first 8 characters of its code). Only on the day of the Timeslot; checking in twice changes nothing.
+
+**Member**:
+A person who signs in to the dashboard: **staff** (Komugo, acts for any Operator and publishes Activities) or **operator** (one Operator's team).
+_Avoid_: User, admin, account
 
 ### Money and changes
 
@@ -96,7 +107,7 @@ The Operator scanning a Ticket on arrival.
 Per-Activity free-cancel window in hours before the Timeslot starts. A Customer cancel inside the window is a full Refund (a Pack session returns to the Pack); a later cancel is **forfeited** (no Refund, Pack session stays used). No cancel once the Timeslot has started.
 
 **Closure**:
-An Operator cancelling a Timeslot (weather, horse unfit).
+An Operator cancelling a Timeslot, with a reason (weather, horse unfit, other). Each affected Customer is emailed once to choose a Refund or a Reschedule.
 _Avoid_: Operator cancellation
 
 **Payment**:

@@ -53,7 +53,7 @@ test("cancelTicket and rescheduleTicket replays return the original response", a
   const {
     ticketIds: [ticketId],
   } = await w.book(w.customerId, closed, [p]);
-  await w.b.closeTimeslot(closed);
+  await w.b.closeTimeslot(closed, "weather");
   const move = rid();
   await w.reschedule(w.customerId, ticketId, later, p, move);
   await w.reschedule(w.customerId, ticketId, later, p, move);

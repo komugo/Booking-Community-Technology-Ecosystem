@@ -2,7 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { waivers } from "@komugo/db";
 import { describe, expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
-import { customer, db, DAY, kl, rid, rideWorld } from "./helpers";
+import { customer, db, DAY, kl, rid, rideWorld, UNDO_V6 } from "./helpers";
 
 const d1 = (query: string, ...params: unknown[]) =>
   env.DB.prepare(query)
@@ -217,6 +217,7 @@ test("migrations 3 to 5 on a Durable Object with v2 data keep its Holds, re-proj
   const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
+    for (const q of UNDO_V6) sql.exec(q);
     sql.exec("DROP INDEX holds_customer_active");
     sql.exec("DROP TABLE hold_add_ons");
     sql.exec("ALTER TABLE holds DROP COLUMN amount_sen");

@@ -61,10 +61,24 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - [ ] Legal review of the DRAFT Waiver text (EN + BM) and of adult self-attestation on the lead booker's device; bump `WAIVER.version` when it changes
 - [ ] Test Safari on staging (`__Host-` Secure cookies don't set on http://localhost)
 
+## Operator dashboard (step 5)
+
+- [x] Member Sign-in with the email code (`__Host-ops` cookie, 30 days); staff act for any Operator, an operator Member only for theirs; enforced in the API
+- [x] Setup: Resources with Welfare Rules, Options, Add-ons, Activity settings and Closed days; staff-only publish
+- [x] Schedules generate Timeslots 60 days ahead, regenerated on save, on a Closed-day change and by the daily 03:00 KL cron (`0 19 * * *`); one-off Timeslots
+- [x] Closure with a reason → affected list, one email per Customer (cron retries unsent ones every 5 min)
+- [x] Today view (Participants, age, weight, horse, Waiver, Add-ons, contact phone) and a Check-in scanner (camera QR, typed code, offline queue in `localStorage`)
+- [x] Same-origin `/api` proxy: the dashboard Worker forwards `/api/*` to the API through the `API` service binding (Vite proxy in dev), so the API needs no CORS
+- [ ] Real Members on production, one statement per person:
+  `wrangler d1 execute komugo --remote --command "INSERT INTO members (id, email, name, role, operator_id, created_at) VALUES (lower(hex(randomblob(16))), 'name@example.com', 'Name', 'operator', 'op_equestrian', unixepoch() * 1000)"` (staff: role `staff`, operator_id `NULL`)
+- [ ] Dashboard custom domain (e.g. `ops.komugo.my`) on `komugo-dashboard`; test the camera on a real phone over HTTPS
+- Local dev: run the API with `--port 8790` style flags if 8787 is taken and `API_URL=http://localhost:8790 pnpm --filter @komugo/dashboard dev`. Local state seeded before step 5 keeps its old one-off Timeslots; delete `.wrangler/state` and re-seed to get the Schedule-generated ones.
+- e2e: `pnpm --filter @komugo/dashboard e2e` starts its own API (8790, state in `.wrangler/state-e2e`) and dashboard (5180).
+
 ## Deferred
 
 - Payouts slice: Commission rate on `operators` plus a snapshot on `tickets` (and Pack purchases) at sale time.
-- Packs purchase/redemption UI and Reschedule/Cancel UI: step 6. Operator dashboard: step 5 (re-add API CORS then).
+- Packs purchase/redemption UI and Reschedule/Cancel UI: step 6.
 
 ## Later
 

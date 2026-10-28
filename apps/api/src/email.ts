@@ -1,4 +1,4 @@
-import { bills, checkouts, createDb, customers } from "@komugo/db";
+import { bills, checkouts, closureNotices, createDb, customers, projTimeslots } from "@komugo/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { bookingLink } from "./bookings";
 import { klDateTime, named, optionDetails, rm, type Locale, type OptionDetails } from "./details";
@@ -131,6 +131,56 @@ export async function sendRefundEmail(env: Env, billId: string) {
     .set({ emailedAt: Date.now() })
     .where(and(eq(bills.id, bill.id), isNull(bills.emailedAt)));
   log("refund_emailed", { billId: bill.id, checkoutId: c.id });
+}
+
+export async function sendClosureEmail(env: Env, timeslotId: string, ref: string) {
+  const db = createDb(env.DB);
+  const match = and(eq(closureNotices.timeslotId, timeslotId), eq(closureNotices.ref, ref));
+  const [row] = await db
+    .select({ notice: closureNotices, email: customers.email, locale: checkouts.locale, slot: projTimeslots })
+    .from(closureNotices)
+    .innerJoin(customers, eq(customers.id, closureNotices.customerId))
+    .innerJoin(projTimeslots, eq(projTimeslots.id, closureNotices.timeslotId))
+    .leftJoin(checkouts, eq(checkouts.bookingId, closureNotices.bookingId))
+    .where(match);
+  if (!row?.email || row.notice.emailedAt !== null) return;
+  const { notice: n, slot } = row;
+  const l = row.locale ?? "en";
+  const d = await optionDetails(db, slot.optionId, timeslotId, []);
+  if (!d) return;
+  const when = klDateTime(slot.startsAt, l);
+  const why = {
+    en: { weather: " due to the weather", horse_unfit: " because a horse is unfit to ride", other: "" },
+    ms: { weather: " kerana cuaca", horse_unfit: " kerana kuda tidak sihat untuk ditunggang", other: "" },
+  }[l][n.reason];
+  const lines =
+    l === "ms"
+      ? [
+          `${d.operatorName} terpaksa menutup ${named(d.option, l)} anda pada ${when}${why}.`,
+          n.bookingId
+            ? "Anda boleh tukar ke masa lain secara percuma, atau dapatkan bayaran balik penuh. Bayaran balik diterima dalam 7 hari bekerja."
+            : "Anda boleh tukar ke masa lain secara percuma, atau dapatkan semula sesi itu dalam Pek anda.",
+        ]
+      : [
+          `${d.operatorName} had to close your ${named(d.option, l)} on ${when}${why}.`,
+          n.bookingId
+            ? "You can move to another time for free, or get a full refund. Refunds arrive within 7 working days."
+            : "You can move to another time for free, or have the session returned to your Pack.",
+        ];
+  const label = l === "ms" ? "Pilih tukar masa atau bayaran balik" : "Choose reschedule or refund";
+  const href = n.bookingId ? `${site(env, l)}/bookings/${n.bookingId}?k=${await bookingLink(env, n.bookingId)}` : null;
+  await sendEmail(env, {
+    to: row.email,
+    subject: l === "ms" ? `Slot masa ditutup: ${named(d.activity, l)}` : `Timeslot closed: ${named(d.activity, l)}`,
+    text: [...lines, ...(href ? [`${label}: ${href}`] : [])].join("\n\n"),
+    html: html(lines, href ? { href, label } : undefined),
+    idempotencyKey: `closure:${timeslotId}:${ref}`,
+  });
+  await db
+    .update(closureNotices)
+    .set({ emailedAt: Date.now() })
+    .where(and(match, isNull(closureNotices.emailedAt)));
+  log("closure_emailed", { timeslotId, ref });
 }
 
 const site = (env: Env, l: Locale) => `${env.PUBLIC_SITE_URL}${l === "ms" ? "/ms" : ""}`;

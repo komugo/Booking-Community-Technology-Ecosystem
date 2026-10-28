@@ -30,7 +30,7 @@ describe("OTP", () => {
 
     const h = await guest();
     for (let i = 0; i < 5; i++) {
-      await d1("INSERT INTO otps (id, email, code_hash, created_at, expires_at) VALUES (?, ?, 'x', ?, ?)", rid(), h.email, Date.now(), Date.now());
+      await d1("INSERT INTO otps (id, email, checkout_id, code_hash, created_at, expires_at) VALUES (?, ?, ?, 'x', ?, ?)", rid(), h.email, h.id, Date.now(), Date.now());
     }
     expect((await send(h)).status).toBe(429);
   });
@@ -39,7 +39,7 @@ describe("OTP", () => {
     const g = await guest();
     for (let i = 0; i < 10; i++) {
       const at = Date.now() - 2 * 3_600_000;
-      await d1("INSERT INTO otps (id, email, code_hash, created_at, expires_at) VALUES (?, ?, 'x', ?, ?)", rid(), g.email, at, at);
+      await d1("INSERT INTO otps (id, email, checkout_id, code_hash, created_at, expires_at) VALUES (?, ?, ?, 'x', ?, ?)", rid(), g.email, g.id, at, at);
     }
     expect((await send(g)).status).toBe(429);
   });

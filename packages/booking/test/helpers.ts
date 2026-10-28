@@ -68,8 +68,9 @@ export async function operator(freeCancelHours = 24) {
     },
     async editOption(id: string, patch: Partial<OptionInput>) {
       const input = { ...optionInputs.get(id)!, ...patch };
-      await b.upsertOption(input);
+      const r = await b.upsertOption(input);
       optionInputs.set(id, input);
+      return r;
     },
     async resource(r: Partial<ResourceInput> = {}) {
       const input: ResourceInput = {
@@ -147,6 +148,15 @@ export async function operator(freeCancelHours = 24) {
   };
   return w;
 }
+
+export const UNDO_V6 = [
+  "DROP INDEX timeslots_schedule",
+  "ALTER TABLE timeslots DROP COLUMN schedule_id",
+  "ALTER TABLE timeslots DROP COLUMN closed_reason",
+  "ALTER TABLE tickets DROP COLUMN checked_in_at",
+  "ALTER TABLE activities DROP COLUMN closed_days",
+  "DROP TABLE schedules",
+];
 
 export async function customer() {
   const [row] = await db.insert(customers).values({ name: "Aiman", email: `${rid()}@x.my` }).returning();

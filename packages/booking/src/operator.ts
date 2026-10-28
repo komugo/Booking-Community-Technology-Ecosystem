@@ -6,12 +6,13 @@ import {
   type ActivityInput,
   type AddOnInput,
   type AddOnPick,
-  type BookingView,
+  type ClosureReason,
   type Idempotency,
   type OptionInput,
   type ParticipantFacts,
   type ResourceInput,
   type Result,
+  type ScheduleInput,
 } from "./engine";
 import { migrate } from "./migrations";
 import { drain, DrainError, knownQueued, outboxBacklog } from "./outbox";
@@ -29,7 +30,7 @@ export class OperatorBooking extends DurableObject<Env> {
   }
 
   upsertActivity(op: string, a: ActivityInput) {
-    return this.#mutate(op, null, (sql) => engine.upsertActivity(sql, a));
+    return this.#mutate(op, null, (sql, now) => engine.upsertActivity(sql, now, a));
   }
 
   upsertOption(op: string, o: OptionInput) {
@@ -48,8 +49,29 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, null, (sql, now) => engine.createTimeslots(sql, now, i));
   }
 
-  closeTimeslot(op: string, timeslotId: string) {
-    return this.#mutate(op, null, (sql, now) => engine.closeTimeslot(sql, now, timeslotId));
+  upsertSchedule(op: string, s: ScheduleInput) {
+    return this.#mutate(op, null, (sql, now) => engine.upsertSchedule(sql, now, s));
+  }
+
+  generateTimeslots(op: string) {
+    return this.#mutate(op, null, (sql, now) => engine.generate(sql, now, null));
+  }
+
+  closeTimeslot(op: string, timeslotId: string, reason: ClosureReason) {
+    return this.#mutate(op, null, (sql, now) => engine.closeTimeslot(sql, now, timeslotId, reason));
+  }
+
+  checkIn(op: string, i: { requestId: string; code: string }) {
+    const idem = { requestId: i.requestId, method: "checkIn", fingerprint: [i.code.trim().toLowerCase()] };
+    return this.#mutate(op, idem, (sql, now) => engine.checkIn(sql, now, i.code));
+  }
+
+  setup(op: string) {
+    return this.#read(op, (sql) => engine.setup(sql));
+  }
+
+  timeslots(op: string, q: { from: number; to: number } | { ids: string[] }) {
+    return this.#read(op, (sql, now) => engine.timeslots(sql, now, q));
   }
 
   issuePack(op: string, i: { requestId: string; customerId: string; sessionsTotal: number; expiresAt: number }) {
@@ -82,14 +104,8 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, idem, (sql, now) => engine.createHold(sql, now, i));
   }
 
-  bookingView(op: string, bookingId: string): Result<BookingView> {
-    if (!this.env.BOOKING.idFromName(op).equals(this.ctx.id)) throw new Error("wrong_operator");
-    try {
-      return { ok: true, value: engine.bookingView(this.ctx.storage.sql, bookingId) };
-    } catch (e) {
-      if (e instanceof BookingError) return { ok: false, error: e.code };
-      throw e;
-    }
+  bookingView(op: string, bookingId: string) {
+    return this.#read(op, (sql) => engine.bookingView(sql, bookingId));
   }
 
   confirmHold(op: string, i: { billId: string; holdId: string; amountSen: number }) {
@@ -152,6 +168,16 @@ export class OperatorBooking extends DurableObject<Env> {
       );
     }
     await this.#schedule();
+  }
+
+  #read<T>(op: string, fn: (sql: SqlStorage, now: number) => T): Result<T> {
+    if (!this.env.BOOKING.idFromName(op).equals(this.ctx.id)) throw new Error("wrong_operator");
+    try {
+      return { ok: true, value: fn(this.ctx.storage.sql, Date.now()) };
+    } catch (e) {
+      if (e instanceof BookingError) return { ok: false, error: e.code };
+      throw e;
+    }
   }
 
   async #mutate<T>(

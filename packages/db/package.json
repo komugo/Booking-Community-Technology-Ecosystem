@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@komugo/types": "workspace:*",
     "drizzle-orm": "0.45.4"
   },
   "devDependencies": {

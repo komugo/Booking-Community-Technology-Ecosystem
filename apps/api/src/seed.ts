@@ -2,7 +2,8 @@
 // malaysia-traveller.com, says.com, visitselangor.com, zafigo.com, thesmartlocal.my, timeout.com.
 // Photos: free Unsplash License, hotlinked from images.unsplash.com.
 import { booking, type AddOnInput, type OptionInput, type ResourceInput, type ResourceKind } from "@komugo/booking";
-import { activities, categories, cities, createDb, operators, photos, projAddOns, projOptions } from "@komugo/db";
+import { activities, categories, cities, createDb, members, operators, photos, projAddOns, projOptions } from "@komugo/db";
+import { klDate, WEEKDAYS } from "@komugo/types";
 import { count, inArray } from "drizzle-orm";
 
 type PhotoSeed = Omit<typeof photos.$inferInsert, "activityId" | "position">;
@@ -18,6 +19,8 @@ type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId"
   operator: { id: string; name: string };
   category: HubSeed;
   freeCancelHours: number;
+  closedDays: string[];
+  scheduleId: string;
   options: OptionSeed[];
   addOns: Omit<AddOnInput, "activityId" | "active">[];
   resources: ResourceSeed[];
@@ -99,6 +102,8 @@ const equestrian: ActivitySeed = {
   descriptionMs:
     "Taman ekuestrian awam di Presint 5 dan masuknya percuma. Cuba tunggangan santai yang singkat, biar si kecil naik kuda padi, atau tempah kelas 45 minit bersama jurulatih, sama ada kelas berkumpulan untuk pemula atau sesi persendirian. Sementara itu, boleh lawat kandang kuda, berjalan di denai pasir sejauh 2 km dan tonton perlawanan polo jika ada.",
   freeCancelHours: 24,
+  closedDays: ["Mo"],
+  scheduleId: "sch_eq_daily",
   ...PRESINT_5,
   phone: "+60 3-8000 8902",
   openingHours: [{ days: ["Tu", "We", "Th", "Fr", "Sa", "Su"], opens: "08:30", closes: "17:30" }],
@@ -164,6 +169,8 @@ const challengePark: ActivitySeed = {
   descriptionMs:
     "Kompleks panjat dinding tertutup di Presint 5. Satu tiket memberi anda sesi 3 jam di dinding panjat. Bawa peralatan sendiri atau sewa tali, abah-abah, kasut, alat belay dan beg kapur di kaunter. Pemula wajib memanjat bersama jurulatih, dan kanak-kanak bawah 10 tahun ada bilik khas mereka sendiri.",
   freeCancelHours: 24,
+  closedDays: ["Mo#1", "Mo#3"],
+  scheduleId: "sch_cp_daily",
   ...PRESINT_5,
   phone: "+60 3-8887 7000",
   openingHours: [
@@ -208,17 +215,11 @@ const challengePark: ActivitySeed = {
 
 const SEEDS = [equestrian, challengePark];
 
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-
-// 30 days of 9am, 11am, 2pm and 4pm KL Timeslots so checkout can be tried locally.
-function devStarts() {
-  const now = Date.now();
-  const klMidnight = Math.floor((now + 8 * HOUR) / DAY) * DAY - 8 * HOUR;
-  return Array.from({ length: 30 }, (_, d) => [9, 11, 14, 16].map((h) => klMidnight + d * DAY + h * HOUR))
-    .flat()
-    .filter((t) => t > now);
-}
+const MEMBERS: (typeof members.$inferInsert)[] = [
+  { email: "staff@komugo.test", name: "Komugo Staff", role: "staff", operatorId: null },
+  { email: "equestrian@komugo.test", name: "Equestrian Park Ops", role: "operator", operatorId: equestrian.operator.id },
+  { email: "climbing@komugo.test", name: "Challenge Park Ops", role: "operator", operatorId: challengePark.operator.id },
+];
 
 export async function seed(env: Env): Promise<{ options: number; addOns: number }> {
   const db = createDb(env.DB);
@@ -232,7 +233,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
   await db.batch([
     hub(cities, putrajaya),
     photo(putrajaya.photo),
-    ...SEEDS.flatMap(({ operator, category, freeCancelHours, options, addOns, resources, photos: gallery, ...copy }) => {
+    ...SEEDS.flatMap(({ operator, category, freeCancelHours, closedDays, scheduleId, options, addOns, resources, photos: gallery, ...copy }) => {
       const values = { ...copy, operatorId: operator.id, cityId: putrajaya.id, categoryId: category.id };
       return [
         db.insert(operators).values(operator).onConflictDoUpdate({ target: operators.id, set: operator }),
@@ -242,11 +243,12 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         ...gallery.map((p, i) => photo(p, copy.id, i)),
       ];
     }),
+    ...MEMBERS.map((m) => db.insert(members).values(m).onConflictDoUpdate({ target: members.email, set: m })),
   ]);
 
   for (const a of SEEDS) {
     const b = booking(env, a.operator.id);
-    await b.upsertActivity({ id: a.id, freeCancelHours: a.freeCancelHours });
+    await b.upsertActivity({ id: a.id, freeCancelHours: a.freeCancelHours, closedDays: a.closedDays });
     for (const r of a.resources) {
       await b.upsertResource({ active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null, ...r });
     }
@@ -264,7 +266,16 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
       });
     }
     for (const x of a.addOns) await b.upsertAddOn({ ...x, activityId: a.id, active: true });
-    for (const o of a.options) await b.createTimeslots({ optionId: o.id, startsAt: devStarts() });
+    await b.upsertSchedule({
+      id: a.scheduleId,
+      activityId: a.id,
+      optionIds: a.options.map((o) => o.id),
+      weekdays: WEEKDAYS,
+      times: ["09:00", "11:00", "14:00", "16:00"],
+      startsOn: klDate(Date.now()),
+      endsOn: null,
+      active: true,
+    });
   }
 
   const ops = SEEDS.map((a) => a.operator.id);

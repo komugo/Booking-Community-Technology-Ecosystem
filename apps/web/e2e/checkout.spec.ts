@@ -172,7 +172,7 @@ for (const locale of ["en", "ms"] as const) {
     await guest.context.close();
 
     await page.goto(`${prefix(locale)}/book/opt_cp_adult`);
-    await page.locator("a[data-day]").nth(12).click();
+    await page.locator("a[data-day]").nth(10).click();
     await page.locator('label:has(input[name=timeslotId]:not([data-spots="1"]))').first().click();
     await bar(page).click();
     await expect(page).toHaveURL(/\/who$/);

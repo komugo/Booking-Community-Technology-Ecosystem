@@ -1,8 +1,10 @@
 import { checkouts, createDb, customers, otps } from "@komugo/db";
 import { Hono } from "hono";
-import { and, count, eq, gt, sql } from "drizzle-orm";
+import { and, count, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { holdReply, holdStep, ownedCheckout, persistDraft } from "./checkout";
 import { otpEmail, sendEmail } from "./email";
+import type { Locale } from "./details";
 import { DAY, emailRef, fail, HOUR, hmacHex, limited, log, logError, MIN, safeEqual, type Ctx } from "./lib";
 import { endSession, rotateSession } from "./session";
 
@@ -11,9 +13,78 @@ const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_HOUR = 5;
 const MAX_SENDS_PER_DAY = 10;
 
-const normEmail = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
+export const normEmail = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
 const codeHash = (env: Env, email: string, code: string) => hmacHex(env.APP_SECRET, `otp:${email}:${code}`);
-const ipLimited = (c: Ctx) => limited(c.env.RL_IP, `otp:${c.req.header("x-client-ip") ?? "unknown"}`);
+export const clientIp = (c: Ctx) => c.req.header("x-client-ip") ?? "unknown";
+export const ipLimited = (c: Ctx) => limited(c.env.RL_IP, `otp:${clientIp(c)}`);
+
+export async function sendOtp(
+  c: Ctx,
+  email: string,
+  checkoutId: string | null,
+  locale: Locale,
+  also: BatchItem<"sqlite">[] = [],
+): Promise<Response | null> {
+  const db = createDb(c.env.DB);
+  const now = Date.now();
+  const ip = checkoutId ? null : clientIp(c);
+  const [{ hour, day }] = await db
+    .select({ hour: sql<number>`count(*) FILTER (WHERE ${otps.createdAt} > ${now - HOUR})`, day: count() })
+    .from(otps)
+    .where(
+      and(
+        eq(otps.email, email),
+        gt(otps.createdAt, now - DAY),
+        ip ? and(isNull(otps.checkoutId), eq(otps.ip, ip)) : isNotNull(otps.checkoutId),
+      ),
+    );
+  if (hour >= MAX_SENDS_PER_HOUR || day >= MAX_SENDS_PER_DAY) return fail(c, 429, { code: "rate_limited" });
+
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+  await db.batch([
+    db.insert(otps).values({
+      email,
+      checkoutId,
+      ip,
+      codeHash: await codeHash(c.env, email, code),
+      createdAt: now,
+      expiresAt: now + OTP_TTL,
+    }),
+    ...also,
+  ]);
+  const ref = await emailRef(email);
+  try {
+    await sendEmail(c.env, otpEmail(email, code, locale));
+  } catch (e) {
+    logError("otp_email_failed", { email: ref, error: String(e) });
+    return fail(c, 503, { code: "email_failed" });
+  }
+  log("otp_sent", { email: ref, checkoutId });
+  return null;
+}
+
+export async function consumeOtp(c: Ctx, email: string, checkoutId: string | null, code: string): Promise<Response | null> {
+  const now = Date.now();
+  const row = await c.env.DB.prepare(
+    `UPDATE otps SET attempts = attempts + 1
+     WHERE id = (SELECT id FROM otps WHERE email = ? AND checkout_id IS ? ORDER BY created_at DESC LIMIT 1)
+       AND attempts < ? AND used_at IS NULL AND expires_at > ?
+     RETURNING id, code_hash, attempts`,
+  )
+    .bind(email, checkoutId, MAX_ATTEMPTS, now)
+    .first<{ id: string; code_hash: string; attempts: number }>();
+  if (!row) return fail(c, 400, { code: "otp_expired", field: "code" });
+  if (!safeEqual(await codeHash(c.env, email, code), row.code_hash)) {
+    const triesLeft = MAX_ATTEMPTS - row.attempts;
+    return triesLeft > 0
+      ? fail(c, 400, { code: "otp_invalid", field: "code", params: { triesLeft } })
+      : fail(c, 400, { code: "otp_expired", field: "code" });
+  }
+  const used = await c.env.DB.prepare("UPDATE otps SET used_at = ? WHERE id = ? AND used_at IS NULL RETURNING id")
+    .bind(now, row.id)
+    .first();
+  return used ? null : fail(c, 400, { code: "otp_expired", field: "code" });
+}
 
 export const auth = new Hono<{ Bindings: Env }>();
 
@@ -34,38 +105,13 @@ auth.post("/otp", async (c) => {
   ];
   if (errors.length) return fail(c, 400, errors[0], errors);
 
-  const db = createDb(c.env.DB);
-  const now = Date.now();
   if (await limited(c.env.RL_OTP_EMAIL, email)) return fail(c, 429, { code: "rate_limited" });
-  const [{ hour, day }] = await db
-    .select({ hour: sql<number>`count(*) FILTER (WHERE ${otps.createdAt} > ${now - HOUR})`, day: count() })
-    .from(otps)
-    .where(and(eq(otps.email, email), gt(otps.createdAt, now - DAY)));
-  if (hour >= MAX_SENDS_PER_HOUR || day >= MAX_SENDS_PER_DAY) return fail(c, 429, { code: "rate_limited" });
-
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
-  await db.batch([
-    db
-      .update(checkouts)
-      .set({ contactName: name, contactEmail: email, contactPhone: phone || null, updatedAt: now })
-      .where(eq(checkouts.id, owned.checkout.id)),
-    db.insert(otps).values({
-      email,
-      checkoutId: owned.checkout.id,
-      codeHash: await codeHash(c.env, email, code),
-      createdAt: now,
-      expiresAt: now + OTP_TTL,
-    }),
-  ]);
-  const ref = await emailRef(email);
-  try {
-    await sendEmail(c.env, otpEmail(email, code, owned.checkout.locale));
-  } catch (e) {
-    logError("otp_email_failed", { email: ref, error: String(e) });
-    return fail(c, 503, { code: "email_failed" });
-  }
-  log("otp_sent", { email: ref, checkoutId: owned.checkout.id });
-  return c.body(null, 204);
+  const db = createDb(c.env.DB);
+  const contact = db
+    .update(checkouts)
+    .set({ contactName: name, contactEmail: email, contactPhone: phone || null, updatedAt: Date.now() })
+    .where(eq(checkouts.id, owned.checkout.id));
+  return (await sendOtp(c, email, owned.checkout.id, owned.checkout.locale, [contact])) ?? c.body(null, 204);
 });
 
 auth.post("/otp/verify", async (c) => {
@@ -79,27 +125,10 @@ auth.post("/otp/verify", async (c) => {
   const code = typeof body.code === "string" ? body.code.trim() : "";
   if (!email || email !== checkout.contactEmail) return fail(c, 400, { code: "otp_expired", field: "code" });
 
-  const now = Date.now();
-  const row = await c.env.DB.prepare(
-    `UPDATE otps SET attempts = attempts + 1
-     WHERE id = (SELECT id FROM otps WHERE email = ? AND checkout_id = ? ORDER BY created_at DESC LIMIT 1)
-       AND attempts < ? AND used_at IS NULL AND expires_at > ?
-     RETURNING id, code_hash, attempts`,
-  )
-    .bind(email, checkout.id, MAX_ATTEMPTS, now)
-    .first<{ id: string; code_hash: string; attempts: number }>();
-  if (!row) return fail(c, 400, { code: "otp_expired", field: "code" });
-  if (!safeEqual(await codeHash(c.env, email, code), row.code_hash)) {
-    const triesLeft = MAX_ATTEMPTS - row.attempts;
-    return triesLeft > 0
-      ? fail(c, 400, { code: "otp_invalid", field: "code", params: { triesLeft } })
-      : fail(c, 400, { code: "otp_expired", field: "code" });
-  }
-  const used = await c.env.DB.prepare("UPDATE otps SET used_at = ? WHERE id = ? AND used_at IS NULL RETURNING id")
-    .bind(now, row.id)
-    .first();
-  if (!used) return fail(c, 400, { code: "otp_expired", field: "code" });
+  const rejected = await consumeOtp(c, email, checkout.id, code);
+  if (rejected) return rejected;
 
+  const now = Date.now();
   const db = createDb(c.env.DB);
   const [customer] = await db
     .insert(customers)

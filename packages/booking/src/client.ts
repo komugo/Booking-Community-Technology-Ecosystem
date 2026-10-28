@@ -6,10 +6,12 @@ import {
   type ActivityInput,
   type AddOnInput,
   type AddOnPick,
+  type ClosureReason,
   type OptionInput,
   type ParticipantFacts,
   type ResourceInput,
   type Result,
+  type ScheduleInput,
 } from "./engine";
 
 async function loadFacts(env: Env, operatorId: string, ids: string[]): Promise<ParticipantFacts[]> {
@@ -64,7 +66,12 @@ export function booking(env: Env, operatorId: string) {
     upsertAddOn: (a: AddOnInput) => call((s) => s.upsertAddOn(op, a)),
     upsertResource: (r: ResourceInput) => call((s) => s.upsertResource(op, r)),
     createTimeslots: (i: { optionId: string; startsAt: number[] }) => call((s) => s.createTimeslots(op, i)),
-    closeTimeslot: (timeslotId: string) => call((s) => s.closeTimeslot(op, timeslotId)),
+    upsertSchedule: (sch: ScheduleInput) => call((s) => s.upsertSchedule(op, sch)),
+    generateTimeslots: () => call((s) => s.generateTimeslots(op)),
+    closeTimeslot: (timeslotId: string, reason: ClosureReason) => call((s) => s.closeTimeslot(op, timeslotId, reason)),
+    checkIn: (i: { requestId: string; code: string }) => call((s) => s.checkIn(op, i)),
+    setup: () => call((s) => s.setup(op)),
+    timeslots: (q: { from: number; to: number } | { ids: string[] }) => call((s) => s.timeslots(op, q)),
     issuePack: (i: { requestId: string; customerId: string; sessionsTotal: number; expiresAt: number }) =>
       call((s) => s.issuePack(op, i)),
     confirmHold: (i: { billId: string; holdId: string; amountSen: number }) => call((s) => s.confirmHold(op, i)),

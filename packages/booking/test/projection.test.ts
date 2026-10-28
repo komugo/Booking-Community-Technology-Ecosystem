@@ -102,7 +102,7 @@ test("a Closure projects closed_at onto the Timeslot and its Tickets", async () 
   const w = await rideWorld();
   const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
   await w.book(w.customerId, ts, [await w.participant(w.customerId)]);
-  await w.b.closeTimeslot(ts);
+  await w.b.closeTimeslot(ts, "weather");
   await w.flush();
   const [slot] = await d1("SELECT closed_at, spots FROM proj_timeslots WHERE id = ?", ts);
   expect(slot).toMatchObject({ closed_at: expect.any(Number), spots: 0 });

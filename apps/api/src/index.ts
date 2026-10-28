@@ -5,5 +5,5 @@ export { OperatorBooking } from "@komugo/booking";
 
 export default {
   fetch: app.fetch,
-  scheduled: (_, env, ctx) => ctx.waitUntil(cron(env, (p) => ctx.waitUntil(p))),
+  scheduled: (ctl, env, ctx) => ctx.waitUntil(cron(env, (p) => ctx.waitUntil(p), Date.now(), ctl.cron)),
 } satisfies ExportedHandler<Env>;

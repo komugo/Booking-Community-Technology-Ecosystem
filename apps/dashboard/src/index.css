@@ -1,1 +1,60 @@
 @import "tailwindcss";
+@import "@komugo/theme/theme.css";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-lime);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  dialog::backdrop {
+    background: rgb(14 26 20 / 0.45);
+  }
+}
+
+@layer components {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .card {
+    @apply rounded-2xl bg-white shadow-[0_1px_0_var(--color-line),0_8px_24px_-16px_rgb(14_26_20/0.25)];
+  }
+  .btn {
+    @apply inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full px-5 font-semibold disabled:cursor-default disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-leaf text-white enabled:hover:bg-forest;
+  }
+  .btn-quiet {
+    @apply border border-line bg-white enabled:hover:bg-sand;
+  }
+  .btn-danger {
+    @apply bg-clay text-white;
+  }
+  .input {
+    @apply min-h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-clay;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold;
+  }
+  .chip {
+    @apply inline-flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold aria-pressed:border-forest aria-pressed:bg-forest aria-pressed:text-white;
+  }
+}

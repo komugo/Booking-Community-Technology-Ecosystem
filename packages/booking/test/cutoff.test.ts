@@ -72,7 +72,7 @@ test("a custom Booking cutoff applies and is kept when an update omits it", asyn
 test("a negative Booking cutoff is rejected", async () => {
   const w = await rideWorld();
   await runInDurableObject(w.stub, (_, s) => {
-    expect(() => upsertActivity(s.storage.sql, { id: w.activityId, freeCancelHours: 24, bookingCutoffMinutes: -1 })).toThrow(
+    expect(() => upsertActivity(s.storage.sql, Date.now(), { id: w.activityId, freeCancelHours: 24, bookingCutoffMinutes: -1 })).toThrow(
       "CHECK constraint failed",
     );
   });
@@ -106,7 +106,7 @@ test("Pack redemption and Reschedule respect the Booking cutoff", async () => {
   const {
     ticketIds: [ticketId],
   } = await w.book(w.customerId, closed, [p]);
-  await w.b.closeTimeslot(closed);
+  await w.b.closeTimeslot(closed, "weather");
   await expect(w.reschedule(w.customerId, ticketId, soon, p)).rejects.toMatchObject({ code: "not_bookable" });
 });
 

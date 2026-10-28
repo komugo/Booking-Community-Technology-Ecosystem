@@ -27,5 +27,5 @@
     { "name": "RL_IP", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_CHECKOUT", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
   ],
-  "triggers": { "crons": ["*/5 * * * *"] }
+  "triggers": { "crons": ["*/5 * * * *", "0 19 * * *"] }
 }

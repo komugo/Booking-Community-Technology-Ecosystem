@@ -1,6 +1,8 @@
 import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { booking, type OptionInput } from "@komugo/booking";
-import { activities, categories, cities, createDb, operators } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, participants, waivers } from "@komugo/db";
+import { WAIVER } from "@komugo/types";
+import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { app } from "../src/app";
 import { devInbox } from "../src/email";
@@ -211,3 +213,76 @@ export const d1 = <T = Record<string, unknown>>(q: string, ...p: unknown[]) =>
     .bind(...p)
     .all<T>()
     .then((r) => r.results);
+
+export async function member(role: "staff" | "operator", operatorId: string | null = null) {
+  const email = `${role}+${rid()}@example.com`;
+  await db.insert(members).values({ email, name: `The ${role}`, role, operatorId });
+  const cl = client();
+  const sent = await cl.call("POST", "/ops/auth/otp", { email, locale: "en" });
+  if (sent.status !== 204) throw new Error(`ops otp ${sent.status}`);
+  const v = await cl.json("POST", "/ops/auth/otp/verify", { email, code: otpCode(email) });
+  if (v.status !== 200) throw new Error(`ops verify ${v.status} ${JSON.stringify(v.body)}`);
+  return Object.assign(cl, { email });
+}
+
+type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" };
+
+// A paid Booking made straight through the Durable Object, with its Checkout row for contact and locale.
+export async function booked(
+  w: World,
+  people: Person[] = [{}],
+  o: { addOns?: { id: string; qty: number }[]; locale?: "en" | "ms"; phone?: string; timeslotId?: string; customer?: { id: string; email: string | null } } = {},
+) {
+  const [customer] = o.customer ? [o.customer] : await db.insert(customers).values({ name: "Aiman Rahman", email: `${rid()}@example.com` }).returning();
+  const ids: string[] = [];
+  for (const p of people) {
+    const [row] = await db
+      .insert(participants)
+      .values({ customerId: customer.id, name: p.name ?? "Aisyah", birthDate: p.birthDate ?? "1990-05-01", weightKg: p.weightKg ?? 60 })
+      .returning();
+    ids.push(row.id);
+    await db.insert(waivers).values({
+      participantId: row.id,
+      operatorId: w.operatorId,
+      signerName: "Aiman Rahman",
+      version: WAIVER.version,
+      guardian: p.waiver === "guardian",
+    });
+  }
+  const timeslotId = o.timeslotId ?? w.timeslotId;
+  const hold = await w.b.createHold({
+    requestId: rid(),
+    customerId: customer.id,
+    replaces: null,
+    timeslotId,
+    participantIds: ids,
+    addOns: o.addOns ?? [],
+  });
+  const paid = await w.b.confirmHold({ billId: rid(), holdId: hold.holdId, amountSen: hold.amountSen });
+  if (paid.status !== "paid") throw new Error("not paid");
+  for (const [i, p] of people.entries()) {
+    if (p.waiver === "outdated") await db.update(waivers).set({ version: "old" }).where(eq(waivers.participantId, ids[i]));
+  }
+  const now = Date.now();
+  await db.insert(checkouts).values({
+    sessionId: rid(),
+    customerId: customer.id,
+    operatorId: w.operatorId,
+    activityId: w.activityId,
+    optionId: w.optionId,
+    timeslotId,
+    quantity: ids.length,
+    addOns: hold.addOns,
+    participantIds: ids,
+    contactName: "Aiman Rahman",
+    contactPhone: o.phone ?? "+60123456789",
+    locale: o.locale ?? "en",
+    holdId: hold.holdId,
+    amountSen: hold.amountSen,
+    bookingId: paid.bookingId,
+    emailedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { customerId: customer.id, email: customer.email!, participantIds: ids, bookingId: paid.bookingId, ticketIds: paid.ticketIds };
+}

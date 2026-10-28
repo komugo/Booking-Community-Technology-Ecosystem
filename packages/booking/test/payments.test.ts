@@ -51,7 +51,7 @@ test("a late payment on a free Timeslot is paid; on a taken one it is refund_due
 
 test("a payment after a Closure is refund_due/unavailable", async () => {
   const w = await held();
-  await w.b.closeTimeslot(w.ts);
+  await w.b.closeTimeslot(w.ts, "weather");
   expect(await w.pay(w.h)).toEqual({ status: "refund_due", reason: "unavailable" });
 });
 

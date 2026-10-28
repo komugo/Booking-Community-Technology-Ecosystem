@@ -1,7 +1,8 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { Weekday } from "@komugo/types";
 
-export type Weekday = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
+export type { Weekday };
 export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
 export type Faq = { q: string; a: string };
 
@@ -276,6 +277,7 @@ export const otps = sqliteTable(
     id: id(),
     email: text().notNull(),
     checkoutId: text(),
+    ip: text(),
     codeHash: text().notNull(),
     attempts: integer().notNull().default(0),
     createdAt: integer().notNull(),
@@ -336,4 +338,50 @@ export const bills = sqliteTable(
     emailedAt: integer(),
   },
   (t) => [index("bills_paid_created").on(t.paidAt, t.createdAt)],
+);
+
+export const members = sqliteTable(
+  "members",
+  {
+    id: id(),
+    email: text().notNull().unique(),
+    name: text().notNull(),
+    role: text({ enum: ["staff", "operator"] }).notNull(),
+    operatorId: text().references(() => operators.id),
+    createdAt: integer()
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (t) => [
+    check("members_scope", sql`(${t.role} = 'staff') = (${t.operatorId} is null)`),
+    index("members_operator").on(t.operatorId),
+  ],
+);
+
+export const memberSessions = sqliteTable(
+  "member_sessions",
+  {
+    idHash: text().primaryKey(),
+    memberId: text()
+      .notNull()
+      .references(() => members.id),
+    createdAt: integer().notNull(),
+    expiresAt: integer().notNull(),
+  },
+);
+
+export const closureNotices = sqliteTable(
+  "closure_notices",
+  {
+    timeslotId: text().notNull(),
+    ref: text().notNull(),
+    customerId: text()
+      .notNull()
+      .references(() => customers.id),
+    bookingId: text(),
+    reason: text({ enum: ["weather", "horse_unfit", "other"] }).notNull(),
+    createdAt: integer().notNull(),
+    emailedAt: integer(),
+  },
+  (t) => [primaryKey({ columns: [t.timeslotId, t.ref] }), index("closure_notices_unsent").on(t.emailedAt, t.createdAt)],
 );
