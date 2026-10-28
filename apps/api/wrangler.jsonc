@@ -6,17 +6,17 @@
   "vars": {
     "DEV_SEED": "0",
     "BOOK_DRAFTS": "0",
-    "PUBLIC_SITE_URL": "https://komugo.my",
+    "PUBLIC_SITE_URL": "https://komugo.com",
     "BILLPLZ_BASE": "https://www.billplz.com/api/v3",
     "BILLPLZ_COLLECTION_ID": "",
     "EMAIL_MODE": "resend",
-    "EMAIL_FROM": "Komugo <tickets@komugo.my>"
+    "EMAIL_FROM": "Komugo <tickets@komugo.com>"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "komugo",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "b90adae4-af83-4a00-b3ad-f6856f569715",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
@@ -27,5 +27,34 @@
     { "name": "RL_IP", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_CHECKOUT", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
   ],
-  "triggers": { "crons": ["*/5 * * * *", "0 19 * * *"] }
+  "triggers": { "crons": ["*/5 * * * *", "0 19 * * *"] },
+  "env": {
+    "staging": {
+      "workers_dev": false,
+      "vars": {
+        "DEV_SEED": "0",
+        "BOOK_DRAFTS": "1",
+        "PUBLIC_SITE_URL": "https://komugo-web-staging.komugo.workers.dev",
+        "BILLPLZ_BASE": "https://www.billplz-sandbox.com/api/v3",
+        "BILLPLZ_COLLECTION_ID": "",
+        "EMAIL_MODE": "resend",
+        "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "komugo-staging",
+          "database_id": "e63e7ad5-aeff-4434-be41-cd5e2fa2ca6b",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ],
+      "durable_objects": { "bindings": [{ "name": "BOOKING", "class_name": "OperatorBooking" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OperatorBooking"] }],
+      "ratelimits": [
+        { "name": "RL_OTP_EMAIL", "namespace_id": "2001", "simple": { "limit": 1, "period": 60 } },
+        { "name": "RL_IP", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "RL_CHECKOUT", "namespace_id": "2003", "simple": { "limit": 30, "period": 60 } }
+      ]
+    }
+  }
 }

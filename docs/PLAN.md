@@ -57,7 +57,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - [x] Late payment after Hold expiry: re-allocate the same Timeslot (or the Checkout's replacement Hold for the same people), else `refund_due` with a refund email and rebook link
 - Refunds are manual: ops pays out every `refund_due` Payment (`proj_payments`, `bills.refund_reason`) by hand; the Customer gets an email. Not an automatic Refund.
 - [ ] Real Billplz keys and collection (`BILLPLZ_API_KEY`, `BILLPLZ_X_SIGNATURE_KEY`, `BILLPLZ_COLLECTION_ID`), "Extra Payment Completion Information" on, then a sandbox smoke test on staging
-- [ ] Email domain: verify `komugo.my` in Resend (SPF/DKIM), set `RESEND_API_KEY` and `APP_SECRET`
+- [ ] Email domain: verify `komugo.com` in Resend (SPF/DKIM), set `RESEND_API_KEY` and `APP_SECRET`
 - [ ] Legal review of the DRAFT Waiver text (EN + BM) and of adult self-attestation on the lead booker's device; bump `WAIVER.version` when it changes
 - [ ] Test Safari on staging (`__Host-` Secure cookies don't set on http://localhost)
 
@@ -71,7 +71,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - [x] Same-origin `/api` proxy: the dashboard Worker forwards `/api/*` to the API through the `API` service binding (Vite proxy in dev), so the API needs no CORS
 - [ ] Real Members on production, one statement per person:
   `wrangler d1 execute komugo --remote --command "INSERT INTO members (id, email, name, role, operator_id, created_at) VALUES (lower(hex(randomblob(16))), 'name@example.com', 'Name', 'operator', 'op_equestrian', unixepoch() * 1000)"` (staff: role `staff`, operator_id `NULL`)
-- [ ] Dashboard custom domain (e.g. `ops.komugo.my`) on `komugo-dashboard`; test the camera on a real phone over HTTPS
+- [ ] Dashboard custom domain (e.g. `ops.komugo.com`) on `komugo-dashboard`; test the camera on a real phone over HTTPS
 - Local dev: run the API with `--port 8790` style flags if 8787 is taken and `API_URL=http://localhost:8790 pnpm --filter @komugo/dashboard dev`. Local state seeded before step 5 keeps its old one-off Timeslots; delete `.wrangler/state` and re-seed to get the Schedule-generated ones.
 - e2e: `pnpm --filter @komugo/dashboard e2e` starts its own API (8790, state in `.wrangler/state-e2e`) and dashboard (5180).
 

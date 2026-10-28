@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "wrangler dev --persist-to ../../.wrangler/state --var DEV_SEED:1 BOOK_DRAFTS:1 EMAIL_MODE:log PUBLIC_SITE_URL:http://localhost:4321 BILLPLZ_BASE:http://localhost:8787/dev/billplz/api/v3 BILLPLZ_COLLECTION_ID:dev-collection",
     "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
     "typegen": "wrangler types --strict-vars=false --include-runtime=false && wrangler types worker-runtime.d.ts --include-env=false",
     "db:migrate:local": "wrangler d1 migrations apply komugo --local --persist-to ../../.wrangler/state",
     "db:migrate:remote": "wrangler d1 migrations apply komugo --remote",
+    "db:migrate:staging": "wrangler d1 migrations apply komugo-staging --remote --env staging",
     "typecheck": "tsc",
     "test": "vitest run",
     "seed": "curl -fsS -X POST http://localhost:8787/dev/seed"

@@ -16,7 +16,7 @@ export default defineConfig({
           BILLPLZ_BASE: "https://api.test/dev/billplz/api/v3",
           BILLPLZ_COLLECTION_ID: "col_test",
           EMAIL_MODE: "log",
-          EMAIL_FROM: "Komugo <test@komugo.my>",
+          EMAIL_FROM: "Komugo <test@komugo.com>",
           APP_SECRET: "test-app-secret",
           BILLPLZ_API_KEY: "test-api-key",
           BILLPLZ_X_SIGNATURE_KEY: "S-s7b4yWpp9h7rrkNM1i3Z_g",

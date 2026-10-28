@@ -6,7 +6,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "wrangler dev",
-    "deploy": "PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://komugo.my} astro build && wrangler deploy",
+    "deploy": "PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://komugo.com} astro build && wrangler deploy",
+    "deploy:staging": "CLOUDFLARE_ENV=staging PUBLIC_SITE_URL=https://komugo-web-staging.komugo.workers.dev astro build && wrangler deploy",
     "typegen": "wrangler types --strict-vars=false",
     "typecheck": "astro check"
   },

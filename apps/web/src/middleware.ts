@@ -6,6 +6,10 @@ const FORM_ACTION = ["'self'", "https://www.billplz.com", "https://www.billplz-s
 // Astro collapses `//` in Astro.url before routing, so read the raw request URL.
 export const onRequest = defineMiddleware(async ({ request }, next) => {
   const url = new URL(request.url);
+  if (url.hostname.startsWith("www.")) {
+    url.hostname = url.hostname.slice(4);
+    return new Response(null, { status: 301, headers: { Location: url.href } });
+  }
   if (url.pathname.includes("//")) {
     return new Response(null, { status: 301, headers: { Location: url.pathname.replace(/\/{2,}/g, "/") + url.search } });
   }

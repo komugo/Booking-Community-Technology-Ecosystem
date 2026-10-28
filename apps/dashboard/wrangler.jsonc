@@ -2,11 +2,19 @@
   "name": "komugo-dashboard",
   "main": "src/worker.ts",
   "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "dashboard.komugo.com", "custom_domain": true }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
-  "services": [{ "binding": "API", "service": "komugo-api" }]
+  "services": [{ "binding": "API", "service": "komugo-api" }],
+  "env": {
+    "staging": {
+      "routes": [],
+      "workers_dev": true,
+      "services": [{ "binding": "API", "service": "komugo-api-staging" }]
+    }
+  }
 }
