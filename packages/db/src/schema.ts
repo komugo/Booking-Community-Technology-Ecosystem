@@ -203,6 +203,7 @@ export const projOptions = sqliteTable(
     maxWeightKg: integer(),
     requiredCert: text(),
     minParticipants: integer(),
+    maxPerBooking: integer(),
     active: integer({ mode: "boolean" }).notNull(),
     asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),

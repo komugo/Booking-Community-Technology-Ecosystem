@@ -140,6 +140,7 @@ export async function world(
     maxWeightKg: 90,
     requiredCert: null,
     minParticipants: null,
+    maxPerBooking: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,

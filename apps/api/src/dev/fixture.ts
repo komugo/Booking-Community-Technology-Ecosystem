@@ -70,6 +70,7 @@ export async function fixture(
     maxWeightKg: 90,
     requiredCert: null,
     minParticipants: null,
+    maxPerBooking: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });

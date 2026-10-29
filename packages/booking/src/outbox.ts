@@ -40,7 +40,7 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     table: "proj_options",
     pk: "id",
     query: `SELECT id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age, max_weight_kg,
-      required_cert, min_participants, active,
+      required_cert, min_participants, max_per_booking, active,
       (max_weight_kg IS NOT NULL OR EXISTS (SELECT 1 FROM option_resources WHERE option_id = options.id AND kind = 'horse'))
         AS asks_weight
       FROM options WHERE id = ?`,

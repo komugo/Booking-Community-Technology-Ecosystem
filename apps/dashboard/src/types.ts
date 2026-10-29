@@ -64,6 +64,7 @@ export type Option = Named & {
   maxWeightKg: number | null;
   requiredCert: string | null;
   minParticipants: number | null;
+  maxPerBooking: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };

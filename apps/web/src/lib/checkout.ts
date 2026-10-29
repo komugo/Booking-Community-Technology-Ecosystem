@@ -13,7 +13,7 @@ const notFound = () => new Response(null, { status: 404 });
 const step = (l: Locale, id: string, s: string) => path(l, "checkout", id, s);
 export const named = (x: { nameEn: string; nameMs: string }, l: Locale) => (l === "ms" ? x.nameMs : x.nameEn);
 
-const STEP_1 = new Set(["no_availability", "below_min_participants", "not_bookable", "invalid_add_on"]);
+const STEP_1 = new Set(["no_availability", "below_min_participants", "above_max_per_booking", "not_bookable", "invalid_add_on"]);
 const STEP_2 = new Set(["requirement_not_met", "invalid_participant", "waiver_missing"]);
 
 export function holdRedirect(l: Locale, co: { id: string; option: { id: string } }, code: string, cookies: string[] = []) {
@@ -70,9 +70,10 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
   ]);
 
   const min = o.minParticipants ?? 1;
+  const max = o.maxPerBooking ?? 10;
   let errors: ApiError[] = codeFrom(url);
   const q = (k: string) => Math.max(0, Math.floor(Number(url.searchParams.get(k)) || 0));
-  const quantity = Math.min(10, Math.max(min, q("quantity")));
+  const quantity = Math.min(max, Math.max(min, q("quantity")));
   let values = {
     timeslotId: "",
     quantity,
@@ -124,6 +125,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     nextOpen,
     values,
     min,
+    max,
     problems: problems(l, errors),
     status: errors.length && request.method === "POST" ? 400 : 200,
     cookies,

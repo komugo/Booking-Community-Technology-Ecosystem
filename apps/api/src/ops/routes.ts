@@ -129,6 +129,11 @@ function optionInput(body: Body) {
     [intOrNull(body.maxWeightKg, 1, 300), "maxWeightKg"],
     [body.requiredCert === null || (typeof body.requiredCert === "string" && name(body.requiredCert) && body.requiredCert.length <= 50), "requiredCert"],
     [intOrNull(body.minParticipants, 1, 10), "minParticipants"],
+    [
+      intOrNull(body.maxPerBooking, 1, 50) &&
+        !(int(body.minParticipants, 1, 10) && int(body.maxPerBooking, 1, 50) && body.minParticipants > body.maxPerBooking),
+      "maxPerBooking",
+    ],
     [bool(body.active), "active"],
     [
       list(body.needs, 4, (n) => KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
@@ -149,6 +154,7 @@ function optionInput(body: Body) {
       maxWeightKg: body.maxWeightKg as number | null,
       requiredCert: (body.requiredCert as string | null)?.trim() ?? null,
       minParticipants: body.minParticipants as number | null,
+      maxPerBooking: body.maxPerBooking as number | null,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),

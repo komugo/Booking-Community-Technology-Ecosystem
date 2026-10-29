@@ -20,6 +20,7 @@ export type Checkout = {
     maxWeightKg: number | null;
     requiredCert: string | null;
     minParticipants: number | null;
+    maxPerBooking: number | null;
     asksWeight: boolean;
   };
   activity: Named & {
