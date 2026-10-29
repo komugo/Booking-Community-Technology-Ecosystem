@@ -43,8 +43,8 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(page.locator("[data-row]", { hasText: "Gloves" })).toContainText("RM7.50");
 
   await page.getByRole("tab", { name: "Activity" }).click();
-  await expect(page.locator("[data-published]")).toHaveText("Not published");
-  await expect(page.getByRole("switch")).toHaveCount(0);
+  await expect(page.locator("[data-listing-mode]")).toHaveText("Hidden");
+  await expect(page.getByLabel("Listing mode")).toHaveCount(0);
   const sentence = page.locator("[data-closed-sentence]");
   await expect(sentence).toHaveText("Closed 1st and 3rd Monday");
   await page.getByRole("button", { name: "Remove 1st Monday" }).click();
@@ -62,15 +62,20 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
 });
 
-test("only staff can publish an Activity", async ({ browser, request }) => {
+test("only staff can set Listing mode, and Bookable needs a Commission", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();
   await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
   await expect(page).toHaveURL(`/o/${fx.operatorId}/setup`);
-  const published = page.getByRole("switch", { name: "Published" });
-  await expect(published).not.toBeChecked();
-  await published.check({ force: true });
-  await expect(published).toBeChecked();
+  const mode = page.getByLabel("Listing mode");
+  await expect(mode).toHaveValue("hidden");
+  await mode.selectOption("bookable");
+  await expect(page.getByText("Set the Commission before making an Activity Bookable.")).toBeVisible();
+  await expect(mode).toHaveValue("hidden");
+  await page.getByLabel("Commission (%)").fill("12.5");
+  await page.getByRole("button", { name: "Save" }).first().click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), mode.selectOption("bookable")]);
   await page.reload();
-  await expect(page.getByRole("switch", { name: "Published" })).toBeChecked();
+  await expect(page.getByLabel("Listing mode")).toHaveValue("bookable");
 });

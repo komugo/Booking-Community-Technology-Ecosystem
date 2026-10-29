@@ -72,6 +72,10 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#read(op, (sql) => engine.setup(sql));
   }
 
+  hasFutureBookings(op: string, activityId: string) {
+    return this.#read(op, (sql, now) => engine.hasFutureBookings(sql, now, activityId));
+  }
+
   timeslots(op: string, q: { from: number; to: number } | { ids: string[] }) {
     return this.#read(op, (sql, now) => engine.timeslots(sql, now, q));
   }
@@ -85,7 +89,7 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, idem, (sql, now) => engine.orderPack(sql, now, i));
   }
 
-  confirmPackBill(op: string, i: { billId: string; orderId: string; amountSen: number }) {
+  confirmPackBill(op: string, i: { billId: string; orderId: string; amountSen: number; commissionBps: number | null }) {
     return this.#mutate(op, null, (sql, now) => engine.confirmPackBill(sql, now, i));
   }
 
@@ -118,7 +122,7 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#read(op, (sql) => engine.bookingView(sql, bookingId));
   }
 
-  confirmHold(op: string, i: { billId: string; holdId: string; amountSen: number }) {
+  confirmHold(op: string, i: { billId: string; holdId: string; amountSen: number; commissionBps: number | null }) {
     return this.#mutate(op, null, (sql, now) => engine.confirmHold(sql, now, i));
   }
 

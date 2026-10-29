@@ -88,6 +88,32 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - `free_cancel_hours = 0` now means no free cancel (it used to allow a free cancel up to the start)
 - e2e: `pnpm --filter @komugo/web exec playwright test` starts its own API (8790) and web (4330) on `.wrangler/state-e2e`, with a private dev registry (`WRANGLER_REGISTRY_PATH`/`MINIFLARE_REGISTRY_PATH=.wrangler/registry-e2e`) so the web's `API` service binding reaches that API and not another local one. `PERSIST_TO` and `INSPECTOR_PORT` point `astro dev` at the same D1 and a free inspector port; `--ignore-lock` keeps it in the foreground.
 
+## Putrajaya catalogue (step 7)
+
+Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ticket type, Daily limit), ADR 0005.
+
+- [x] Before any new Operator goes Bookable: Commission % on `operators`, snapshot on Tickets and Pack sales, staff "Payouts due" page (monthly, manual transfer, mark paid)
+- [ ] One-time import: CSV + PPJ scrape → reviewed `data/putrajaya.json` → D1, all Hidden; insert-only (never overwrites; dashboard is source of truth after); scrape fills empty fields only; horse/climbing seed stays as dev fixtures. Load the master list (120 rows, 69 venues) as Venues + Activities; merge duplicates (Pancarona, Lake Club/Kelab Tasik, Taman Ekuestrian, Taman Persahabatan); normalise Operators; unknown Operator → Hidden
+- [ ] Publish bar: Venue + map pin, Category, EN/BM description, a photo (stock allowed for now, swap later); staff fill the rest via dashboard
+- [ ] 19 Categories (EN/BM slugs): badminton, futsal, football, tennis, squash, pickleball, basketball, sepak takraw, volleyball & netball, gym, swimming, water sports, cruises & boats, horse riding, climbing & adventure parks, ice skating, parks & cycling, landmarks & tours, farms & nature
+- [ ] Venue pages `/putrajaya/venue/[slug]` (BM `/ms/putrajaya/tempat/[slug]`): address, map, hours, photos, Activity cards with Book now / Info badge; Activity links back to its Venue
+- [ ] Slugs: Venue unique per City; Activity = venue slug + sport; never regenerated after publish
+- [ ] Putrajaya page: category tiles, Bookable ranked first, filters (Bookable only, Free, Indoor/Outdoor, Presint), map view toggle. Out: text search, open now, reviews, distance sort
+- [ ] Goal: replace PPJ as the way to book Putrajaya facilities. Now: scrape PPJ public catalogue data only (venues, courts, rates, hours; polite, check terms). No availability scraping, no reselling PPJ slots; pitch PPJ an official deal with demand numbers from Interest
+- [ ] Info CTA by how it books today: walk-in/free "Just turn up", external "Book with PPJ" (link/phone), unknown "Call the venue"; plus "Notify me when bookable" (email-only Interest, sent once, unsubscribe link, staff see counts)
+- [ ] Listing mode on Activity; Info pages (hours, price note, walk-in / book-elsewhere) with no checkout
+- [x] Waiver only when the Activity requires it (`validateWho` in `apps/api/src/checkout.ts` requires one for everyone today)
+- [ ] Date ticket path: Pick and `POST /checkout` assume a `timeslotId`; cutoff uses `slot.startsAt`; Daily limit counted at Hold
+- [ ] Per-court Option: quantity = back-to-back hours, skip Who, one court for all hours, assigned court on the Ticket; `court` Resource kind (DO `resources.kind` CHECK is hard-coded, dashboard `types.ts` too)
+- [ ] Price per Schedule; weekend price on Date tickets; public holiday list; "From RMx" in the catalogue
+- [ ] Closure reasons + maintenance, event (`closed_reason` CHECK); horse unfit only on horse Activities; free-cancel default 24h for courts/Date tickets; policy shown on Pick and Pay
+- [x] Per-Option max per booking (stepper max 10 and `MAX_PEOPLE` are hard-coded)
+- Deploy note: Operators backfilled as signed up sell nothing until staff set their Commission; the daily 03:00 KL cron wakes every Operator so its Packs re-project into Payouts, so mark the first Payouts only after it has run
+- [ ] Check the Billplz collection has e-wallets (TnG, GrabPay, Boost), not only FPX/card
+- Eng risks: confirm nothing live in remote D1/DO before editing migrations in place, else additive only; `kind`/`closed_reason` CHECKs need one table rebuild (validate in code after), never one per value; `participant_id` NOT NULL on tickets/allocations/proj_tickets; `tickets.timeslot_id` single column vs back-to-back hours; `spots()` = 0 with no Resources; seed `onConflictDoUpdate` overwrites, block `/dev/seed` outside local; `listing_mode` backfill from `published`; venues backfilled from activities address/geo/hours; slug uniqueness across EN and MS
+- [ ] Reschedule with tiered prices: Customer same total only; after Closure same-or-cheaper with difference refunded (Klook customer-promises)
+- Deferred: several courts or times in one checkout, pay-the-difference bill for pricier post-Closure targets, inconvenience compensation for operator cancels within 24h, Packs on per-court/Date ticket Options (if needed later: Operator RM wallet, Playtomic-style), promo codes, split pay, contact edit on a Booking, per-date price overrides
+
 ## Deferred
 
 - Payouts slice: Commission rate on `operators` plus a snapshot on `tickets` (and Pack purchases) at sale time.

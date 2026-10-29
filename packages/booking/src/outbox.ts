@@ -35,12 +35,12 @@ export function markWindow(sql: SqlStorage, now: number, startsAt: number) {
 }
 
 const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
-  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours, booking_cutoff_minutes FROM activities WHERE id = ?" },
+  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours, booking_cutoff_minutes, requires_waiver FROM activities WHERE id = ?" },
   option: {
     table: "proj_options",
     pk: "id",
     query: `SELECT id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age, max_weight_kg,
-      required_cert, min_participants, active,
+      required_cert, min_participants, max_per_booking, active,
       (max_weight_kg IS NOT NULL OR EXISTS (SELECT 1 FROM option_resources WHERE option_id = options.id AND kind = 'horse'))
         AS asks_weight
       FROM options WHERE id = ?`,
@@ -50,12 +50,17 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     pk: "id",
     query: "SELECT id, activity_id, name_en, name_ms, price_sen, active FROM add_ons WHERE id = ?",
   },
-  timeslot: { table: "proj_timeslots", pk: "id", query: "SELECT id, option_id, starts_at, closed_at FROM timeslots WHERE id = ?" },
+  timeslot: {
+    table: "proj_timeslots",
+    pk: "id",
+    query: `SELECT id, option_id, starts_at, closed_at, (SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id) AS price_sen
+      FROM timeslots WHERE id = ?`,
+  },
   ticket: {
     table: "proj_tickets",
     pk: "id",
     query: `SELECT t.id, t.customer_id, t.participant_id, t.booking_id, t.pack_id, s.option_id, t.timeslot_id,
-      s.starts_at, s.closed_at, t.price_sen, t.status
+      s.starts_at, s.closed_at, t.price_sen, t.commission_bps, t.status
       FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id WHERE t.id = ?`,
   },
   pack: {
@@ -63,7 +68,7 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     pk: "id",
     query: `SELECT id, customer_id, sessions_total,
       (SELECT count(*) FROM tickets WHERE pack_id = packs.id AND status <> 'cancelled') AS sessions_used, expires_at,
-      offer_id, option_ids
+      offer_id, option_ids, (SELECT price_sen FROM pack_orders WHERE pack_id = packs.id) AS price_sen, commission_bps, created_at
       FROM packs WHERE id = ?`,
   },
   payment: {

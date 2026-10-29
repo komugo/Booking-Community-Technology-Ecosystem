@@ -69,6 +69,7 @@ export async function operator(freeCancelHours = 24) {
         maxWeightKg: null,
         requiredCert: null,
         minParticipants: null,
+        maxPerBooking: null,
         active: true,
         needs: needs.map(([kind, quantity]) => ({ kind, quantity })),
         ...o,
@@ -193,6 +194,14 @@ export async function operator(freeCancelHours = 24) {
   };
   return w;
 }
+
+export const UNDO_V13 = ["ALTER TABLE schedules DROP COLUMN price_sen"];
+
+export const UNDO_V11 = ["ALTER TABLE options DROP COLUMN max_per_booking"];
+
+export const UNDO_V10 = ["ALTER TABLE activities DROP COLUMN requires_waiver"];
+
+export const UNDO_V9 = ["ALTER TABLE tickets DROP COLUMN commission_bps", "ALTER TABLE packs DROP COLUMN commission_bps"];
 
 export const UNDO_V8 = [
   "DROP TABLE closure_choices",

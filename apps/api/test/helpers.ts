@@ -1,6 +1,6 @@
 import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { booking, type OptionInput, type PackOfferInput } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers, type ListingMode } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -85,12 +85,21 @@ export function client(e: Partial<Env> = {}) {
 }
 export type Client = ReturnType<typeof client>;
 
-export async function world(o: { published?: boolean; option?: Partial<OptionInput>; horses?: number } = {}) {
+export async function world(
+  o: {
+    listingMode?: ListingMode;
+    signedUp?: boolean;
+    commissionBps?: number | null;
+    option?: Partial<OptionInput>;
+    horses?: number;
+    requiresWaiver?: boolean;
+  } = {},
+) {
   const s = rid();
   const operatorId = `op_${s}`;
   const activityId = `act_${s}`;
   const hub = { slugEn: s, slugMs: `${s}-ms`, nameEn: "Hub", nameMs: "Hub" };
-  await db.insert(operators).values({ id: operatorId, name: "Test Stable" });
+  await db.insert(operators).values({ id: operatorId, name: "Test Stable", signedUp: o.signedUp ?? true, commissionBps: o.commissionBps === undefined ? 1000 : o.commissionBps });
   const [city] = await db.insert(cities).values(hub).returning();
   const [category] = await db.insert(categories).values(hub).returning();
   await db.insert(activities).values({
@@ -103,10 +112,10 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
     nameMs: "Tunggang Denai",
     descriptionEn: "x",
     descriptionMs: "x",
-    published: o.published ?? true,
+    listingMode: o.listingMode ?? "bookable",
   });
   const b = booking(env, operatorId);
-  await b.upsertActivity({ id: activityId, freeCancelHours: 24 });
+  await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: o.requiresWaiver });
   for (let i = 0; i < (o.horses ?? 2); i++) {
     await b.upsertResource({
       id: `h${i}_${s}`,
@@ -131,6 +140,7 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
     maxWeightKg: 90,
     requiredCert: null,
     minParticipants: null,
+    maxPerBooking: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,
@@ -280,7 +290,7 @@ export async function member(role: "staff" | "operator", operatorId: string | nu
   return Object.assign(cl, { email });
 }
 
-type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" };
+type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" | "none" };
 
 // A paid Booking made straight through the Durable Object, with its Checkout row for contact and locale.
 export async function booked(
@@ -303,6 +313,7 @@ export async function booked(
       .values({ customerId: customer.id, name: p.name ?? "Aisyah", birthDate: p.birthDate ?? "1990-05-01", weightKg: p.weightKg ?? 60 })
       .returning();
     ids.push(row.id);
+    if (p.waiver === "none") continue;
     await db.insert(waivers).values({
       participantId: row.id,
       operatorId: w.operatorId,

@@ -20,12 +20,13 @@ export type Checkout = {
     maxWeightKg: number | null;
     requiredCert: string | null;
     minParticipants: number | null;
+    maxPerBooking: number | null;
     asksWeight: boolean;
   };
   activity: Named & {
     slugEn: string;
     slugMs: string;
-    published: boolean;
+    listingMode: "bookable" | "info" | "hidden";
     streetAddress: string | null;
     postalCode: string | null;
     city: Named & { slugEn: string; slugMs: string };
@@ -33,7 +34,7 @@ export type Checkout = {
   };
   operatorName: string;
   freeCancelHours: number | null;
-  waiver: { version: string; text: string };
+  waiver: { version: string; text: string } | null;
   addOns: (Named & { id: string; qty: number; priceSen: number })[];
   estimatedSen: number;
   amountSen: number | null;

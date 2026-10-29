@@ -84,3 +84,16 @@ test("a replayed redeem returns the same Tickets; a late payment for the consume
     { id: `bill:${billId}`, customer_id: w.customerId, amount_sen: 10000, reason: "duplicate" },
   ]);
 });
+
+test("a Pack with sessions left counts as a future Booking until it is used up or expires", async () => {
+  const w = await packed({ sessions: 1 });
+  expect(await w.b.hasFutureBookings(w.activityId)).toBe(true);
+  const ts = await w.slot(w.optionId, later(48));
+  await w.redeem((await w.hold(w.customerId, ts, [await w.participant(w.customerId)])).holdId);
+  await w.startSlot(ts);
+  expect(await w.b.hasFutureBookings(w.activityId)).toBe(false);
+
+  const other = await packed();
+  await other.sql("UPDATE packs SET expires_at = ?", Date.now() - 1);
+  expect(await other.b.hasFutureBookings(other.activityId)).toBe(false);
+});

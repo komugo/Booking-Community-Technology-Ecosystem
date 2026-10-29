@@ -3,7 +3,7 @@ import { adult, client, d1, fake, held, pay, returnPath, rid, signIn, SLOT_AT, s
 
 describe("POST /checkouts", () => {
   test("BOOK_DRAFTS gates unpublished Activities", async () => {
-    const w = await world({ published: false });
+    const w = await world({ listingMode: "hidden" });
     const body = { optionId: w.optionId, timeslotId: w.timeslotId, quantity: 1, addOns: [], locale: "en" };
     expect((await client().json("POST", "/checkouts", body)).body).toEqual({ code: "not_bookable" });
     expect((await client({ BOOK_DRAFTS: "1" }).json("POST", "/checkouts", body)).status).toBe(201);
@@ -20,6 +20,17 @@ describe("POST /checkouts", () => {
     expect((await post({ addOns: [{ id: w.helmetId, qty: 3 }] })).body).toMatchObject({ code: "invalid_add_on" });
     expect((await post({ addOns: [{ id: rid(), qty: 1 }] })).body).toMatchObject({ code: "invalid_add_on" });
     expect((await post({ addOns: [{ id: w.helmetId, qty: 2 }] })).status).toBe(201);
+  });
+
+  test("checks the Option's max per booking, 10 by default", async () => {
+    const post = (w: World, quantity: number) =>
+      client().json("POST", "/checkouts", { optionId: w.optionId, timeslotId: w.timeslotId, quantity, addOns: [] });
+    expect((await post(await world({ option: { maxPerBooking: 1 } }), 2)).body).toEqual({
+      code: "above_max_per_booking",
+      field: "quantity",
+      params: { max: 1 },
+    });
+    expect((await post(await world(), 11)).body).toEqual({ code: "above_max_per_booking", field: "quantity", params: { max: 10 } });
   });
 });
 
@@ -41,6 +52,17 @@ describe("Participants and Waivers", () => {
     expect((await who([{ ...kid, waiver: { accepted: true, guardian: true, guardianName: "Siti" } }])).body).toEqual({
       next: "contact",
     });
+  });
+
+  test("an Activity that doesn't require a Waiver books with no Waiver step", async () => {
+    const w = await world({ requiresWaiver: false });
+    const cl = client();
+    const id = await start(cl, w);
+    expect((await cl.json("GET", `/checkouts/${id}`)).body.waiver).toBeNull();
+    const kid = { name: "No Signer", birthDate: "2016-03-01", weightKg: 30 };
+    expect((await cl.json("PUT", `/checkouts/${id}/who`, { participants: [kid] })).body).toEqual({ next: "contact" });
+    expect((await signIn(cl, id, `${rid()}@example.com`)).body).toEqual({ next: "pay" });
+    expect(await d1("SELECT count(*) AS n FROM waivers JOIN participants p ON p.id = participant_id WHERE p.name = 'No Signer'")).toEqual([{ n: 0 }]);
   });
 
   test("Requirements are pre-checked against the Timeslot date", async () => {
@@ -128,7 +150,7 @@ test("logs carry no PII", async () => {
 });
 
 test("BOOK_DRAFTS is enforced again at Hold", async () => {
-  const w = await world({ published: false });
+  const w = await world({ listingMode: "hidden" });
   const cl = client({ BOOK_DRAFTS: "1" });
   const id = await start(cl, w);
   await cl.json("PUT", `/checkouts/${id}/who`, { participants: [adult()] });

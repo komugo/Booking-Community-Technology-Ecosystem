@@ -24,21 +24,22 @@ describe("ops Setup", () => {
       maxWeightKg: 90,
       requiredCert: null,
       minParticipants: 2,
+      maxPerBooking: 6,
       active: true,
       needs: [{ kind: "horse", quantity: 1 }, { kind: "instructor", quantity: 1 }],
     };
     const o = await m.json<{ id: string }>("POST", `${base}/options`, option);
     const a = await m.json<{ id: string }>("POST", `${base}/add-ons`, { activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(
-      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] }),
+      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }),
     ).toEqual({ status: 200, body: { generated: expect.anything() } });
 
     const { body } = await m.json("GET", `${base}/setup`);
     expect(body.resources).toContainEqual({ ...horse, id: r.body.id, name: "Bayu II", maxSessionsPerDay: 5 });
     expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson" });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
-    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] }]);
-    expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", published: true })]);
+    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }]);
+    expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", listingMode: "bookable" })]);
   });
 
   test("bad fields are 400 invalid_field with the field name", async () => {
@@ -52,16 +53,21 @@ describe("ops Setup", () => {
       errors: [
         { code: "invalid_field", field: "freeCancelHours" },
         { code: "invalid_field", field: "closedDays" },
+        { code: "invalid_field", field: "requiresWaiver" },
       ],
     });
     const schedule = { activityId: w.activityId, optionIds: [w.optionId], weekdays: ["Mo"], times: ["9:00"], startsOn: klDay(1), endsOn: null, active: true };
     expect(await bad("POST", "/schedules", schedule)).toMatchObject({ field: "times" });
     expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], weekdays: ["Monday"] })).toMatchObject({ field: "weekdays" });
     expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], endsOn: klDay(0) })).toMatchObject({ field: "endsOn" });
+    expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], priceSen: -1 })).toMatchObject({ field: "priceSen" });
     expect(
       await bad("POST", "/resources", { kind: "belayer", name: "Ali", active: true, maxSessionsPerDay: 4, restMinutes: 0, maxRiderWeightKg: null }),
     ).toMatchObject({ field: "maxSessionsPerDay" });
     expect(await bad("POST", "/timeslots/x/close", { reason: "rain" })).toMatchObject({ field: "reason" });
+    const option = { activityId: w.activityId, nameEn: "Ride", nameMs: "Tunggang", priceSen: 100, durationMinutes: 60, minAge: null, maxAge: null, maxWeightKg: null, requiredCert: null, active: true, needs: [] };
+    expect(await bad("POST", "/options", { ...option, minParticipants: 3, maxPerBooking: 2 })).toMatchObject({ field: "maxPerBooking" });
+    expect(await bad("POST", "/options", { ...option, minParticipants: null, maxPerBooking: 51 })).toMatchObject({ field: "maxPerBooking" });
   });
 
   test("lengthening an Option under a live Booking is 409 invalid_state", async () => {

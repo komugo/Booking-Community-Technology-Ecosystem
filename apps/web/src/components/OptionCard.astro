@@ -24,7 +24,7 @@ const s = t[locale];
   </div>
   <div class="flex flex-col items-center justify-center gap-3 border-l-2 border-dashed border-line p-3 text-center">
     <p class="text-2xl leading-tight">
-      <Price locale={locale} sen={o.priceSen} confirmed />
+      <Price locale={locale} sen={o.fromPriceSen} confirmed from />
       {!confirmed && <span class="block text-xs font-medium text-clay">{s.unconfirmed}</span>}
     </p>
     <a href={bookable ? path(locale, "book", o.id) : "#book"} class="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-leaf px-3 font-semibold text-white hover:bg-forest">{s.select}<span class="sr-only">: {o.name}</span></a>

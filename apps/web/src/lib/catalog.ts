@@ -1,5 +1,5 @@
 import { getActivityPage, getCategoryHub, getCityHub, getHome, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
-import { db, showDrafts } from "./db";
+import { db, sells, showDrafts } from "./db";
 import { path, type Alternates } from "./i18n";
 
 type Params = Record<string, string | undefined>;
@@ -36,7 +36,7 @@ export async function loadActivity(p: Params, locale: Locale, search: string) {
   const { city, category } = data;
   const alt = alternates(locale, search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
   if (alt instanceof Response) return alt;
-  return { locale, alternates: alt, ...data, city, category, bookable: (data.published || showDrafts) && data.options.length > 0 };
+  return { locale, alternates: alt, ...data, city, category, bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0 };
 }
 
 export type HomeData = Awaited<ReturnType<typeof loadHome>>;
