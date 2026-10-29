@@ -102,7 +102,7 @@ Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ti
 - [ ] Goal: replace PPJ as the way to book Putrajaya facilities. Now: scrape PPJ public catalogue data only (venues, courts, rates, hours; polite, check terms). No availability scraping, no reselling PPJ slots; pitch PPJ an official deal with demand numbers from Interest
 - [ ] Info CTA by how it books today: walk-in/free "Just turn up", external "Book with PPJ" (link/phone), unknown "Call the venue"; plus "Notify me when bookable" (email-only Interest, sent once, unsubscribe link, staff see counts)
 - [ ] Listing mode on Activity; Info pages (hours, price note, walk-in / book-elsewhere) with no checkout
-- [ ] Waiver only when the Activity requires it (`validateWho` in `apps/api/src/checkout.ts` requires one for everyone today)
+- [x] Waiver only when the Activity requires it (`validateWho` in `apps/api/src/checkout.ts` requires one for everyone today)
 - [ ] Date ticket path: Pick and `POST /checkout` assume a `timeslotId`; cutoff uses `slot.startsAt`; Daily limit counted at Hold
 - [ ] Per-court Option: quantity = back-to-back hours, skip Who, one court for all hours, assigned court on the Ticket; `court` Resource kind (DO `resources.kind` CHECK is hard-coded, dashboard `types.ts` too)
 - [ ] Price per Schedule; weekend price on Date tickets; public holiday list; "From RMx" in the catalogue

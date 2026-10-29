@@ -79,6 +79,7 @@ routes.put("/activities/:id", async (c) => {
     [int(body.freeCancelHours, 0, 720), "freeCancelHours"],
     [int(body.bookingCutoffMinutes, 0, 1440), "bookingCutoffMinutes"],
     [list<string>(body.closedDays, 14, (d) => typeof d === "string" && CLOSED_DAY.test(d)), "closedDays"],
+    [bool(body.requiresWaiver), "requiresWaiver"],
   ]);
   if (errors.length) return fail(c, 400, errors[0], errors);
   if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
@@ -87,6 +88,7 @@ routes.put("/activities/:id", async (c) => {
     freeCancelHours: body.freeCancelHours as number,
     bookingCutoffMinutes: body.bookingCutoffMinutes as number,
     closedDays: [...new Set(body.closedDays as string[])],
+    requiresWaiver: body.requiresWaiver as boolean,
   });
   return c.json({ generated });
 });

@@ -35,7 +35,7 @@ export function markWindow(sql: SqlStorage, now: number, startsAt: number) {
 }
 
 const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
-  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours, booking_cutoff_minutes FROM activities WHERE id = ?" },
+  activity: { table: "proj_activities", pk: "id", query: "SELECT id, free_cancel_hours, booking_cutoff_minutes, requires_waiver FROM activities WHERE id = ?" },
   option: {
     table: "proj_options",
     pk: "id",

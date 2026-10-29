@@ -86,7 +86,14 @@ export function client(e: Partial<Env> = {}) {
 export type Client = ReturnType<typeof client>;
 
 export async function world(
-  o: { listingMode?: ListingMode; signedUp?: boolean; commissionBps?: number | null; option?: Partial<OptionInput>; horses?: number } = {},
+  o: {
+    listingMode?: ListingMode;
+    signedUp?: boolean;
+    commissionBps?: number | null;
+    option?: Partial<OptionInput>;
+    horses?: number;
+    requiresWaiver?: boolean;
+  } = {},
 ) {
   const s = rid();
   const operatorId = `op_${s}`;
@@ -108,7 +115,7 @@ export async function world(
     listingMode: o.listingMode ?? "bookable",
   });
   const b = booking(env, operatorId);
-  await b.upsertActivity({ id: activityId, freeCancelHours: 24 });
+  await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: o.requiresWaiver });
   for (let i = 0; i < (o.horses ?? 2); i++) {
     await b.upsertResource({
       id: `h${i}_${s}`,
@@ -282,7 +289,7 @@ export async function member(role: "staff" | "operator", operatorId: string | nu
   return Object.assign(cl, { email });
 }
 
-type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" };
+type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" | "none" };
 
 // A paid Booking made straight through the Durable Object, with its Checkout row for contact and locale.
 export async function booked(
@@ -305,6 +312,7 @@ export async function booked(
       .values({ customerId: customer.id, name: p.name ?? "Aisyah", birthDate: p.birthDate ?? "1990-05-01", weightKg: p.weightKg ?? 60 })
       .returning();
     ids.push(row.id);
+    if (p.waiver === "none") continue;
     await db.insert(waivers).values({
       participantId: row.id,
       operatorId: w.operatorId,

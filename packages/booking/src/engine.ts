@@ -38,7 +38,13 @@ export type ParticipantFacts = {
   certs: string[];
   waiverSigned: boolean;
 };
-export type ActivityInput = { id: string; freeCancelHours: number; bookingCutoffMinutes?: number; closedDays?: string[] };
+export type ActivityInput = {
+  id: string;
+  freeCancelHours: number;
+  bookingCutoffMinutes?: number;
+  closedDays?: string[];
+  requiresWaiver?: boolean;
+};
 export type OptionInput = {
   id: string;
   activityId: string;
@@ -171,7 +177,7 @@ export type TimeslotRow = {
   addOns: { bookingId: string; addOnId: string; quantity: number }[];
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
+  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: OptionInput[];
   addOns: AddOnInput[];
   resources: ResourceInput[];
@@ -204,6 +210,7 @@ type Option = {
   min_participants: number | null;
   active: number;
   booking_cutoff_minutes: number;
+  requires_waiver: number;
 };
 type Need = { kind: string; quantity: number };
 type Candidate = {
@@ -236,7 +243,8 @@ function loadOption(sql: SqlStorage, id: string) {
     .exec<Option>(
       `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
          min_participants, active,
-         (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes
+         (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes,
+         (SELECT requires_waiver FROM activities WHERE id = options.activity_id) AS requires_waiver
        FROM options WHERE id = ?`,
       id,
     )
@@ -495,14 +503,16 @@ const closedDaysOf = (sql: SqlStorage, activityId: string) =>
 export function upsertActivity(sql: SqlStorage, now: number, a: ActivityInput) {
   const before = closedDaysOf(sql, a.id);
   sql.exec(
-    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days)
-     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'))
+    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver)
+     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'), coalesce(?5, 1))
      ON CONFLICT(id) DO UPDATE SET free_cancel_hours = excluded.free_cancel_hours,
-       booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes), closed_days = coalesce(?4, closed_days)`,
+       booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes), closed_days = coalesce(?4, closed_days),
+       requires_waiver = coalesce(?5, requires_waiver)`,
     a.id,
     a.freeCancelHours,
     a.bookingCutoffMinutes ?? null,
     a.closedDays ? JSON.stringify(a.closedDays) : null,
+    a.requiresWaiver === undefined ? null : Number(a.requiresWaiver),
   );
   mark(sql, "activity", [a.id]);
   return before !== undefined && before !== closedDaysOf(sql, a.id) ? generate(sql, now, a.id) : null;
@@ -867,8 +877,8 @@ export function setup(sql: SqlStorage): Setup {
   }
   return {
     activities: sql
-      .exec<{ id: string; free_cancel_hours: number; booking_cutoff_minutes: number; closed_days: string }>(
-        "SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days FROM activities ORDER BY rowid",
+      .exec<{ id: string; free_cancel_hours: number; booking_cutoff_minutes: number; closed_days: string; requires_waiver: number }>(
+        "SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver FROM activities ORDER BY rowid",
       )
       .toArray()
       .map((a) => ({
@@ -876,6 +886,7 @@ export function setup(sql: SqlStorage): Setup {
         freeCancelHours: a.free_cancel_hours,
         bookingCutoffMinutes: a.booking_cutoff_minutes,
         closedDays: JSON.parse(a.closed_days),
+        requiresWaiver: !!a.requires_waiver,
       })),
     options: sql
       .exec<{
@@ -1140,7 +1151,7 @@ export function createHold(
     )
     .one();
   if (active >= MAX_ACTIVE_HOLDS || people + n > MAX_PARTICIPANTS) throw new BookingError("too_many_holds");
-  if (i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
+  if (option.requires_waiver && i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
   const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
   const amountSen = option.price_sen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);

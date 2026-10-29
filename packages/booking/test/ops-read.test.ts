@@ -57,7 +57,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
 
 test("setup round-trips Activities with Closed days, Options, Add-ons, Resources and Schedules", async () => {
   const w = await rideWorld({ name: "Bayu", maxSessionsPerDay: 6, restMinutes: 15, maxRiderWeightKg: 90 });
-  await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] });
+  await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false });
   const addOn = { id: rid(), activityId: w.activityId, nameEn: "Helmet", nameMs: "Topi", priceSen: 500, active: true };
   await w.b.upsertAddOn(addOn);
   const schedule = {
@@ -73,7 +73,7 @@ test("setup round-trips Activities with Closed days, Options, Add-ons, Resources
   await w.b.upsertSchedule(schedule);
   const s = await w.b.setup();
   expect(s.activities).toEqual([
-    { id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] },
+    { id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false },
   ]);
   expect(s.options).toEqual([expect.objectContaining({ id: w.optionId, active: true, needs: [{ kind: "horse", quantity: 1 }] })]);
   expect(s.addOns).toEqual([addOn]);
