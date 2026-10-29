@@ -159,8 +159,16 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
         exists(onSale),
       ),
     )
+    .orderBy(sql`coalesce(${interests.failedAt}, 0)`, interests.createdAt)
     .limit(BATCH);
-  await each(interested, "cron_interest_email_failed", ({ id }) => sendInterestEmail(env, id));
+  await each(interested, "cron_interest_email_failed", async ({ id }) => {
+    try {
+      await sendInterestEmail(env, id);
+    } catch (e) {
+      await db.update(interests).set({ failedAt: now }).where(eq(interests.id, id));
+      throw e;
+    }
+  });
 
   const live = db
     .select({ id: bills.checkoutId })

@@ -51,7 +51,7 @@ export default function Venues() {
                     >
                       <span className="font-display text-lg font-bold">{named(v, l)}</span>
                       <span className="text-sm text-muted">
-                        {[presint(v), v.lat === null ? t.noPin : t.mapPin, `${v.photos.length} ${t.photos.toLowerCase()}`].filter(Boolean).join(" · ")}
+                        {[presint(v), v.lat === null ? t.noPin : t.mapPin, t.photoCount(v.photos.length)].filter(Boolean).join(" · ")}
                       </span>
                     </button>
                   </li>

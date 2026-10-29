@@ -1,4 +1,4 @@
-import { activities, activitySlugs, categories, cities, getActivityPage, getVenuePage, operators, slugify, venues, venueSlugs, type ListingMode } from "@komugo/db";
+import { activities, categories, cities, getActivityPage, getVenuePage, listSitemapEntries, operators, slugify, venues, venueSlugs, type ListingMode } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { db, rid } from "./helpers";
@@ -13,7 +13,6 @@ async function place() {
   const slugs = await venueSlugs(db, city.id, names);
   const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9 }).returning();
   const activity = async (nameEn: string, listingMode: ListingMode) => {
-    const a = await activitySlugs(db, slugs, { en: badminton.slugEn, ms: badminton.slugMs });
     const [row] = await db
       .insert(activities)
       .values({
@@ -21,8 +20,8 @@ async function place() {
         cityId: city.id,
         categoryId: badminton.id,
         venueId: venue.id,
-        slugEn: a.en,
-        slugMs: a.ms,
+        slugEn: `${slugs.en}-${slugify(nameEn)}`,
+        slugMs: `${slugs.ms}-${slugify(nameEn)}`,
         nameEn,
         nameMs: `${nameEn} BM`,
         descriptionEn: "x",
@@ -55,14 +54,20 @@ describe("Venue page", () => {
     expect(ms.activities.map((a) => a.name)).toEqual(["B court BM", "A court BM"]);
   });
 
-  test("is hidden when all its Activities are Hidden", async () => {
+  test("is hidden when all its Activities are Hidden, and in the sitemap otherwise", async () => {
     const p = await place();
     const a = await p.activity("Court", "hidden");
     const page = { city: p.city.slugEn, venue: p.slugs.en };
+    const inSitemap = async () => (await listSitemapEntries(db)).some((e) => e.venue?.en === p.slugs.en && e.city.en === p.city.slugEn);
     expect(await getVenuePage(db, { ...q("en"), ...page })).toBeNull();
     expect(await getVenuePage(db, { locale: "en", includeDrafts: true, ...page })).toMatchObject({ indexable: false });
+    expect(await inSitemap()).toBe(false);
     await db.update(activities).set({ listingMode: "info" }).where(eq(activities.id, a.id));
     expect(await getVenuePage(db, { ...q("en"), ...page })).not.toBeNull();
+    expect((await listSitemapEntries(db)).find((e) => e.venue?.en === p.slugs.en)).toEqual({
+      city: { en: p.city.slugEn, ms: p.city.slugMs },
+      venue: p.slugs,
+    });
   });
 
   test("is only found in its own City", async () => {
@@ -111,13 +116,5 @@ describe("Slugs", () => {
       ms: `kompleks-sukan-${p.s}`,
     });
     await expect(db.insert(venues).values({ cityId: p.city.id, nameEn: "x", nameMs: "x", slugEn: p.slugs.en })).rejects.toThrow();
-  });
-
-  test("an Activity slug is its Venue slug plus its sport, numbered when taken", async () => {
-    const p = await place();
-    const first = await p.activity("Court 1", "info");
-    const second = await p.activity("Court 2", "info");
-    expect([first.slugEn, first.slugMs]).toEqual([`${p.slugs.en}-badminton`, `${p.slugs.ms}-badminton`]);
-    expect([second.slugEn, second.slugMs]).toEqual([`${p.slugs.en}-badminton-2`, `${p.slugs.ms}-badminton-2`]);
   });
 });

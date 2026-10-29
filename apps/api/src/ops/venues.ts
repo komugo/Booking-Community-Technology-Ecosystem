@@ -171,7 +171,7 @@ async function save(c: Ctx, id: string | null) {
   const v = value();
   const [[city], [existing], [listed], [elsewhere]] = await db.batch([
     db.select({ id: cities.id }).from(cities).where(eq(cities.id, v.cityId)),
-    db.select({ id: venueTable.id }).from(venueTable).where(eq(venueTable.id, id ?? "")),
+    db.select({ cityId: venueTable.cityId, slugEn: venueTable.slugEn, slugMs: venueTable.slugMs }).from(venueTable).where(eq(venueTable.id, id ?? "")),
     db
       .select({ id: activities.id })
       .from(activities)
@@ -189,9 +189,12 @@ async function save(c: Ctx, id: string | null) {
   if (listed && v.lat === null) return publishBar(c, ["mapPin"], "lat");
   const venueId = id ?? crypto.randomUUID();
   const list = body.photos as PhotoInput[];
-  const slugs = id ? null : await venueSlugs(db, v.cityId, v);
+  // Moving City keeps the slugs unless the new City already uses them.
+  const kept = existing?.slugEn && existing.slugMs ? { nameEn: existing.slugEn, nameMs: existing.slugMs } : v;
+  const slugs = existing?.cityId === v.cityId ? null : await venueSlugs(db, v.cityId, kept);
+  const row = slugs ? { ...v, slugEn: slugs.en, slugMs: slugs.ms } : v;
   await db.batch([
-    slugs ? db.insert(venueTable).values({ ...v, id: venueId, slugEn: slugs.en, slugMs: slugs.ms }) : db.update(venueTable).set(v).where(eq(venueTable.id, venueId)),
+    id ? db.update(venueTable).set(row).where(eq(venueTable.id, venueId)) : db.insert(venueTable).values({ ...row, id: venueId }),
     db.delete(photos).where(eq(photos.venueId, venueId)),
     ...(list.length ? [db.insert(photos).values(photoRows({ venueId }, list))] : []),
   ]);

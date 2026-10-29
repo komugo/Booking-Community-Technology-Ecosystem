@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { cron } from "../src/cron";
 import { devInbox } from "../src/email";
-import { client, d1, db, member, rid, world, type World } from "./helpers";
+import { client, d1, db, member, resend, rid, world, type World } from "./helpers";
 
 const notify = (w: { activityId: string }, email: string, locale = "en") =>
   client().json("POST", "/interests", { activityId: w.activityId, email, locale });
@@ -55,6 +55,25 @@ describe("Interest", () => {
     expect(sent[0].subject).toBe("Kini boleh ditempah: Tunggang Denai");
     expect(sent[0].text).toMatch(/https:\/\/web\.test\/ms\/[^/]+-ms\/[^/]+-ms\/[^/]+-ms\n/);
     expect(sent[0].text).toMatch(/Berhenti melanggan: https:\/\/web\.test\/ms\/unsubscribe\/[^?]+\?k=/);
+  });
+
+  test("a failed send is marked and goes behind unsent Interests", async () => {
+    const w = await world({ listingMode: "info" });
+    const bad = `${rid()}@example.com`;
+    await notify(w, bad);
+    await bookable(w);
+    resend.fail = 1000;
+    await cron({ ...env, EMAIL_MODE: "resend" }, () => {});
+    resend.fail = 0;
+    expect(await d1("SELECT failed_at IS NOT NULL AS failed, emailed_at FROM interests WHERE email = ?", bad)).toEqual([{ failed: 1, emailed_at: null }]);
+
+    for (let i = 0; i < 20; i++) {
+      await d1("INSERT INTO interests (id, activity_id, email, locale, created_at, failed_at) VALUES (?, ?, ?, 'en', 1, 1)", rid(), w.activityId, `${rid()}@example.com`);
+    }
+    const fresh = `${rid()}@example.com`;
+    await d1("INSERT INTO interests (id, activity_id, email, locale, created_at) VALUES (?, ?, ?, 'en', ?)", rid(), w.activityId, fresh, Date.now());
+    await cron(env, () => {});
+    expect(mails(fresh)).toHaveLength(1);
   });
 
   test("unsubscribe stops the email and drops out of the counts", async () => {

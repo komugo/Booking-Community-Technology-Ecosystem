@@ -332,7 +332,7 @@ export async function getVenuePage(db: Db, q: CatalogQuery & { city: string; ven
   };
 }
 
-export type SitemapEntry = { city: Slugs; category?: Slugs; activity?: Slugs };
+export type SitemapEntry = { city: Slugs; category?: Slugs; activity?: Slugs; venue?: Slugs };
 
 export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
   const rows = await db
@@ -340,10 +340,12 @@ export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
       a: { en: activities.slugEn, ms: activities.slugMs },
       city: { en: cities.slugEn, ms: cities.slugMs },
       category: { en: categories.slugEn, ms: categories.slugMs },
+      venue: { en: venues.slugEn, ms: venues.slugMs },
     })
     .from(activities)
     .innerJoin(cities, eq(cities.id, activities.cityId))
     .innerJoin(categories, eq(categories.id, activities.categoryId))
+    .leftJoin(venues, and(eq(venues.id, activities.venueId), eq(venues.cityId, activities.cityId)))
     .where(listed)
     .orderBy(asc(cities.slugEn), asc(categories.slugEn), asc(activities.slugEn));
   const out = new Map<string, SitemapEntry>();
@@ -351,6 +353,7 @@ export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
     out.set(r.city.en, { city: r.city });
     out.set(`${r.city.en}/${r.category.en}`, { city: r.city, category: r.category });
     out.set(`${r.city.en}/${r.category.en}/${r.a.en}`, { city: r.city, category: r.category, activity: r.a });
+    if (r.venue?.en && r.venue.ms) out.set(`${r.city.en}/venue/${r.venue.en}`, { city: r.city, venue: { en: r.venue.en, ms: r.venue.ms } });
   }
   return [...out.values()];
 }

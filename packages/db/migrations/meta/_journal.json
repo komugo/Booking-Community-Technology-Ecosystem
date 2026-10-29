@@ -106,6 +106,13 @@
       "when": 1793284152223,
       "tag": "0015_interest",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793314759470,
+      "tag": "0016_interest_failed",
+      "breakpoints": true
     }
   ]
 }

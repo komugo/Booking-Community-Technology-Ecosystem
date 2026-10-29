@@ -537,6 +537,7 @@ export const interests = sqliteTable(
     createdAt: integer().notNull(),
     emailedAt: integer(),
     unsubscribedAt: integer(),
+    failedAt: integer(),
   },
   (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
 );

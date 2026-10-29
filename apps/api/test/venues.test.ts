@@ -88,6 +88,20 @@ describe("Venues", () => {
     await d1("UPDATE activities SET venue_id = NULL WHERE id = ?", w.activityId);
     expect((await staff.json("PUT", `/ops/venues/${venueId}`, body)).status).toBe(200);
   });
+
+  test("a Venue moving City keeps its slugs unless the new City uses them", async () => {
+    const staff = await member("staff");
+    const [x, y, z] = [await cityOf((await world()).activityId), await cityOf((await world()).activityId), await cityOf((await world()).activityId)];
+    const slugs = (id: string) => d1<{ slug_en: string; slug_ms: string }>("SELECT slug_en, slug_ms FROM venues WHERE id = ?", id).then((r) => r[0]);
+    const a = (await staff.json<{ id: string }>("POST", "/ops/venues", venue(x))).body.id;
+    const b = (await staff.json<{ id: string }>("POST", "/ops/venues", venue(y))).body.id;
+    const before = await slugs(a);
+    expect((await staff.json("PUT", `/ops/venues/${a}`, { ...venue(z), nameEn: "Renamed" })).status).toBe(200);
+    expect(await slugs(a)).toEqual(before);
+    expect((await staff.json("PUT", `/ops/venues/${a}`, venue(y))).status).toBe(200);
+    expect(await slugs(a)).toEqual({ slug_en: `${before.slug_en}-2`, slug_ms: `${before.slug_ms}-2` });
+    expect(await slugs(b)).toEqual(before);
+  });
 });
 
 describe("Publish bar", () => {
