@@ -83,7 +83,7 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
     const update = () => {
       const slot = pick.querySelector<HTMLInputElement>("[data-spots]:checked");
       const spots = Number(slot?.dataset.spots);
-      if (spots) qty.max = String(Math.min(10, spots));
+      if (spots) qty.max = String(Math.min(Number(pick.dataset.max), spots));
       const low = pick.querySelector<HTMLElement>("[data-low]")!;
       low.hidden = !spots || spots > 3;
       low.textContent = slot?.dataset.lowText ?? "";

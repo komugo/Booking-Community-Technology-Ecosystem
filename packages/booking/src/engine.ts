@@ -18,7 +18,8 @@ export type BookingErrorCode =
   | "pack_used_up"
   | "window_passed"
   | "started"
-  | "quote_changed";
+  | "quote_changed"
+  | "price_differs";
 
 export class BookingError extends Error {
   constructor(readonly code: BookingErrorCode) {
@@ -70,6 +71,7 @@ export type ViewTicket = {
   timeslotId: string;
   startsAt: number;
   closedAt: number | null;
+  priceSen: number;
   refundId: string | null;
   refundSen: number;
 };
@@ -1743,6 +1745,8 @@ export function rescheduleTickets(
     if (current.pack_id) {
       const pack = sql.exec<{ expires_at: number }>("SELECT expires_at FROM packs WHERE id = ?", current.pack_id).one();
       if (target.starts_at > pack.expires_at) throw new BookingError("pack_expired");
+    } else if (slotsPriceSen(sql, [target.id]) !== current.price_sen) {
+      throw new BookingError("price_differs");
     }
   } else {
     wholeClosedGroup(sql, i.group, rows);
@@ -1786,6 +1790,7 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
       timeslotId: t.timeslot_id,
       startsAt: t.starts_at,
       closedAt: t.closed_at,
+      priceSen: t.price_sen,
       refundId: t.refund_id,
       refundSen: t.refund_id ? t.price_sen + (shares.get(t.id) ?? 0) : 0,
     }));

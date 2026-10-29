@@ -204,6 +204,7 @@ test("bookingView returns the Booking's Tickets, Add-ons and total", async () =>
         timeslotId: ts,
         startsAt: kl(`${DAY}T09:00`),
         closedAt: null,
+        priceSen: 10000,
         refundId: null,
         refundSen: 0,
       },

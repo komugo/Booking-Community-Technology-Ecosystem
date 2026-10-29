@@ -198,7 +198,7 @@ export async function getCategoryHub(db: Db, q: CatalogQuery & { city: string; c
 export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; category: string; activity: string }) {
   const [[row], [cityRow], [categoryRow]] = await db.batch([
     db
-      .select({ a: activities, operatorName: operators.name, freeCancelHours: projActivities.freeCancelHours })
+      .select({ a: activities, operatorName: operators.name, commissionBps: operators.commissionBps, freeCancelHours: projActivities.freeCancelHours })
       .from(activities)
       .innerJoin(operators, eq(operators.id, activities.operatorId))
       .leftJoin(projActivities, eq(projActivities.id, activities.id))
@@ -250,6 +250,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
     name: en ? a.nameEn : a.nameMs,
     description: en ? a.descriptionEn : a.descriptionMs,
     listingMode: a.listingMode,
+    commissionBps: row.commissionBps,
     howToBook: a.howToBook,
     bookUrl: a.bookUrl,
     priceNote: en ? a.priceNoteEn : a.priceNoteMs,

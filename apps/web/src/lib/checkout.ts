@@ -1,7 +1,7 @@
-import { activities, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
+import { activities, operators, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
-import { db, showDrafts } from "./db";
+import { db, sells } from "./db";
 import { codeFrom, problems } from "./form";
 import { path } from "./i18n";
 import { daysAndTimes } from "./slots";
@@ -32,6 +32,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     .select({
       option: projOptions,
       listingMode: activities.listingMode,
+      commissionBps: operators.commissionBps,
       activityNameEn: activities.nameEn,
       activityNameMs: activities.nameMs,
       cutoffMinutes: projActivities.bookingCutoffMinutes,
@@ -39,9 +40,10 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     })
     .from(projOptions)
     .innerJoin(activities, eq(activities.id, projOptions.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
     .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
     .where(and(eq(projOptions.id, optionId), eq(projOptions.active, true)));
-  if (!row || !(row.listingMode === "bookable" || (showDrafts && row.listingMode === "hidden"))) return notFound();
+  if (!row || !sells(row.listingMode, row.commissionBps)) return notFound();
   const o = row.option;
   const now = Date.now();
   const [options, addOns, slots, prices] = await db.batch([

@@ -24,7 +24,7 @@ const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
 ---
 
 <Checkout locale={l} title={c.pickTitle} step={1} problems={p}>
-  <form method="post" action={here} data-pick={o.priceSen} class="mt-6 space-y-8" novalidate>
+  <form method="post" action={here} data-pick={o.priceSen} data-max={max} class="mt-6 space-y-8" novalidate>
     <input type="hidden" name="date" value={date} />
     <section class="rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]">
       <p class="text-sm text-muted">{activityName}</p>
