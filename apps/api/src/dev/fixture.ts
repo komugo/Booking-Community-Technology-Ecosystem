@@ -182,6 +182,7 @@ export async function fixture(
   }
   return {
     operatorId,
+    cityId: city.id,
     activityId,
     optionId,
     timeslotId,

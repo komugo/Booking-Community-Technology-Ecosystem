@@ -1,28 +1,18 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, projPackOffers, type Db, type ListingMode } from "@komugo/db";
+import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, venues, type Db, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
 import { recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
-
-type Body = Record<string, unknown>;
+import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
+import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, type PhotoInput } from "./venues";
 
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
-
-const int = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
-const intOrNull = (v: unknown, min: number, max: number) => v === null || int(v, min, max);
-const name = (v: unknown) => typeof v === "string" && v.trim().length >= 1 && v.trim().length <= 200;
-const bool = (v: unknown): v is boolean => typeof v === "boolean";
-const list = <T>(v: unknown, max: number, ok: (x: unknown) => boolean): v is T[] => Array.isArray(v) && v.length <= max && v.every(ok);
-
-function invalid(checks: [boolean, string][]): ApiError[] {
-  return checks.filter(([ok]) => !ok).map(([, field]) => ({ code: "invalid_field", field }));
-}
 
 export const routes = new Hono<Ops>();
 
@@ -30,8 +20,6 @@ routes.onError((e, c) => {
   if (e instanceof BookingError) return fail(c, 409, { code: e.code });
   throw e;
 });
-
-const json = (c: Ctx) => c.req.json<Body>().catch((): Body => ({}));
 
 async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   if (typeof id !== "string") return false;
@@ -48,22 +36,39 @@ async function commissionBps(env: Env, operatorId: string) {
 }
 
 routes.get("/setup", async (c) => {
-  const [setup, commission, catalogue] = await Promise.all([
+  const op = c.req.param("operatorId")!;
+  const db = createDb(c.env.DB);
+  const [setup, commission, [catalogue, gallery]] = await Promise.all([
     c.var.b.setup(),
-    commissionBps(c.env, c.req.param("operatorId")!),
-    createDb(c.env.DB)
-      .select({
-        id: activities.id,
-        nameEn: activities.nameEn,
-        nameMs: activities.nameMs,
-        slugEn: activities.slugEn,
-        slugMs: activities.slugMs,
-        listingMode: activities.listingMode,
-      })
-      .from(activities)
-      .where(eq(activities.operatorId, c.req.param("operatorId")!)),
+    commissionBps(c.env, op),
+    db.batch([
+      db
+        .select({
+          id: activities.id,
+          nameEn: activities.nameEn,
+          nameMs: activities.nameMs,
+          slugEn: activities.slugEn,
+          slugMs: activities.slugMs,
+          listingMode: activities.listingMode,
+          descriptionEn: activities.descriptionEn,
+          descriptionMs: activities.descriptionMs,
+          venueId: activities.venueId,
+        })
+        .from(activities)
+        .where(eq(activities.operatorId, op)),
+      db
+        .select({ photo: photos })
+        .from(photos)
+        .innerJoin(activities, eq(activities.id, photos.activityId))
+        .where(eq(activities.operatorId, op))
+        .orderBy(asc(photos.position)),
+    ]),
   ]);
-  return c.json({ ...setup, commissionBps: commission, catalogue });
+  return c.json({
+    ...setup,
+    commissionBps: commission,
+    catalogue: catalogue.map((a) => ({ ...a, photos: gallery.filter((p) => p.photo.activityId === a.id).map((p) => photoView(p.photo)) })),
+  });
 });
 
 routes.put("/commission", staffOnly, async (c) => {
@@ -95,6 +100,45 @@ routes.put("/activities/:id", async (c) => {
     requiresWaiver: body.requiresWaiver as boolean,
   });
   return c.json({ generated });
+});
+
+const text = (v: unknown) => typeof v === "string" && v.trim().length <= 5000;
+
+// Operators edit their own Activity's copy; only staff move it to another Venue.
+routes.put("/activities/:id/copy", async (c) => {
+  const body = await json(c);
+  const errors = invalid([
+    [text(body.descriptionEn), "descriptionEn"],
+    [text(body.descriptionMs), "descriptionMs"],
+    [body.venueId === null || typeof body.venueId === "string", "venueId"],
+    [photoList(body.photos), "photos"],
+  ]);
+  if (errors.length) return fail(c, 400, errors[0], errors);
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const [a] = await db
+    .select({ cityId: activities.cityId, venueId: activities.venueId, listingMode: activities.listingMode })
+    .from(activities)
+    .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
+  if (!a) return fail(c, 404, { code: "not_found" });
+  const venueId = body.venueId as string | null;
+  if (venueId !== a.venueId && c.var.member.role !== "staff") return fail(c, 403, { code: "forbidden", field: "venueId" });
+  const [venue] = venueId ? await db.select({ cityId: venues.cityId, lat: venues.lat, lng: venues.lng }).from(venues).where(eq(venues.id, venueId)) : [];
+  if (venueId && venue?.cityId !== a.cityId) return fail(c, 400, { code: "invalid_field", field: "venueId" });
+  const copy = { descriptionEn: (body.descriptionEn as string).trim(), descriptionMs: (body.descriptionMs as string).trim(), venueId };
+  const list = body.photos as PhotoInput[];
+  // A listed Activity can't drop below the publish bar; gaps it already had (e.g. pre-Venue data) don't block the edit.
+  if (a.listingMode !== "hidden") {
+    const before = await activityGaps(c.env, id);
+    const gaps = publishGaps({ ...copy, photos: list.length }, venue ?? null).filter((g) => !before.includes(g));
+    if (gaps.length) return publishBar(c, gaps);
+  }
+  await db.batch([
+    db.update(activities).set(copy).where(eq(activities.id, id)),
+    db.delete(photos).where(eq(photos.activityId, id)),
+    ...(list.length ? [db.insert(photos).values(photoRows({ activityId: id }, list))] : []),
+  ]);
+  return c.body(null, 204);
 });
 
 // A bill not yet paid or deleted can still be paid late and make a sale.
@@ -137,6 +181,10 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   if (!row) return fail(c, 404, { code: "not_found" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
   if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
+  if (row.listingMode === "hidden" && mode !== "hidden") {
+    const gaps = await activityGaps(c.env, id);
+    if (gaps.length) return publishBar(c, gaps, "listingMode");
+  }
   const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
   await set(mode);
   // Written before the check so a Hold made after it is refused at pay or redeem.
