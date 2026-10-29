@@ -127,9 +127,12 @@ routes.put("/activities/:id/copy", async (c) => {
   if (venueId && venue?.cityId !== a.cityId) return fail(c, 400, { code: "invalid_field", field: "venueId" });
   const copy = { descriptionEn: (body.descriptionEn as string).trim(), descriptionMs: (body.descriptionMs as string).trim(), venueId };
   const list = body.photos as PhotoInput[];
-  // A listed Activity can't drop below the publish bar.
-  const gaps = a.listingMode === "hidden" ? [] : publishGaps({ ...copy, photos: list.length }, venue ?? null);
-  if (gaps.length) return publishBar(c, gaps);
+  // A listed Activity can't drop below the publish bar; gaps it already had (e.g. pre-Venue data) don't block the edit.
+  if (a.listingMode !== "hidden") {
+    const before = await activityGaps(c.env, id);
+    const gaps = publishGaps({ ...copy, photos: list.length }, venue ?? null).filter((g) => !before.includes(g));
+    if (gaps.length) return publishBar(c, gaps);
+  }
   await db.batch([
     db.update(activities).set(copy).where(eq(activities.id, id)),
     db.delete(photos).where(eq(photos.activityId, id)),

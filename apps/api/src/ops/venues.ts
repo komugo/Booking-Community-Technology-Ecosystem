@@ -169,7 +169,7 @@ async function save(c: Ctx, id: string | null) {
   if (errors.length) return fail(c, 400, errors[0], errors);
   const db = createDb(c.env.DB);
   const v = value();
-  const [[city], [existing], [listed]] = await db.batch([
+  const [[city], [existing], [listed], [elsewhere]] = await db.batch([
     db.select({ id: cities.id }).from(cities).where(eq(cities.id, v.cityId)),
     db.select({ id: venueTable.id }).from(venueTable).where(eq(venueTable.id, id ?? "")),
     db
@@ -177,9 +177,15 @@ async function save(c: Ctx, id: string | null) {
       .from(activities)
       .where(and(eq(activities.venueId, id ?? ""), ne(activities.listingMode, "hidden")))
       .limit(1),
+    db
+      .select({ id: activities.id })
+      .from(activities)
+      .where(and(eq(activities.venueId, id ?? ""), ne(activities.cityId, v.cityId)))
+      .limit(1),
   ]);
   if (!city) return fail(c, 400, { code: "invalid_field", field: "cityId" });
   if (id && !existing) return fail(c, 404, { code: "not_found" });
+  if (elsewhere) return fail(c, 400, { code: "invalid_field", field: "cityId" });
   if (listed && v.lat === null) return publishBar(c, ["mapPin"], "lat");
   const venueId = id ?? crypto.randomUUID();
   const list = body.photos as PhotoInput[];

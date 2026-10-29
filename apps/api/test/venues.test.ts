@@ -1,5 +1,6 @@
+import { photos } from "@komugo/db";
 import { describe, expect, test } from "vitest";
-import { d1, member, publishable, unsplash, world } from "./helpers";
+import { d1, db, member, publishable, unsplash, world } from "./helpers";
 
 const venue = (cityId: string) => ({
   cityId,
@@ -74,6 +75,17 @@ describe("Venues", () => {
       expect.objectContaining({ id: w.activityId, descriptionEn: "Ride the jungle trails", descriptionMs: "Tunggang denai", venueId: id, photos: [unsplash()] }),
     ]);
   });
+
+  test("a Venue can't move to another City while it hosts an Activity there", async () => {
+    const w = await world();
+    const other = await world();
+    const venueId = await publishable(w);
+    const staff = await member("staff");
+    const body = venue(await cityOf(other.activityId));
+    expect((await staff.json("PUT", `/ops/venues/${venueId}`, body)).body).toEqual({ code: "invalid_field", field: "cityId" });
+    await d1("UPDATE activities SET venue_id = NULL WHERE id = ?", w.activityId);
+    expect((await staff.json("PUT", `/ops/venues/${venueId}`, body)).status).toBe(200);
+  });
 });
 
 describe("Publish bar", () => {
@@ -108,5 +120,15 @@ describe("Publish bar", () => {
     const body = { ...venue(await cityOf(w.activityId)), lat: null, lng: null };
     expect((await staff.json("PUT", `/ops/venues/${venueId}`, body)).body).toEqual({ code: "publish_bar", field: "lat", params: { missing: "mapPin" } });
     expect(await d1("SELECT count(*) AS n FROM photos WHERE activity_id = ?", w.activityId)).toEqual([{ n: 1 }]);
+  });
+
+  test("an Operator still edits copy of a listed Activity that had gaps before the publish bar", async () => {
+    const w = await world({ listingMode: "bookable" });
+    await db.insert(photos).values({ ...unsplash(), activityId: w.activityId });
+    const own = await member("operator", w.operatorId);
+    const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
+    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: null, photos: [unsplash()] };
+    expect((await own.json("PUT", url, copy)).status).toBe(204);
+    expect((await own.json("PUT", url, { ...copy, photos: [] })).body).toEqual({ code: "publish_bar", params: { missing: "photo" } });
   });
 });
