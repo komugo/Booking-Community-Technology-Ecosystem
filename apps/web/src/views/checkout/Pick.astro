@@ -43,7 +43,7 @@ const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
                     x.id === o.id ? "border-forest bg-forest text-white" : "border-line bg-paper hover:border-leaf",
                   ]}
                 >
-                  {l === "ms" ? x.nameMs : x.nameEn} · {rm(x.priceSen)}
+                  {l === "ms" ? x.nameMs : x.nameEn} · {s.from} {rm(x.fromPriceSen)}
                 </a>
               </li>
             ))}

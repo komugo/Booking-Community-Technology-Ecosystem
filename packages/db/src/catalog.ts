@@ -72,7 +72,7 @@ async function toHubs(db: Db, rows: HubRow[], l: Locale): Promise<Hub[]> {
 }
 
 // Lowest price of each Option's open future Timeslots (a Schedule's price, else the Option's).
-const slotPrices = (db: Db, activityIds: string[]) =>
+export const slotPrices = (db: Db, activityIds: string[]) =>
   db
     .select({ optionId: projTimeslots.optionId, priceSen: sql<number>`min(coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}))` })
     .from(projTimeslots)
@@ -80,9 +80,13 @@ const slotPrices = (db: Db, activityIds: string[]) =>
     .where(and(within(projOptions.activityId, activityIds), isNull(projTimeslots.closedAt), gt(projTimeslots.startsAt, Date.now())))
     .groupBy(projTimeslots.optionId);
 
+type SlotPrice = { optionId: string; priceSen: number };
+
 // An Option with no open Timeslot counts at its own price.
-const fromPrice = (options: { id: string; priceSen: number }[], slots: { optionId: string; priceSen: number }[]) => {
-  const prices = options.map((o) => slots.find((s) => s.optionId === o.id)?.priceSen ?? o.priceSen);
+export const optionFrom = (o: { id: string; priceSen: number }, slots: SlotPrice[]) => slots.find((s) => s.optionId === o.id)?.priceSen ?? o.priceSen;
+
+const fromPrice = (options: { id: string; priceSen: number }[], slots: SlotPrice[]) => {
+  const prices = options.map((o) => optionFrom(o, slots));
   return prices.length ? Math.min(...prices) : null;
 };
 
@@ -253,7 +257,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
     options: opts.map((o) => ({
       id: o.id,
       name: en ? o.nameEn : o.nameMs,
-      priceSen: o.priceSen,
+      fromPriceSen: optionFrom(o, slots),
       durationMinutes: o.durationMinutes,
       minAge: o.minAge,
       maxAge: o.maxAge,

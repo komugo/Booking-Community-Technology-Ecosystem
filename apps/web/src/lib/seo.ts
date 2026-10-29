@@ -61,7 +61,7 @@ export function activityLd(site: URL | undefined, l: Locale, a: ActivityData): J
     brand: { "@type": "Brand", name: a.operatorName },
     offers: {
       "@type": "Offer",
-      price: (o.priceSen / 100).toFixed(2),
+      price: (o.fromPriceSen / 100).toFixed(2),
       priceCurrency: "MYR",
       url,
     },

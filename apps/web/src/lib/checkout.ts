@@ -1,4 +1,4 @@
-import { activities, projActivities, projAddOns, projOptions, projTimeslots, type Locale } from "@komugo/db";
+import { activities, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
 import { db, showDrafts } from "./db";
@@ -43,7 +43,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
   if (!row || !(row.published || showDrafts)) return notFound();
   const o = row.option;
   const now = Date.now();
-  const [siblings, addOns, slots] = await db.batch([
+  const [options, addOns, slots, prices] = await db.batch([
     db
       .select({ id: projOptions.id, nameEn: projOptions.nameEn, nameMs: projOptions.nameMs, priceSen: projOptions.priceSen })
       .from(projOptions)
@@ -67,7 +67,9 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
         ),
       )
       .orderBy(asc(projTimeslots.startsAt)),
+    slotPrices(db, [o.activityId]),
   ]);
+  const siblings = options.map((x) => ({ ...x, fromPriceSen: optionFrom(x, prices) }));
 
   const min = o.minParticipants ?? 1;
   let errors: ApiError[] = codeFrom(url);
