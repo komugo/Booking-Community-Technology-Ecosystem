@@ -146,6 +146,7 @@ export const projActivities = sqliteTable("proj_activities", {
   operatorId: text().notNull(),
   freeCancelHours: integer().notNull(),
   bookingCutoffMinutes: integer().notNull().default(60),
+  requiresWaiver: integer({ mode: "boolean" }).notNull().default(true),
   version: integer().notNull(),
 });
 

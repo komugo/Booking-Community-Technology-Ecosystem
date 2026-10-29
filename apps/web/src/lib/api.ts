@@ -33,7 +33,7 @@ export type Checkout = {
   };
   operatorName: string;
   freeCancelHours: number | null;
-  waiver: { version: string; text: string };
+  waiver: { version: string; text: string } | null;
   addOns: (Named & { id: string; qty: number; priceSen: number })[];
   estimatedSen: number;
   amountSen: number | null;

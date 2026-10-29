@@ -30,14 +30,14 @@ describe("ops Setup", () => {
     const o = await m.json<{ id: string }>("POST", `${base}/options`, option);
     const a = await m.json<{ id: string }>("POST", `${base}/add-ons`, { activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(
-      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] }),
+      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }),
     ).toEqual({ status: 200, body: { generated: expect.anything() } });
 
     const { body } = await m.json("GET", `${base}/setup`);
     expect(body.resources).toContainEqual({ ...horse, id: r.body.id, name: "Bayu II", maxSessionsPerDay: 5 });
     expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson" });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
-    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] }]);
+    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }]);
     expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", published: true })]);
   });
 
@@ -52,6 +52,7 @@ describe("ops Setup", () => {
       errors: [
         { code: "invalid_field", field: "freeCancelHours" },
         { code: "invalid_field", field: "closedDays" },
+        { code: "invalid_field", field: "requiresWaiver" },
       ],
     });
     const schedule = { activityId: w.activityId, optionIds: [w.optionId], weekdays: ["Mo"], times: ["9:00"], startsOn: klDay(1), endsOn: null, active: true };

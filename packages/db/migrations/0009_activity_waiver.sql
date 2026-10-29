@@ -1,0 +1,1 @@
+ALTER TABLE `proj_activities` ADD `requires_waiver` integer DEFAULT true NOT NULL;

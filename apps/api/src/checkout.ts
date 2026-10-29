@@ -272,7 +272,7 @@ async function validateWho(
     seen.add(key);
 
     let waiver: DraftParticipant["waiver"] = null;
-    if (!alreadySigned.has(key)) {
+    if (d.requiresWaiver !== false && !alreadySigned.has(key)) {
       const minor = ageOn(birthDate, today) < 18;
       const guardianName = text(p.waiver?.guardianName, 100);
       if (p.waiver?.accepted !== true || (p.waiver.guardian === true) !== minor) {
@@ -417,7 +417,7 @@ checkout.get("/:id", async (c) => {
     activity: { ...d.activity, city: d.city, category: d.category },
     operatorName: d.operatorName,
     freeCancelHours: d.freeCancelHours,
-    waiver: { version: WAIVER.version, text: waiverText(co.locale, d.operatorName) },
+    waiver: d.requiresWaiver === false ? null : { version: WAIVER.version, text: waiverText(co.locale, d.operatorName) },
     addOns,
     estimatedSen: d.option.priceSen * co.quantity + addOns.reduce((s, a) => s + a.qty * a.priceSen, 0),
     amountSen: co.amountSen,

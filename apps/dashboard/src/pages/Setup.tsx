@@ -209,10 +209,11 @@ function List({
 function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Setup; id: string; staff: boolean; onSaved: () => void }) {
   const { t, l } = useT();
   const a = setup.catalogue.find((x) => x.id === id)!;
-  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: [] };
+  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
   const [hours, setHours] = useState(String(settings.freeCancelHours));
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);
+  const [waiver, setWaiver] = useState(settings.requiresWaiver);
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
   const [published, setPublished] = useState(a.published);
   const { busy, error, submit, err } = useSubmit(t);
@@ -220,7 +221,12 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
 
   const save = async () => {
     const ok = await submit(() =>
-      api("PUT", `/operators/${op}/activities/${id}`, { freeCancelHours: num(hours), bookingCutoffMinutes: num(cutoff), closedDays: closed }),
+      api("PUT", `/operators/${op}/activities/${id}`, {
+        freeCancelHours: num(hours),
+        bookingCutoffMinutes: num(cutoff),
+        closedDays: closed,
+        requiresWaiver: waiver,
+      }),
     );
     if (ok) {
       toast(t.saved);
@@ -281,6 +287,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           )}
         </Field>
       </div>
+      <Toggle label={t.requiresWaiver} checked={waiver} onChange={setWaiver} />
       <fieldset>
         <legend className="label">{t.closedDays}</legend>
         <p className="font-display text-xl font-bold" data-closed-sentence>

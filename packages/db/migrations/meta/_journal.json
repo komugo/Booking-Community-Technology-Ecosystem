@@ -50,6 +50,13 @@
       "when": 1793160056899,
       "tag": "0006_customer_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793258432376,
+      "tag": "0009_activity_waiver",
+      "breakpoints": true
     }
   ]
 }

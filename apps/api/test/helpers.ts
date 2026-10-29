@@ -85,7 +85,7 @@ export function client(e: Partial<Env> = {}) {
 }
 export type Client = ReturnType<typeof client>;
 
-export async function world(o: { published?: boolean; option?: Partial<OptionInput>; horses?: number } = {}) {
+export async function world(o: { published?: boolean; option?: Partial<OptionInput>; horses?: number; requiresWaiver?: boolean } = {}) {
   const s = rid();
   const operatorId = `op_${s}`;
   const activityId = `act_${s}`;
@@ -106,7 +106,7 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
     published: o.published ?? true,
   });
   const b = booking(env, operatorId);
-  await b.upsertActivity({ id: activityId, freeCancelHours: 24 });
+  await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: o.requiresWaiver });
   for (let i = 0; i < (o.horses ?? 2); i++) {
     await b.upsertResource({
       id: `h${i}_${s}`,

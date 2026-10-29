@@ -35,7 +35,7 @@ async function routesFor(w: World) {
   } = await w.b.createTimeslots({ optionId: w.optionId, startsAt: [Date.parse("2030-01-15T15:00:00+08:00")] });
   return [
     ["GET", "/setup", 200],
-    ["PUT", `/activities/${w.activityId}`, 200, { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: ["Mo"] }],
+    ["PUT", `/activities/${w.activityId}`, 200, { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: ["Mo"], requiresWaiver: true }],
     ["POST", "/options", 201, option(w.activityId)],
     ["PUT", `/options/${w.optionId}`, 200, { ...option(w.activityId), durationMinutes: 60, maxWeightKg: 90, minAge: 7 }],
     ["POST", "/add-ons", 201, addOn(w.activityId)],
@@ -91,7 +91,7 @@ describe("ops authorization", () => {
     expect((await m.call("PUT", `${base}/options/${b.optionId}`, option(a.activityId))).status).toBe(404);
     expect((await m.call("PUT", `${base}/add-ons/${b.helmetId}`, addOn(a.activityId))).status).toBe(404);
     expect((await m.call("POST", `${base}/options`, option(b.activityId))).status).toBe(404);
-    expect((await m.call("PUT", `${base}/activities/${b.activityId}`, { freeCancelHours: 0, bookingCutoffMinutes: 0, closedDays: [] })).status).toBe(404);
+    expect((await m.call("PUT", `${base}/activities/${b.activityId}`, { freeCancelHours: 0, bookingCutoffMinutes: 0, closedDays: [], requiresWaiver: true })).status).toBe(404);
     await a.flush();
     await b.flush();
     expect(await d1("SELECT operator_id, duration_minutes FROM proj_options WHERE id = ?", b.optionId)).toEqual([

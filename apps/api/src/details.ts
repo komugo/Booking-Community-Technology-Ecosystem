@@ -27,6 +27,7 @@ export async function optionDetails(db: Db, optionId: string, timeslotId: string
         operatorName: operators.name,
         freeCancelHours: projActivities.freeCancelHours,
         bookingCutoffMinutes: projActivities.bookingCutoffMinutes,
+        requiresWaiver: projActivities.requiresWaiver,
       })
       .from(projOptions)
       .innerJoin(activities, eq(activities.id, projOptions.activityId))

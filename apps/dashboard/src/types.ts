@@ -108,7 +108,7 @@ export type RefundRow = {
   customer: { name: string | null; email: string | null; phone: string | null };
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
+  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: Option[];
   addOns: AddOn[];
   resources: Resource[];

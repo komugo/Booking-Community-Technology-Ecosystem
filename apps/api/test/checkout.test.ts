@@ -43,6 +43,17 @@ describe("Participants and Waivers", () => {
     });
   });
 
+  test("an Activity that doesn't require a Waiver books with no Waiver step", async () => {
+    const w = await world({ requiresWaiver: false });
+    const cl = client();
+    const id = await start(cl, w);
+    expect((await cl.json("GET", `/checkouts/${id}`)).body.waiver).toBeNull();
+    const kid = { name: "No Signer", birthDate: "2016-03-01", weightKg: 30 };
+    expect((await cl.json("PUT", `/checkouts/${id}/who`, { participants: [kid] })).body).toEqual({ next: "contact" });
+    expect((await signIn(cl, id, `${rid()}@example.com`)).body).toEqual({ next: "pay" });
+    expect(await d1("SELECT count(*) AS n FROM waivers JOIN participants p ON p.id = participant_id WHERE p.name = 'No Signer'")).toEqual([{ n: 0 }]);
+  });
+
   test("Requirements are pre-checked against the Timeslot date", async () => {
     const young = { ...adult("Tiny"), birthDate: "2025-01-01", waiver: { accepted: true, guardian: true, guardianName: "Mum" } };
     expect((await who([young])).body).toMatchObject({ code: "requirement_not_met", params: { rule: "min_age", value: 7 } });
