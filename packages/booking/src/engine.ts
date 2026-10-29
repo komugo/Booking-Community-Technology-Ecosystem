@@ -845,6 +845,19 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
   return { outcome: "checked_in", ticket: ticket(now) };
 }
 
+export const hasFutureBookings = (sql: SqlStorage, now: number, activityId: string) =>
+  !!first(
+    sql.exec(
+      `SELECT 1 FROM timeslots s JOIN options o ON o.id = s.option_id
+       WHERE o.activity_id = ? AND s.starts_at > ?
+         AND (EXISTS (SELECT 1 FROM tickets WHERE timeslot_id = s.id AND status = 'issued')
+           OR EXISTS (SELECT 1 FROM holds WHERE timeslot_id = s.id AND status = 'active'))
+       LIMIT 1`,
+      activityId,
+      now,
+    ),
+  );
+
 export function setup(sql: SqlStorage): Setup {
   const needs = new Map<string, OptionInput["needs"]>();
   for (const n of sql.exec<{ option_id: string; kind: ResourceKind; quantity: number }>(

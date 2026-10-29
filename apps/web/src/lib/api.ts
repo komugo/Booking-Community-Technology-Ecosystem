@@ -25,7 +25,7 @@ export type Checkout = {
   activity: Named & {
     slugEn: string;
     slugMs: string;
-    published: boolean;
+    listingMode: "bookable" | "info" | "hidden";
     streetAddress: string | null;
     postalCode: string | null;
     city: Named & { slugEn: string; slugMs: string };

@@ -148,6 +148,11 @@ async function releaseBill(env: Env, holdId: string) {
   }
 }
 
+async function notBookable(env: Env, activityId: string) {
+  const [a] = await createDb(env.DB).select({ listingMode: activities.listingMode }).from(activities).where(eq(activities.id, activityId));
+  return a?.listingMode !== "bookable" && env.BOOK_DRAFTS !== "1";
+}
+
 export async function holdStep(
   env: Env,
   waitUntil: WaitUntil,
@@ -163,8 +168,7 @@ export async function holdStep(
   const people = participantIds ?? c.participantIds;
   if (!c.customerId || !people) return "invalid_state";
   if (c.holdSeq > MAX_HOLDS_PER_CHECKOUT) return "too_many_holds";
-  const [activity] = await db.select({ published: activities.published }).from(activities).where(eq(activities.id, c.activityId));
-  if (!activity?.published && env.BOOK_DRAFTS !== "1") return "not_bookable";
+  if (await notBookable(env, c.activityId)) return "not_bookable";
   let released: string[];
   try {
     const h = await booking(env, c.operatorId).createHold({
@@ -314,7 +318,7 @@ checkout.post("/", async (c) => {
     !d.option.active ||
     d.slot.closedAt !== null ||
     d.slot.startsAt - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
-    (!d.activity.published && c.env.BOOK_DRAFTS !== "1")
+    (d.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1")
   ) {
     return fail(c, 409, { code: "not_bookable" });
   }
@@ -503,6 +507,7 @@ checkout.post("/:id/pay", async (c) => {
     optionDetails(db, co.optionId, co.timeslotId, []),
   ]);
   if (!customer?.email || !d?.slot) return fail(c, 409, { code: "invalid_state" });
+  if (d.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1") return fail(c, 409, { code: "not_bookable" });
   const l = co.locale;
   let bill;
   try {
@@ -550,6 +555,7 @@ checkout.post("/:id/redeem", async (c) => {
   if (!co.holdId || co.holdExpiresAt! <= Date.now()) return fail(c, 409, { code: "hold_expired" });
   const body = await c.req.json<{ packId?: unknown }>().catch(() => ({}) as { packId?: unknown });
   const packId = String(body.packId ?? "");
+  if (await notBookable(c.env, co.activityId)) return fail(c, 409, { code: "not_bookable" });
   const holdId = co.holdId;
   try {
     await booking(c.env, co.operatorId).redeemPack({ requestId: `${co.id}:redeem:${holdId}`, customerId: co.customerId, packId, holdId });

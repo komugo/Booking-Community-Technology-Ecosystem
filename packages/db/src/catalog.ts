@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, ne, or, sql, type Column, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "./client";
-import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers } from "./schema";
+import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers, venues, type ListingMode } from "./schema";
 
 export type Locale = "en" | "ms";
 export type Slugs = { en: string; ms: string };
@@ -24,7 +24,7 @@ export type ActivityCard = {
   city: Slugs;
   category: Slugs & { name: string };
   name: string;
-  published: boolean;
+  listingMode: ListingMode;
   fromPriceSen: number | null;
   minDurationMinutes: number | null;
   maxDurationMinutes: number | null;
@@ -50,7 +50,8 @@ const toPhoto = (p: PhotoRow, l: Locale): Photo => ({
 
 const bySlug = (t: Sluggable, slug: string) => or(eq(t.slugEn, slug), eq(t.slugMs, slug));
 const localeFirst = (t: Sluggable, l: Locale, slug: string) => sql`${l === "en" ? t.slugEn : t.slugMs} = ${slug} desc`;
-const draftGate = (q: CatalogQuery) => (q.includeDrafts ? undefined : eq(activities.published, true));
+const listed = ne(activities.listingMode, "hidden");
+const draftGate = (q: CatalogQuery) => (q.includeDrafts ? undefined : listed);
 
 // json_each keeps it to one bound parameter; D1 caps a statement at 100.
 export const within = (col: Column, ids: string[]) => sql`${col} IN (SELECT value FROM json_each(${JSON.stringify([...new Set(ids)])}))`;
@@ -113,7 +114,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
       city: { en: city.slugEn, ms: city.slugMs },
       category: { en: category.slugEn, ms: category.slugMs, name: q.locale === "en" ? category.nameEn : category.nameMs },
       name: q.locale === "en" ? a.nameEn : a.nameMs,
-      published: a.published,
+      listingMode: a.listingMode,
       fromPriceSen: min(o.map((x) => x.priceSen)),
       minDurationMinutes: min(o.map((x) => x.durationMinutes)),
       maxDurationMinutes: max(o.map((x) => x.durationMinutes)),
@@ -123,7 +124,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
   });
 }
 
-const hasPublished = (cards: ActivityCard[]) => cards.some((c) => c.published);
+const hasListed = (cards: ActivityCard[]) => cards.some((c) => c.listingMode !== "hidden");
 
 export async function getHome(db: Db, q: CatalogQuery) {
   const [cityRows, categoryRows] = await db.batch([
@@ -149,7 +150,7 @@ export async function getCityHub(db: Db, q: CatalogQuery & { city: string }) {
   const [row] = await hubQuery(db, cities, q.locale, q.city);
   if (!row) return null;
   const [[city], cards] = await Promise.all([toHubs(db, [row], q.locale), listCards(db, q, eq(activities.cityId, row.id))]);
-  return { city, categories: await categoryHubs(db, cards, q.locale), activities: cards, indexable: hasPublished(cards) };
+  return { city, categories: await categoryHubs(db, cards, q.locale), activities: cards, indexable: hasListed(cards) };
 }
 
 export async function getCategoryHub(db: Db, q: CatalogQuery & { city: string; category: string }) {
@@ -169,7 +170,7 @@ export async function getCategoryHub(db: Db, q: CatalogQuery & { city: string; c
     category,
     activities: cards,
     otherCategories: await categoryHubs(db, others, q.locale),
-    indexable: hasPublished(cards),
+    indexable: hasListed(cards),
   };
 }
 
@@ -189,7 +190,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
   if (!row || cityRow?.id !== row.a.cityId || categoryRow?.id !== row.a.categoryId) return null;
   const { a } = row;
   const en = q.locale === "en";
-  const [[opts, extras, gallery, offers], [city, category], related] = await Promise.all([
+  const [[opts, extras, gallery, offers, [venue], venueGallery], [city, category], related] = await Promise.all([
     db.batch([
       db
         .select()
@@ -207,6 +208,12 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
         .from(projPackOffers)
         .where(and(eq(projPackOffers.activityId, a.id), eq(projPackOffers.active, true)))
         .orderBy(asc(projPackOffers.priceSen)),
+      db.select().from(venues).where(eq(venues.id, a.venueId ?? "")),
+      db
+        .select()
+        .from(photos)
+        .where(eq(photos.venueId, a.venueId ?? ""))
+        .orderBy(asc(photos.position)),
     ]),
     toHubs(db, [cityRow, categoryRow], q.locale),
     listCards(db, q, and(eq(activities.cityId, a.cityId), ne(activities.id, a.id))),
@@ -220,14 +227,18 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
     operatorName: row.operatorName,
     name: en ? a.nameEn : a.nameMs,
     description: en ? a.descriptionEn : a.descriptionMs,
-    published: a.published,
+    listingMode: a.listingMode,
+    howToBook: a.howToBook,
+    bookUrl: a.bookUrl,
+    priceNote: en ? a.priceNoteEn : a.priceNoteMs,
     freeCancelHours: row.freeCancelHours,
-    streetAddress: a.streetAddress,
-    postalCode: a.postalCode,
-    lat: a.lat,
-    lng: a.lng,
-    phone: a.phone,
-    openingHours: a.openingHours,
+    venue: venue && { name: en ? venue.nameEn : venue.nameMs, presint: venue.presint },
+    streetAddress: venue ? venue.streetAddress : a.streetAddress,
+    postalCode: venue ? venue.postalCode : a.postalCode,
+    lat: venue ? venue.lat : a.lat,
+    lng: venue ? venue.lng : a.lng,
+    phone: a.phone ?? venue?.phone ?? null,
+    openingHours: a.openingHours.length ? a.openingHours : (venue?.openingHours ?? []),
     hoursNote: en ? a.hoursNoteEn : a.hoursNoteMs,
     highlights: en ? a.highlightsEn : a.highlightsMs,
     faq: en ? a.faqEn : a.faqMs,
@@ -251,7 +262,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
       validDays: o.validDays,
       options: opts.filter((x) => o.optionIds.includes(x.id)).map((x) => (en ? x.nameEn : x.nameMs)),
     })),
-    photos: gallery.map((p) => toPhoto(p, q.locale)),
+    photos: (gallery.length ? gallery : venueGallery).map((p) => toPhoto(p, q.locale)),
     related,
   };
 }
@@ -268,7 +279,7 @@ export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
     .from(activities)
     .innerJoin(cities, eq(cities.id, activities.cityId))
     .innerJoin(categories, eq(categories.id, activities.categoryId))
-    .where(eq(activities.published, true))
+    .where(listed)
     .orderBy(asc(cities.slugEn), asc(categories.slugEn), asc(activities.slugEn));
   const out = new Map<string, SitemapEntry>();
   for (const r of rows) {

@@ -24,7 +24,7 @@ export const breadcrumbLd = (site: URL | undefined, items: { name: string; path:
 });
 
 export function itemListLd(site: URL | undefined, l: Locale, cards: ActivityCard[]): Json[] {
-  const items = cards.filter((c) => c.published).map((c, i) => ({ "@type": "ListItem", position: i + 1, url: abs(site, cardPath(l, c)) }));
+  const items = cards.filter((c) => c.listingMode !== "hidden").map((c, i) => ({ "@type": "ListItem", position: i + 1, url: abs(site, cardPath(l, c)) }));
   return items.length ? [{ "@context": "https://schema.org", "@type": "ItemList", itemListElement: items }] : [];
 }
 
@@ -34,7 +34,7 @@ export function activityLd(site: URL | undefined, l: Locale, a: ActivityData): J
   const venue: Json = {
     "@context": "https://schema.org",
     "@type": "SportsActivityLocation",
-    name: a.name,
+    name: a.venue?.name ?? a.name,
     url,
     image: images,
     telephone: a.phone ?? undefined,
@@ -53,7 +53,7 @@ export function activityLd(site: URL | undefined, l: Locale, a: ActivityData): J
       closes: h.closes,
     })),
   };
-  const products = a.options.map((o) => ({
+  const products = (a.bookable ? a.options : []).map((o) => ({
     "@context": "https://schema.org",
     "@type": "Product",
     name: `${a.name}: ${o.name}`,

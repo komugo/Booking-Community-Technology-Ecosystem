@@ -16,6 +16,7 @@ const id = () =>
 export const operators = sqliteTable("operators", {
   id: id(),
   name: text().notNull(),
+  signedUp: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 const hub = () => ({
@@ -30,6 +31,30 @@ const hub = () => ({
 });
 export const cities = sqliteTable("cities", hub());
 export const categories = sqliteTable("categories", hub());
+
+export const venues = sqliteTable(
+  "venues",
+  {
+    id: id(),
+    cityId: text()
+      .notNull()
+      .references(() => cities.id),
+    nameEn: text().notNull(),
+    nameMs: text().notNull(),
+    streetAddress: text(),
+    postalCode: text(),
+    presint: integer(),
+    phone: text(),
+    lat: real(),
+    lng: real(),
+    openingHours: json<OpeningHours[]>(),
+  },
+  (t) => [index("venues_city").on(t.cityId), check("venues_presint", sql`${t.presint} between 1 and 20`)],
+);
+
+export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
+export type ListingMode = (typeof LISTING_MODES)[number];
+export const HOW_TO_BOOK = ["walk_in", "external", "unknown"] as const;
 
 export const activities = sqliteTable(
   "activities",
@@ -50,7 +75,14 @@ export const activities = sqliteTable(
     nameMs: text().notNull(),
     descriptionEn: text().notNull(),
     descriptionMs: text().notNull(),
+    // Superseded by listingMode; kept equal to listingMode = 'bookable' so a rollback still gates checkout.
     published: integer({ mode: "boolean" }).notNull().default(false),
+    venueId: text().references(() => venues.id),
+    listingMode: text({ enum: LISTING_MODES }).notNull().default("hidden"),
+    howToBook: text({ enum: HOW_TO_BOOK }).notNull().default("unknown"),
+    bookUrl: text(),
+    priceNoteEn: text(),
+    priceNoteMs: text(),
     streetAddress: text(),
     postalCode: text(),
     phone: text(),
@@ -64,7 +96,11 @@ export const activities = sqliteTable(
     faqEn: json<Faq[]>(),
     faqMs: json<Faq[]>(),
   },
-  (t) => [index("activities_city_category").on(t.cityId, t.categoryId), index("activities_operator").on(t.operatorId)],
+  (t) => [
+    index("activities_city_category").on(t.cityId, t.categoryId),
+    index("activities_operator").on(t.operatorId),
+    index("activities_venue").on(t.venueId),
+  ],
 );
 
 export const photos = sqliteTable(
@@ -72,6 +108,7 @@ export const photos = sqliteTable(
   {
     id: id(),
     activityId: text().references(() => activities.id),
+    venueId: text().references(() => venues.id),
     position: integer().notNull().default(0),
     url: text().notNull(),
     width: integer().notNull(),
@@ -82,7 +119,7 @@ export const photos = sqliteTable(
     creditUrl: text().notNull(),
     sourceUrl: text().notNull(),
   },
-  (t) => [index("photos_activity_position").on(t.activityId, t.position)],
+  (t) => [index("photos_activity_position").on(t.activityId, t.position), index("photos_venue_position").on(t.venueId, t.position)],
 );
 
 export const customers = sqliteTable(

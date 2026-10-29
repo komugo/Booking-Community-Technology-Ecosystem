@@ -15,7 +15,7 @@ export async function optionDetails(db: Db, optionId: string, timeslotId: string
           nameMs: activities.nameMs,
           slugEn: activities.slugEn,
           slugMs: activities.slugMs,
-          published: activities.published,
+          listingMode: activities.listingMode,
           streetAddress: activities.streetAddress,
           postalCode: activities.postalCode,
           lat: activities.lat,

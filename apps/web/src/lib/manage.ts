@@ -166,11 +166,11 @@ export async function meStep({ request, url }: Ctx, l: Locale) {
 
 export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
   const [row] = await db
-    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, published: activities.published } })
+    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode } })
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
     .where(eq(projPackOffers.id, params.offerId!));
-  if (!row || !row.offer.active || !(row.activity.published || showDrafts)) return notFound();
+  if (!row || !row.offer.active || !(row.activity.listingMode === "bookable" || (showDrafts && row.activity.listingMode === "hidden"))) return notFound();
   const here = path(l, "packs", "buy", row.offer.id);
   let errors = codeFrom(url);
   if (request.method === "POST") {

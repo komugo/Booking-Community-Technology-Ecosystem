@@ -38,7 +38,7 @@ describe("ops Setup", () => {
     expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson" });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"] }]);
-    expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", published: true })]);
+    expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", listingMode: "bookable" })]);
   });
 
   test("bad fields are 400 invalid_field with the field name", async () => {

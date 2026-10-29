@@ -14,7 +14,7 @@ type OptionSeed = Pick<OptionInput, "id" | "nameEn" | "nameMs" | "priceSen" | "d
   };
 type ResourceSeed = Pick<ResourceInput, "id" | "kind" | "name"> &
   Partial<Pick<ResourceInput, "maxSessionsPerDay" | "restMinutes" | "maxRiderWeightKg">>;
-type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published"> & {
+type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published" | "listingMode"> & {
   id: string;
   operator: { id: string; name: string };
   category: HubSeed;

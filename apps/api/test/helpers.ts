@@ -1,6 +1,6 @@
 import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { booking, type OptionInput, type PackOfferInput } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers, type ListingMode } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -85,12 +85,12 @@ export function client(e: Partial<Env> = {}) {
 }
 export type Client = ReturnType<typeof client>;
 
-export async function world(o: { published?: boolean; option?: Partial<OptionInput>; horses?: number } = {}) {
+export async function world(o: { listingMode?: ListingMode; signedUp?: boolean; option?: Partial<OptionInput>; horses?: number } = {}) {
   const s = rid();
   const operatorId = `op_${s}`;
   const activityId = `act_${s}`;
   const hub = { slugEn: s, slugMs: `${s}-ms`, nameEn: "Hub", nameMs: "Hub" };
-  await db.insert(operators).values({ id: operatorId, name: "Test Stable" });
+  await db.insert(operators).values({ id: operatorId, name: "Test Stable", signedUp: o.signedUp ?? true });
   const [city] = await db.insert(cities).values(hub).returning();
   const [category] = await db.insert(categories).values(hub).returning();
   await db.insert(activities).values({
@@ -103,7 +103,7 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
     nameMs: "Tunggang Denai",
     descriptionEn: "x",
     descriptionMs: "x",
-    published: o.published ?? true,
+    listingMode: o.listingMode ?? "bookable",
   });
   const b = booking(env, operatorId);
   await b.upsertActivity({ id: activityId, freeCancelHours: 24 });

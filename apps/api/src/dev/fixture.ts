@@ -1,5 +1,5 @@
 import { booking } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { WAIVER } from "@komugo/types";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
@@ -22,6 +22,7 @@ export async function fixture(
     viaPack?: unknown;
     extraSlots?: unknown;
     close?: unknown;
+    info?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -36,7 +37,7 @@ export async function fixture(
   const [city] = await db.insert(cities).values(hub).returning();
   const [category] = await db.insert(categories).values(hub).returning();
   await db.batch([
-    db.insert(operators).values({ id: operatorId, name: `Fixture Stable ${rid}` }),
+    db.insert(operators).values({ id: operatorId, name: `Fixture Stable ${rid}`, signedUp: true }),
     db.insert(activities).values({
       ...hub,
       id: activityId,
@@ -173,6 +174,10 @@ export async function fixture(
     const projected = async () => (await db.select({ id: projTimeslots.id }).from(projTimeslots).where(eq(projTimeslots.id, timeslotId))).length > 0;
     for (let i = 0; i < 50 && !(await projected()); i++) await new Promise((r) => setTimeout(r, 100));
     await recordClosure(env, waitUntil, operatorId, timeslotId, "weather");
+  }
+  if (o.info === true) {
+    const [venue] = await db.insert(venues).values({ cityId: city.id, nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9", presint: 9 }).returning();
+    await db.update(activities).set({ venueId: venue.id, listingMode: "info" }).where(eq(activities.id, activityId));
   }
   return {
     operatorId,

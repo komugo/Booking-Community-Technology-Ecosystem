@@ -73,14 +73,14 @@ describe("ops authorization", () => {
     expect((await staff.call("GET", `/ops/operators/op_missing/setup`)).status).toBe(404);
   });
 
-  test("publishing is staff-only", async () => {
-    const w = await world({ published: false });
+  test("Listing mode is staff-only", async () => {
+    const w = await world({ listingMode: "hidden" });
     const own = await member("operator", w.operatorId);
-    const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/published`;
-    expect((await own.json("PUT", url, { published: true })).body).toEqual({ code: "forbidden" });
+    const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/listing-mode`;
+    expect((await own.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ code: "forbidden" });
     const staff = await member("staff");
-    expect((await staff.json("PUT", url, { published: true })).body).toEqual({ published: true });
-    expect(await d1("SELECT published FROM activities WHERE id = ?", w.activityId)).toEqual([{ published: 1 }]);
+    expect((await staff.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ listingMode: "bookable" });
+    expect(await d1("SELECT listing_mode, published FROM activities WHERE id = ?", w.activityId)).toEqual([{ listing_mode: "bookable", published: 1 }]);
   });
 
   test("ids from another Operator are 404 and leave its rows untouched", async () => {

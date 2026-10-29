@@ -32,6 +32,7 @@ export async function fixture(
     viaPack?: boolean;
     extraSlots?: number;
     close?: boolean;
+    info?: boolean;
   } = {},
 ): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });

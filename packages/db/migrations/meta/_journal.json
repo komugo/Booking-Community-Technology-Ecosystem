@@ -50,6 +50,13 @@
       "when": 1793160056899,
       "tag": "0006_customer_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793258445800,
+      "tag": "0007_venue_listing_mode",
+      "breakpoints": true
     }
   ]
 }
