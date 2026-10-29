@@ -1,7 +1,7 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { expect, test } from "vitest";
 import { migrate } from "../src/migrations";
-import { DAY, kl, rid, rideWorld, UNDO_V8, UNDO_V9, UNDO_V10, UNDO_V11 } from "./helpers";
+import { DAY, kl, rid, rideWorld, UNDO_V8, UNDO_V9, UNDO_V10, UNDO_V11, UNDO_V13 } from "./helpers";
 
 async function duplicate() {
   const w = await rideWorld();
@@ -37,7 +37,7 @@ test("migration 8 backfills a Refund for each refund_due Payment and re-projects
   const w = await duplicate();
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8]) sql.exec(q);
+    for (const q of [...UNDO_V13, ...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 7");
     sql.exec("DELETE FROM outbox");
     migrate(s.storage);

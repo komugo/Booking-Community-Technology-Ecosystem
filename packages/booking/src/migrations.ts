@@ -189,6 +189,7 @@ export const migrations: string[][] = [
     `ALTER TABLE timeslots DROP COLUMN closed_reason`,
     `ALTER TABLE timeslots RENAME COLUMN reason TO closed_reason`,
   ],
+  [`ALTER TABLE schedules ADD COLUMN price_sen INTEGER CHECK (price_sen >= 0)`],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

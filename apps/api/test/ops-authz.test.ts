@@ -25,6 +25,7 @@ const schedule = (w: World) => ({
   times: ["09:00"],
   startsOn: "2030-01-01",
   endsOn: "2030-01-31",
+  priceSen: null,
   active: true,
 });
 

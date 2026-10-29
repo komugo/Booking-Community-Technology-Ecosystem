@@ -195,6 +195,8 @@ export async function operator(freeCancelHours = 24) {
   return w;
 }
 
+export const UNDO_V13 = ["ALTER TABLE schedules DROP COLUMN price_sen"];
+
 export const UNDO_V11 = ["ALTER TABLE options DROP COLUMN max_per_booking"];
 
 export const UNDO_V10 = ["ALTER TABLE activities DROP COLUMN requires_waiver"];

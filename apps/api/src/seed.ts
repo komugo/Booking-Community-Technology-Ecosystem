@@ -275,6 +275,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
       times: ["09:00", "11:00", "14:00", "16:00"],
       startsOn: klDate(Date.now()),
       endsOn: null,
+      priceSen: null,
       active: true,
     });
   }

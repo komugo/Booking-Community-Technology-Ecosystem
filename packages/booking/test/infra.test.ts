@@ -3,7 +3,7 @@ import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
 import { tx } from "../src/tx";
-import { DAY, kl, operator, rid, rideWorld, UNDO_V6, UNDO_V8, UNDO_V9, UNDO_V10, UNDO_V11 } from "./helpers";
+import { DAY, kl, operator, rid, rideWorld, UNDO_V6, UNDO_V8, UNDO_V9, UNDO_V10, UNDO_V11, UNDO_V13 } from "./helpers";
 
 const stubFor = (op: string) => env.BOOKING.get(env.BOOKING.idFromName(op));
 
@@ -41,7 +41,7 @@ test("migration 6 on a v5 Durable Object keeps its rows and defaults the new col
   const { ticketIds } = await w.book(w.customerId, ts, [await w.participant(w.customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8, ...UNDO_V6]) sql.exec(q);
+    for (const q of [...UNDO_V13, ...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8, ...UNDO_V6]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 5");
     migrate(s.storage);
     expect(sql.exec("SELECT schema_version AS v FROM meta").one().v).toBe(migrations.length);
@@ -60,7 +60,7 @@ test("migration 11 on a v10 Durable Object keeps its Options with the default ma
   const w = await rideWorld();
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of UNDO_V11) sql.exec(q);
+    for (const q of [...UNDO_V13, ...UNDO_V11]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 10");
     migrate(s.storage);
     expect(sql.exec("SELECT id, max_per_booking FROM options").toArray()).toEqual([{ id: w.optionId, max_per_booking: null }]);
@@ -78,7 +78,7 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
   await w.book(w.customerId, booked, [await w.participant(w.customerId)]);
   const [free, monday] = [await w.slot(w.optionId, tue), await w.slot(w.optionId, mon)];
   await runInDurableObject(w.stub, (_, s) => {
-    for (const q of [...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8]) s.storage.sql.exec(q);
+    for (const q of [...UNDO_V13, ...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8]) s.storage.sql.exec(q);
     s.storage.sql.exec("UPDATE meta SET schema_version = 6");
     s.storage.sql.exec("DELETE FROM outbox");
     migrate(s.storage);
@@ -95,6 +95,7 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
     times: ["09:00"],
     startsOn: monDay,
     endsOn: tueDay,
+    priceSen: null,
     active: true,
   });
   const rows = await w.sql("SELECT id, schedule_id IS NOT NULL AS scheduled, closed_reason FROM timeslots WHERE id IN (?, ?, ?)", free, monday, booked);
@@ -112,10 +113,11 @@ test("the closed_reason migration keeps reasons and accepts maintenance and even
   const [a, b] = [await w.slot(w.optionId, kl(`${DAY}T09:00`)), await w.slot(w.optionId, kl(`${DAY}T10:00`))];
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
+    for (const q of UNDO_V13) sql.exec(q);
     sql.exec("ALTER TABLE timeslots DROP COLUMN closed_reason");
     sql.exec("ALTER TABLE timeslots ADD COLUMN closed_reason TEXT CHECK (closed_reason IN ('weather','horse_unfit','other','schedule'))");
     sql.exec("UPDATE timeslots SET closed_at = 1, closed_reason = 'weather' WHERE id = ?", a);
-    sql.exec("UPDATE meta SET schema_version = ?", migrations.length - 1);
+    sql.exec("UPDATE meta SET schema_version = 11");
     migrate(s.storage);
     sql.exec("UPDATE timeslots SET closed_at = 1, closed_reason = 'maintenance' WHERE id = ?", b);
     expect(sql.exec("SELECT id, closed_reason FROM timeslots ORDER BY starts_at").toArray()).toEqual([

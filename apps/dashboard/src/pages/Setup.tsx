@@ -4,6 +4,7 @@ import { useLocation, useParams, useSearch } from "wouter";
 import { api, ApiError, useApi } from "../api";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
+import { rm, sen } from "../money";
 import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
@@ -12,11 +13,9 @@ type Tab = (typeof TABS)[number];
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
-const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
 const str = (n: number | null) => (n === null ? "" : String(n));
 // An unparseable value is sent as typed so the API rejects it on the right field.
 const num = (s: string) => (s.trim() === "" ? null : Number.isFinite(Number(s)) ? Number(s) : s);
-const sen = (s: string) => (s.trim() === "" ? null : Number.isFinite(Number(s)) ? Math.round(Number(s) * 100) : s);
 
 function closedParts(days: string[], t: Dict) {
   return WEEKDAYS.flatMap((d) => {

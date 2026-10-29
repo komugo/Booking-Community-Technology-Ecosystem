@@ -1,4 +1,4 @@
-import { activities, projActivities, projAddOns, projOptions, projTimeslots, type Locale } from "@komugo/db";
+import { activities, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
 import { db, showDrafts } from "./db";
@@ -44,7 +44,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
   if (!row || !(row.listingMode === "bookable" || (showDrafts && row.listingMode === "hidden"))) return notFound();
   const o = row.option;
   const now = Date.now();
-  const [siblings, addOns, slots] = await db.batch([
+  const [options, addOns, slots, prices] = await db.batch([
     db
       .select({ id: projOptions.id, nameEn: projOptions.nameEn, nameMs: projOptions.nameMs, priceSen: projOptions.priceSen })
       .from(projOptions)
@@ -56,7 +56,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       .where(and(eq(projAddOns.activityId, o.activityId), eq(projAddOns.active, true)))
       .orderBy(asc(projAddOns.priceSen)),
     db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots, priceSen: projTimeslots.priceSen })
       .from(projTimeslots)
       .where(
         and(
@@ -68,7 +68,9 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
         ),
       )
       .orderBy(asc(projTimeslots.startsAt)),
+    slotPrices(db, [o.activityId]),
   ]);
+  const siblings = options.map((x) => ({ ...x, fromPriceSen: optionFrom(x, prices) }));
 
   const min = o.minParticipants ?? 1;
   const max = o.maxPerBooking ?? 10;
@@ -109,7 +111,11 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     }
   }
 
-  const { days, date: day, times, nextOpen } = daysAndTimes(slots, date, now);
+  const { days, date: day, times, nextOpen } = daysAndTimes(
+    slots.map((x) => ({ ...x, priceSen: x.priceSen ?? o.priceSen })),
+    date,
+    now,
+  );
   if (!times.some((x) => x.id === values.timeslotId)) {
     values.timeslotId = (times.find((x) => x.spots >= values.quantity) ?? times[0])?.id ?? "";
   }

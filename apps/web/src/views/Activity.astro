@@ -25,7 +25,7 @@ const crumbs = [
   { name: category.name, path: path(locale, city.slugs[locale], category.slugs[locale]) },
   { name: a.name, path: alternates[locale] },
 ];
-const fromSen = !info && a.options.length ? Math.min(...a.options.map((o) => o.priceSen)) : null;
+const fromSen = info ? null : a.fromPriceSen;
 const today = a.openingHours.find((h) => h.days.includes(todayKL()));
 const todayText = !a.openingHours.length
   ? `${s.hours}: ${s.checkWithVenue}`

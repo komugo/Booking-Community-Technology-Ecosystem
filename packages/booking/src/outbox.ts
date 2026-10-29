@@ -50,7 +50,12 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     pk: "id",
     query: "SELECT id, activity_id, name_en, name_ms, price_sen, active FROM add_ons WHERE id = ?",
   },
-  timeslot: { table: "proj_timeslots", pk: "id", query: "SELECT id, option_id, starts_at, closed_at FROM timeslots WHERE id = ?" },
+  timeslot: {
+    table: "proj_timeslots",
+    pk: "id",
+    query: `SELECT id, option_id, starts_at, closed_at, (SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id) AS price_sen
+      FROM timeslots WHERE id = ?`,
+  },
   ticket: {
     table: "proj_tickets",
     pk: "id",

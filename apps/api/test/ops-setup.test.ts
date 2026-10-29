@@ -60,6 +60,7 @@ describe("ops Setup", () => {
     expect(await bad("POST", "/schedules", schedule)).toMatchObject({ field: "times" });
     expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], weekdays: ["Monday"] })).toMatchObject({ field: "weekdays" });
     expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], endsOn: klDay(0) })).toMatchObject({ field: "endsOn" });
+    expect(await bad("POST", "/schedules", { ...schedule, times: ["09:00"], priceSen: -1 })).toMatchObject({ field: "priceSen" });
     expect(
       await bad("POST", "/resources", { kind: "belayer", name: "Ali", active: true, maxSessionsPerDay: 4, restMinutes: 0, maxRiderWeightKg: null }),
     ).toMatchObject({ field: "maxSessionsPerDay" });

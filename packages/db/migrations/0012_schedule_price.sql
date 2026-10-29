@@ -1,0 +1,1 @@
+ALTER TABLE `proj_timeslots` ADD `price_sen` integer;
