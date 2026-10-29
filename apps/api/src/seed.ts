@@ -14,7 +14,7 @@ type OptionSeed = Pick<OptionInput, "id" | "nameEn" | "nameMs" | "priceSen" | "d
   };
 type ResourceSeed = Pick<ResourceInput, "id" | "kind" | "name"> &
   Partial<Pick<ResourceInput, "maxSessionsPerDay" | "restMinutes" | "maxRiderWeightKg">>;
-type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published"> & {
+type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published" | "listingMode"> & {
   id: string;
   operator: { id: string; name: string };
   category: HubSeed;
@@ -235,8 +235,9 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
     photo(putrajaya.photo),
     ...SEEDS.flatMap(({ operator, category, freeCancelHours, closedDays, scheduleId, options, addOns, resources, photos: gallery, ...copy }) => {
       const values = { ...copy, operatorId: operator.id, cityId: putrajaya.id, categoryId: category.id };
+      const op = { ...operator, signedUp: true };
       return [
-        db.insert(operators).values(operator).onConflictDoUpdate({ target: operators.id, set: operator }),
+        db.insert(operators).values(op).onConflictDoUpdate({ target: operators.id, set: op }),
         hub(categories, category),
         photo(category.photo),
         db.insert(activities).values(values).onConflictDoUpdate({ target: activities.id, set: values }),

@@ -107,6 +107,7 @@ export type RefundRow = {
   bookingId: string | null;
   customer: { name: string | null; email: string | null; phone: string | null };
 };
+export type ListingMode = "bookable" | "info" | "hidden";
 export type Setup = {
   activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
   options: Option[];
@@ -114,6 +115,6 @@ export type Setup = {
   resources: Resource[];
   schedules: Schedule[];
   packOffers: PackOffer[];
-  catalogue: (Named & { id: string; slugEn: string; slugMs: string; published: boolean })[];
+  catalogue: (Named & { id: string; slugEn: string; slugMs: string; listingMode: ListingMode })[];
 };
 export type Generated = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };

@@ -19,11 +19,11 @@ packs.post("/", requireJson, async (c) => {
   const db = createDb(c.env.DB);
   const offerId = String(body.offerId ?? "");
   const [row] = await db
-    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, published: activities.published } })
+    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode } })
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
     .where(eq(projPackOffers.id, offerId));
-  if (!row || !row.offer.active || (!row.activity.published && c.env.BOOK_DRAFTS !== "1")) {
+  if (!row || !row.offer.active || (row.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1")) {
     return fail(c, 409, { code: "not_bookable" });
   }
   const customerId = session.customerId;

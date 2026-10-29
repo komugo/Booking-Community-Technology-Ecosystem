@@ -4,12 +4,13 @@ import { useLocation, useParams, useSearch } from "wouter";
 import { api, ApiError, useApi } from "../api";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
-import type { AddOn, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
+import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
 const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
 type Tab = (typeof TABS)[number];
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
+const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
 const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
 const str = (n: number | null) => (n === null ? "" : String(n));
@@ -214,7 +215,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
-  const [published, setPublished] = useState(a.published);
+  const [mode, setMode] = useState(a.listingMode);
   const { busy, error, submit, err } = useSubmit(t);
   const rule = pick.nth ? `${pick.day}#${pick.nth}` : pick.day;
 
@@ -227,9 +228,10 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
       onSaved();
     }
   };
-  const publish = async (v: boolean) => {
-    setPublished(v);
-    if (!(await submit(() => api("PUT", `/operators/${op}/activities/${id}/published`, { published: v })))) setPublished(!v);
+  const changeMode = async (v: ListingMode) => {
+    const was = mode;
+    setMode(v);
+    if (!(await submit(() => api("PUT", `/operators/${op}/activities/${id}/listing-mode`, { listingMode: v })))) setMode(was);
   };
 
   return (
@@ -239,19 +241,23 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           {named(a, l)}
         </h2>
         {!staff && (
-          <span
-            data-published={published}
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${published ? "bg-lime text-forest" : "bg-sand"}`}
-          >
-            {published ? t.published : t.unpublished}
+          <span data-listing-mode={mode} className={`rounded-full px-3 py-1 text-sm font-semibold ${mode === "bookable" ? "bg-lime text-forest" : "bg-sand"}`}>
+            {t.listingModes[mode]}
           </span>
         )}
       </div>
       {staff && (
-        <div>
-          <Toggle label={t.published} checked={published} onChange={publish} />
-          <p className="text-sm text-muted">{t.publishedHint}</p>
-        </div>
+        <Field label={t.listingMode} hint={t.listingModeHint} error={err("listingMode")}>
+          {(fid, note) => (
+            <select id={fid} className="input" value={mode} aria-describedby={note} onChange={(e) => changeMode(e.target.value as ListingMode)}>
+              {MODES.map((m) => (
+                <option key={m} value={m}>
+                  {t.listingModes[m]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.freeCancelHours} error={err("freeCancelHours")}>

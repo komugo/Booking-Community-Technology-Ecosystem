@@ -1,8 +1,8 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, createDb } from "@komugo/db";
+import { activities, createDb, LISTING_MODES, operators, projOptions, projTickets, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
@@ -52,7 +52,7 @@ routes.get("/setup", async (c) => {
         nameMs: activities.nameMs,
         slugEn: activities.slugEn,
         slugMs: activities.slugMs,
-        published: activities.published,
+        listingMode: activities.listingMode,
       })
       .from(activities)
       .where(eq(activities.operatorId, c.req.param("operatorId")!)),
@@ -78,12 +78,30 @@ routes.put("/activities/:id", async (c) => {
   return c.json({ generated });
 });
 
-routes.put("/activities/:id/published", staffOnly, async (c) => {
+routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const body = await json(c);
-  if (!bool(body.published)) return fail(c, 400, { code: "invalid_field", field: "published" });
-  if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
-  await createDb(c.env.DB).update(activities).set({ published: body.published }).where(eq(activities.id, c.req.param("id")));
-  return c.json({ published: body.published });
+  const mode = body.listingMode as ListingMode;
+  if (!LISTING_MODES.includes(mode)) return fail(c, 400, { code: "invalid_field", field: "listingMode" });
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const [row] = await db
+    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp })
+    .from(activities)
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
+    .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
+  if (!row) return fail(c, 404, { code: "not_found" });
+  if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
+  if (row.listingMode === "bookable" && mode !== "bookable") {
+    const [future] = await db
+      .select({ id: projTickets.id })
+      .from(projTickets)
+      .innerJoin(projOptions, eq(projOptions.id, projTickets.optionId))
+      .where(and(eq(projOptions.activityId, id), eq(projTickets.status, "issued"), gt(projTickets.startsAt, Date.now())))
+      .limit(1);
+    if (future) return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
+  }
+  await db.update(activities).set({ listingMode: mode, published: mode === "bookable" }).where(eq(activities.id, id));
+  return c.json({ listingMode: mode });
 });
 
 function optionInput(body: Body) {

@@ -3,7 +3,7 @@ import { adult, client, d1, fake, held, pay, returnPath, rid, signIn, SLOT_AT, s
 
 describe("POST /checkouts", () => {
   test("BOOK_DRAFTS gates unpublished Activities", async () => {
-    const w = await world({ published: false });
+    const w = await world({ listingMode: "hidden" });
     const body = { optionId: w.optionId, timeslotId: w.timeslotId, quantity: 1, addOns: [], locale: "en" };
     expect((await client().json("POST", "/checkouts", body)).body).toEqual({ code: "not_bookable" });
     expect((await client({ BOOK_DRAFTS: "1" }).json("POST", "/checkouts", body)).status).toBe(201);
@@ -128,7 +128,7 @@ test("logs carry no PII", async () => {
 });
 
 test("BOOK_DRAFTS is enforced again at Hold", async () => {
-  const w = await world({ published: false });
+  const w = await world({ listingMode: "hidden" });
   const cl = client({ BOOK_DRAFTS: "1" });
   const id = await start(cl, w);
   await cl.json("PUT", `/checkouts/${id}/who`, { participants: [adult()] });
