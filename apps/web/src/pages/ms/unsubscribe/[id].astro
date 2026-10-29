@@ -1,0 +1,9 @@
+---
+import Unsubscribe from "../../../views/Unsubscribe.astro";
+import { unsubscribeStep } from "../../../lib/manage";
+
+const data = await unsubscribeStep(Astro, "ms");
+if (data instanceof Response) return data;
+---
+
+<Unsubscribe {...data} />

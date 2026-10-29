@@ -238,6 +238,11 @@ const en = {
   changedSincePaid: (diff: string) => `Changed by ${diff} since it was paid. Settle the difference by hand.`,
   confirmPayout: (amount: string, operator: string, month: string) => `Confirm you've transferred ${amount} to ${operator} for ${month}.`,
   markedPaid: "Marked paid.",
+  interests: "Interest",
+  interestsHint: "People who asked to be emailed once when an Info Activity becomes Bookable. Use the counts when pitching Operators.",
+  noInterests: "No Interest yet.",
+  interested: (n: number) => `${n} interested`,
+  notified: (n: number) => `${n} notified`,
   errors: {
     network: "No connection. Try again.",
     signed_out: "Please sign in again.",
@@ -496,6 +501,11 @@ const ms: Dict = {
   confirmPayout: (amount: string, operator: string, month: string) =>
     `Sahkan anda telah memindahkan ${amount} kepada ${operator} untuk ${month}.`,
   markedPaid: "Ditandakan sudah dibayar.",
+  interests: "Minat",
+  interestsHint: "Orang yang minta di-e-mel sekali apabila Aktiviti Info boleh ditempah. Gunakan jumlah ini semasa memujuk pengendali.",
+  noInterests: "Belum ada minat.",
+  interested: (n: number) => `${n} berminat`,
+  notified: (n: number) => `${n} dimaklumkan`,
   errors: {
     network: "Tiada sambungan. Cuba lagi.",
     signed_out: "Sila log masuk semula.",

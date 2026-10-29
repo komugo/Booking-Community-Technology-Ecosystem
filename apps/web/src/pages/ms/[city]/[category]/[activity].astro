@@ -2,7 +2,7 @@
 import Activity from "../../../../views/Activity.astro";
 import { loadActivity } from "../../../../lib/catalog";
 
-const data = await loadActivity(Astro.params, "ms", Astro.url.search);
+const data = await loadActivity(Astro, "ms");
 if (data instanceof Response) return data;
 ---
 

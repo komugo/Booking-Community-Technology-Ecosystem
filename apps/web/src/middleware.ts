@@ -1,6 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 
-const PRIVATE = /^(\/ms)?\/(book|checkout|bookings|packs|sign-in)(\/|$)/;
+const PRIVATE = /^(\/ms)?\/(book|checkout|bookings|packs|sign-in|unsubscribe)(\/|$)/;
 const FORM_ACTION = ["'self'", "https://www.billplz.com", "https://www.billplz-sandbox.com", ...(import.meta.env.DEV ? ["http://localhost:*"] : [])];
 
 // Astro collapses `//` in Astro.url before routing, so read the raw request URL.

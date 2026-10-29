@@ -123,6 +123,16 @@ export type PayoutRow = {
   paidSen: number | null;
   paidAt: number | null;
 };
+export type InterestRow = {
+  activityId: string;
+  nameEn: string;
+  nameMs: string;
+  listingMode: "bookable" | "info" | "hidden";
+  operatorId: string;
+  operatorName: string;
+  count: number;
+  notified: number;
+};
 export type Setup = {
   activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: Option[];

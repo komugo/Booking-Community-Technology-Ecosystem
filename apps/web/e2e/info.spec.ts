@@ -19,3 +19,23 @@ for (const [l, check] of [
     await context.close();
   });
 }
+
+for (const [l, sent] of [
+  ["en", "We'll email you once"],
+  ["ms", "Kami akan e-mel anda sekali"],
+] as [Locale, string][]) {
+  test(`${l}: an Info Activity takes an email to notify when bookable`, async ({ browser, request }) => {
+    const fx = await fixture(request, { info: true });
+    const { context, page } = await open(browser);
+    await page.goto(`${prefix(l)}${fx.activityPath}`);
+    const notify = page.locator("#notify");
+    await notify.locator("input[name=email]").fill("nope");
+    await notify.locator("button").click();
+    await expect(notify.locator("#email-error")).toBeVisible();
+    await notify.locator("input[name=email]").fill(`interest-${Date.now()}@example.com`);
+    await notify.locator("button").click();
+    await expect(notify.getByRole("status")).toContainText(sent);
+    await noAxeViolations(page);
+    await context.close();
+  });
+}

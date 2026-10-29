@@ -79,6 +79,12 @@ export const t = {
     bookWithText: "Booking is handled by the operator, not through Komugo.",
     callVenue: "Call the venue",
     callVenueText: "Call to check availability and book.",
+    notify: {
+      title: "Notify me when bookable",
+      text: "We'll email you once when you can book this online. No sign-in needed.",
+      send: "Notify me",
+      sent: "Done. We'll email you once when it's bookable.",
+    },
     howToBook: "How to book",
     bookNow: "Book now",
     bookOnline: "Pick an option, choose a time and pay online. Everyone gets their own ticket.",
@@ -222,6 +228,12 @@ export const t = {
         sign_in_required: "Sign in to change this booking.",
         pack_refund_due: "Payment received, but we couldn't issue your Pack. Full refund within 7 working days.",
       },
+    },
+    unsubscribe: {
+      title: "Unsubscribe",
+      body: (a: string) => `You asked us to email you once when ${a} can be booked online.`,
+      send: "Unsubscribe",
+      done: (a: string) => `You're unsubscribed. We won't email you about ${a}.`,
     },
     signIn: {
       title: "Sign in",
@@ -399,6 +411,12 @@ export const t = {
     bookWithText: "Tempahan diuruskan oleh pengendali, bukan melalui Komugo.",
     callVenue: "Hubungi tempat ini",
     callVenueText: "Hubungi untuk semak kekosongan dan menempah.",
+    notify: {
+      title: "Beritahu saya bila boleh ditempah",
+      text: "Kami akan e-mel anda sekali apabila ini boleh ditempah dalam talian. Tidak perlu log masuk.",
+      send: "Beritahu saya",
+      sent: "Siap. Kami akan e-mel anda sekali apabila ia boleh ditempah.",
+    },
     howToBook: "Cara menempah",
     bookNow: "Tempah sekarang",
     bookOnline: "Pilih satu pilihan, tetapkan masa dan bayar dalam talian. Setiap orang dapat tiket sendiri.",
@@ -542,6 +560,12 @@ export const t = {
         sign_in_required: "Log masuk untuk mengubah tempahan ini.",
         pack_refund_due: "Bayaran diterima, tetapi Pek anda tidak dapat dikeluarkan. Bayaran balik penuh dalam masa 7 hari bekerja.",
       },
+    },
+    unsubscribe: {
+      title: "Berhenti melanggan",
+      body: (a: string) => `Anda meminta kami e-mel anda sekali apabila ${a} boleh ditempah dalam talian.`,
+      send: "Berhenti melanggan",
+      done: (a: string) => `Anda telah berhenti melanggan. Kami tidak akan e-mel anda tentang ${a}.`,
     },
     signIn: {
       title: "Log masuk",
