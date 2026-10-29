@@ -9,7 +9,7 @@ import HoursTable from "../components/HoursTable.astro";
 import Faq from "../components/Faq.astro";
 import ActivityCard from "../components/ActivityCard.astro";
 import StickyCta from "../components/StickyCta.astro";
-import { path, requirements, rm, t, time, todayKL } from "../lib/i18n";
+import { path, requirements, rm, t, time, todayKL, VENUE } from "../lib/i18n";
 import { activityLd, breadcrumbLd } from "../lib/seo";
 import type { ActivityData } from "../lib/catalog";
 
@@ -104,7 +104,18 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
         <h1 class="mt-4 text-5xl font-extrabold md:text-7xl">{a.name}</h1>
         {a.operatorName !== a.name && <p class="mt-4 text-muted">{a.operatorName}</p>}
         <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2">
-          {a.venue && <li data-venue>{[a.venue.name, a.venue.presint && s.presint(a.venue.presint)].filter(Boolean).join(" · ")}</li>}
+          {
+            a.venue && (
+              <li data-venue>
+                {a.venue.slugs ? (
+                  <a href={path(locale, city.slugs[locale], VENUE[locale], a.venue.slugs[locale])} class="font-semibold underline underline-offset-4 hover:text-leaf">{a.venue.name}</a>
+                ) : (
+                  a.venue.name
+                )}
+                {a.venue.presint && ` · ${s.presint(a.venue.presint)}`}
+              </li>
+            )
+          }
           {address && <li>{address}</li>}
           <li>{todayText}</li>
         </ul>

@@ -1,5 +1,5 @@
 import { booking } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { WAIVER } from "@komugo/types";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
@@ -176,8 +176,12 @@ export async function fixture(
     for (let i = 0; i < 50 && !(await projected()); i++) await new Promise((r) => setTimeout(r, 100));
     await recordClosure(env, waitUntil, operatorId, timeslotId, "weather");
   }
+  let venueSlug: string | undefined;
   if (o.info === true) {
-    const [venue] = await db.insert(venues).values({ cityId: city.id, nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9", presint: 9 }).returning();
+    const names = { nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9" };
+    const slugs = await venueSlugs(db, city.id, names);
+    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9 }).returning();
+    venueSlug = slugs.en;
     await db.update(activities).set({ venueId: venue.id, listingMode: "info" }).where(eq(activities.id, activityId));
   }
   return {
@@ -193,6 +197,7 @@ export async function fixture(
     k: await groupLink(env, group.kind, group.id),
     customerEmail: customer.email!,
     activityPath: `/${hub.slugEn}/${hub.slugEn}/${hub.slugEn}`,
+    venueSlug,
     email,
     ...(staffEmail ? { staffEmail } : {}),
     ...(o.packOffer === true || viaPack ? { offerId } : {}),

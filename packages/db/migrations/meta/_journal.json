@@ -92,6 +92,13 @@
       "when": 1793284061849,
       "tag": "0012_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793284152222,
+      "tag": "0014_venue_slugs",
+      "breakpoints": true
     }
   ]
 }
