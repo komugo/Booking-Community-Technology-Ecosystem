@@ -9,6 +9,8 @@ import HoursTable from "../components/HoursTable.astro";
 import Faq from "../components/Faq.astro";
 import ActivityCard from "../components/ActivityCard.astro";
 import StickyCta from "../components/StickyCta.astro";
+import FieldError from "../components/checkout/FieldError.astro";
+import { invalid } from "../lib/form";
 import { path, requirements, rm, t, time, todayKL, VENUE } from "../lib/i18n";
 import { activityLd, breadcrumbLd } from "../lib/seo";
 import type { ActivityData } from "../lib/catalog";
@@ -267,6 +269,25 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
                   {infoCta.href === a.bookUrl ? infoCta.label : `${s.call} ${a.phone}`}
                 </a>
               )}
+              <div id="notify" class="mt-8 scroll-mt-6 border-t border-line pt-6">
+                <h3 class="text-xl font-bold">{s.notify.title}</h3>
+                {a.notify.sent ? (
+                  <p role="status" class="mt-3 rounded-2xl bg-lime/40 p-4 font-semibold text-forest">{s.notify.sent}</p>
+                ) : (
+                  <form method="post" action="#notify" class="mt-2" novalidate>
+                    <p>{s.notify.text}</p>
+                    <label for="email" class="mt-4 block font-semibold">{s.checkout.email}</label>
+                    <div class="mt-1.5 flex flex-col gap-3 sm:flex-row">
+                      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required value={a.notify.email} class="h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-2 aria-invalid:border-clay" {...invalid(a.notify.problems, "email")} />
+                      <button class="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.notify.send}</button>
+                    </div>
+                    <FieldError p={a.notify.problems} id="email" />
+                    {a.notify.problems.summary.length > 0 && !a.notify.problems.fields.has("email") && (
+                      <p role="alert" class="mt-1.5 text-sm font-medium text-clay">{a.notify.problems.summary[0].text}</p>
+                    )}
+                  </form>
+                )}
+              </div>
             </div>
           ) : (
             <>

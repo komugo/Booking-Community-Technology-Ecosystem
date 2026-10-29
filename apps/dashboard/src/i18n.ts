@@ -286,6 +286,11 @@ const en = {
     descriptionMs: "a BM description",
     photo: "a photo",
   } as Record<Gap, string>,
+  interests: "Interest",
+  interestsHint: "People who asked to be emailed once when an Info Activity becomes Bookable. Use the counts when pitching Operators.",
+  noInterests: "No Interest yet.",
+  interested: (n: number) => `${n} interested`,
+  notified: (n: number) => `${n} notified`,
   errors: {
     publish_bar: (gaps: string[]) => `Not ready to show in the catalogue. It still needs ${gaps.join(", ")}.`,
     network: "No connection. Try again.",
@@ -593,6 +598,11 @@ const ms: Dict = {
     descriptionMs: "penerangan BM",
     photo: "foto",
   },
+  interests: "Minat",
+  interestsHint: "Orang yang minta di-e-mel sekali apabila Aktiviti Info boleh ditempah. Gunakan jumlah ini semasa memujuk pengendali.",
+  noInterests: "Belum ada minat.",
+  interested: (n: number) => `${n} berminat`,
+  notified: (n: number) => `${n} dimaklumkan`,
   errors: {
     publish_bar: (gaps: string[]) => `Belum sedia untuk dipaparkan dalam katalog. Masih perlu ${gaps.join(", ")}.`,
     network: "Tiada sambungan. Cuba lagi.",

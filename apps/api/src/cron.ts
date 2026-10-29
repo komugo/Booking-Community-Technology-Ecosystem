@@ -1,8 +1,24 @@
 import { booking } from "@komugo/booking";
-import { bills, checkouts, createDb, memberSessions, operators, otps, packOrders, projRefunds, refundEmails, sessions } from "@komugo/db";
-import { and, between, eq, inArray, isNotNull, isNull, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
+import {
+  activities,
+  bills,
+  checkouts,
+  createDb,
+  interests,
+  memberSessions,
+  operators,
+  otps,
+  packOrders,
+  projActivities,
+  projOptions,
+  projRefunds,
+  projTimeslots,
+  refundEmails,
+  sessions,
+} from "@komugo/db";
+import { and, between, eq, exists, gt, inArray, isNotNull, isNull, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
 import { confirmBill, deleteBill, getBill } from "./billplz";
-import { sendBookedEmail, sendPackEmail, sendRefundDueEmail, sendRefundEmail, sendRefundPaidEmail } from "./email";
+import { sendBookedEmail, sendInterestEmail, sendPackEmail, sendRefundDueEmail, sendRefundEmail, sendRefundPaidEmail } from "./email";
 import { DAY, each, HOUR, MIN, type WaitUntil } from "./lib";
 import { sendClosureNotices } from "./ops/closure";
 
@@ -114,6 +130,37 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
   await each(refunds, "cron_refund_email_failed", ({ id }) => sendRefundEmail(env, id));
 
   await sendClosureNotices(env, null, now);
+
+  const onSale = db
+    .select({ x: sql`1` })
+    .from(projTimeslots)
+    .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
+    .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
+    .where(
+      and(
+        eq(projOptions.activityId, interests.activityId),
+        eq(projOptions.active, true),
+        isNull(projTimeslots.closedAt),
+        gt(projTimeslots.spots, 0),
+        gt(projTimeslots.startsAt, sql`${now} + ${projActivities.bookingCutoffMinutes} * 60000`),
+      ),
+    );
+  const interested = await db
+    .select({ id: interests.id })
+    .from(interests)
+    .innerJoin(activities, eq(activities.id, interests.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
+    .where(
+      and(
+        isNull(interests.emailedAt),
+        isNull(interests.unsubscribedAt),
+        eq(activities.listingMode, "bookable"),
+        isNotNull(operators.commissionBps),
+        exists(onSale),
+      ),
+    )
+    .limit(BATCH);
+  await each(interested, "cron_interest_email_failed", ({ id }) => sendInterestEmail(env, id));
 
   const live = db
     .select({ id: bills.checkoutId })

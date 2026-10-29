@@ -524,3 +524,19 @@ export const refundEmails = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.refundId, t.kind] })],
 );
+
+export const interests = sqliteTable(
+  "interests",
+  {
+    id: id(),
+    activityId: text()
+      .notNull()
+      .references(() => activities.id),
+    email: text().notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    createdAt: integer().notNull(),
+    emailedAt: integer(),
+    unsubscribedAt: integer(),
+  },
+  (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
+);

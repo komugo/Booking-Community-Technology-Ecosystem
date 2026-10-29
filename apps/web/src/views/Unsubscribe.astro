@@ -1,0 +1,22 @@
+---
+import Checkout from "../layouts/Checkout.astro";
+import { t } from "../lib/i18n";
+import type { unsubscribeStep } from "../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof unsubscribeStep>>, Response>;
+const { locale: l, activity, unsubscribed } = Astro.props;
+const s = t[l].unsubscribe;
+---
+
+<Checkout locale={l} title={s.title}>
+  {
+    unsubscribed ? (
+      <p role="status" class="mt-6 rounded-2xl bg-lime/40 p-4 font-semibold text-forest">{s.done(activity)}</p>
+    ) : (
+      <form method="post" class="mt-6">
+        <p class="text-lg">{s.body(activity)}</p>
+        <button class="mt-6 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.send}</button>
+      </form>
+    )
+  }
+</Checkout>

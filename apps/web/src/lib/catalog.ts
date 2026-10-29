@@ -1,5 +1,8 @@
 import { getActivityPage, getCategoryHub, getCityHub, getHome, getVenuePage, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
+import { api, errorsOf, see, type ApiError } from "./api";
+import { form } from "./checkout";
 import { db, sells, showDrafts } from "./db";
+import { problems } from "./form";
 import { path, VENUE, type Alternates } from "./i18n";
 
 type Params = Record<string, string | undefined>;
@@ -30,13 +33,30 @@ export async function loadCategory(p: Params, locale: Locale, search: string) {
   return alt instanceof Response ? alt : { locale, alternates: alt, ...data };
 }
 
-export async function loadActivity(p: Params, locale: Locale, search: string) {
+export async function loadActivity({ params: p, request, url }: { params: Params; request: Request; url: URL }, locale: Locale) {
   const data = await getActivityPage(db, { ...query(locale), city: p.city!, category: p.category!, activity: p.activity! });
   if (!data?.city || !data.category) return notFound();
   const { city, category } = data;
-  const alt = alternates(locale, search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
+  const alt = alternates(locale, url.search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
   if (alt instanceof Response) return alt;
-  return { locale, alternates: alt, ...data, city, category, bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0 };
+  let errors: ApiError[] = [];
+  let email = "";
+  if (request.method === "POST") {
+    email = (await form(request))("email");
+    const res = await api(request, "POST", "/interests", { activityId: data.id, email, locale });
+    if (res.status === 204) return see(`${alt[locale]}?notify=sent#notify`);
+    errors = errorsOf(res.error);
+  }
+  return {
+    locale,
+    alternates: alt,
+    ...data,
+    city,
+    category,
+    bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0,
+    notify: { sent: url.searchParams.get("notify") === "sent", email, problems: problems(locale, errors) },
+    status: errors.length ? 400 : 200,
+  };
 }
 
 export async function loadVenue(p: Params, locale: Locale, search: string) {
