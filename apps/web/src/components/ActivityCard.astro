@@ -9,8 +9,9 @@ interface Props {
   card: ActivityCard;
   locale: Locale;
   sizes: string;
+  badge?: boolean;
 }
-const { card, locale, sizes } = Astro.props;
+const { card, locale, sizes, badge = false } = Astro.props;
 const s = t[locale];
 const length = durationRange(locale, card.minDurationMinutes, card.maxDurationMinutes);
 const age = card.minAge !== null ? s.age(card.minAge, null) : null;
@@ -24,6 +25,8 @@ const age = card.minAge !== null ? s.age(card.minAge, null) : null;
       <a href={cardPath(locale, card)} class="stretch underline-offset-4 group-hover:underline">{card.name}</a>
     </h3>
     <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+      {badge && card.listingMode === "bookable" && <span data-badge class="rounded-full bg-leaf px-3 py-1 font-semibold text-white">{s.bookNow}</span>}
+      {badge && card.listingMode === "info" && <span data-badge class="rounded-full bg-sand px-3 py-1 font-semibold text-forest">{s.infoBadge}</span>}
       {
         card.fromPriceSen !== null && (
           <span class="rounded-full bg-lime px-3 py-1 text-ink">

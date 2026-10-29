@@ -1,0 +1,9 @@
+---
+import Venue from "../../../../views/Venue.astro";
+import { loadVenue } from "../../../../lib/catalog";
+
+const data = await loadVenue(Astro.params, "ms", Astro.url.search);
+if (data instanceof Response) return data;
+---
+
+<Venue {...data} />

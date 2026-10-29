@@ -1,6 +1,6 @@
-import { getActivityPage, getCategoryHub, getCityHub, getHome, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
+import { getActivityPage, getCategoryHub, getCityHub, getHome, getVenuePage, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
 import { db, sells, showDrafts } from "./db";
-import { path, type Alternates } from "./i18n";
+import { path, VENUE, type Alternates } from "./i18n";
 
 type Params = Record<string, string | undefined>;
 
@@ -39,10 +39,19 @@ export async function loadActivity(p: Params, locale: Locale, search: string) {
   return { locale, alternates: alt, ...data, city, category, bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0 };
 }
 
+export async function loadVenue(p: Params, locale: Locale, search: string) {
+  const data = await getVenuePage(db, { ...query(locale), city: p.city!, venue: p.venue! });
+  if (!data?.city) return notFound();
+  const { city } = data;
+  const alt = alternates(locale, search, [p.city, VENUE[locale], p.venue], [city.slugs, VENUE, data.slugs]);
+  return alt instanceof Response ? alt : { locale, alternates: alt, ...data, city };
+}
+
 export type HomeData = Awaited<ReturnType<typeof loadHome>>;
 export type CityData = Exclude<Awaited<ReturnType<typeof loadCity>>, Response>;
 export type CategoryData = Exclude<Awaited<ReturnType<typeof loadCategory>>, Response>;
 export type ActivityData = Exclude<Awaited<ReturnType<typeof loadActivity>>, Response>;
+export type VenueData = Exclude<Awaited<ReturnType<typeof loadVenue>>, Response>;
 
 export function categoryFromSen(cards: ActivityCard[], categorySlugEn: string) {
   const inCategory = cards.filter((c) => c.category.en === categorySlugEn);

@@ -5,6 +5,8 @@ type Params = Record<string, string | number | undefined>;
 
 export const path = (l: Locale, ...parts: string[]) => "/" + [l === "ms" ? "ms" : "", ...parts].filter(Boolean).join("/");
 
+export const VENUE: Record<Locale, string> = { en: "venue", ms: "tempat" };
+
 export const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
 
 export const WEEKDAYS: Weekday[] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -81,6 +83,10 @@ export const t = {
     callVenueText: "Call to check availability and book.",
     howToBook: "How to book",
     bookNow: "Book now",
+    infoBadge: "Info",
+    venueTitle: (v: string, c: string) => `${v}, ${c}: what to do, hours and map | Komugo`,
+    venueDescription: (v: string, c: string) => `What you can do at ${v} in ${c}, with the address, map and opening hours.`,
+    atVenue: "What to do here",
     bookOnline: "Pick an option, choose a time and pay online. Everyone gets their own ticket.",
     addOnsBook: "Add gear when you book. Rental covers one session.",
     age: (min: number | null, max: number | null) =>
@@ -401,6 +407,10 @@ export const t = {
     callVenueText: "Hubungi untuk semak kekosongan dan menempah.",
     howToBook: "Cara menempah",
     bookNow: "Tempah sekarang",
+    infoBadge: "Maklumat",
+    venueTitle: (v: string, c: string) => `${v}, ${c}: aktiviti, waktu operasi dan peta | Komugo`,
+    venueDescription: (v: string, c: string) => `Aktiviti yang boleh dibuat di ${v}, ${c}, dengan alamat, peta dan waktu operasi.`,
+    atVenue: "Aktiviti di sini",
     bookOnline: "Pilih satu pilihan, tetapkan masa dan bayar dalam talian. Setiap orang dapat tiket sendiri.",
     addOnsBook: "Tambah peralatan semasa menempah. Sewaan untuk satu sesi.",
     age: (min: number | null, max: number | null) =>
