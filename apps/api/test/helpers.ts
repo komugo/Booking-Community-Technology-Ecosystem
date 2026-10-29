@@ -280,7 +280,7 @@ export async function member(role: "staff" | "operator", operatorId: string | nu
   return Object.assign(cl, { email });
 }
 
-type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" };
+type Person = { name?: string; birthDate?: string; weightKg?: number; waiver?: "signed" | "guardian" | "outdated" | "none" };
 
 // A paid Booking made straight through the Durable Object, with its Checkout row for contact and locale.
 export async function booked(
@@ -303,6 +303,7 @@ export async function booked(
       .values({ customerId: customer.id, name: p.name ?? "Aisyah", birthDate: p.birthDate ?? "1990-05-01", weightKg: p.weightKg ?? 60 })
       .returning();
     ids.push(row.id);
+    if (p.waiver === "none") continue;
     await db.insert(waivers).values({
       participantId: row.id,
       operatorId: w.operatorId,
