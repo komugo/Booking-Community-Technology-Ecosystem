@@ -88,6 +88,7 @@ export default function SetupPage() {
       </div>
 
       <div role="tabpanel" aria-label={labels[tab]} className="mt-5">
+        {tab === "activity" && me.member.role === "staff" && <CommissionCard op={op} setup={s} onSaved={setup.reload} />}
         {tab === "activity" &&
           s.catalogue.map((a) => <ActivityCard key={a.id} op={op} setup={s} id={a.id} staff={me.member.role === "staff"} onSaved={setup.reload} />)}
         {tab !== "activity" && (
@@ -204,6 +205,27 @@ function List({
         ))}
       </ul>
     </>
+  );
+}
+
+function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSaved: () => void }) {
+  const { t } = useT();
+  const [pct, setPct] = useState(setup.commissionBps === null ? "" : String(setup.commissionBps / 100));
+  const { busy, error, submit, err } = useSubmit(t);
+  const save = async () => {
+    // sen() multiplies by 100, which also turns a percentage into basis points.
+    if (await submit(() => api("PUT", `/operators/${op}/commission`, { commissionBps: sen(pct) }))) {
+      toast(t.saved);
+      onSaved();
+    }
+  };
+  return (
+    <section className="card mb-4 space-y-4 p-4" aria-label={t.commission}>
+      <Input label={t.commissionPct} value={pct} onChange={setPct} error={err("commissionBps") ?? error?.text} hint={t.commissionHint} numeric />
+      <button type="button" className="btn btn-primary w-full sm:w-auto" disabled={busy} onClick={save}>
+        {t.save}
+      </button>
+    </section>
   );
 }
 

@@ -57,6 +57,13 @@
       "when": 1793258445800,
       "tag": "0007_venue_listing_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793258492410,
+      "tag": "0008_commission_payouts",
+      "breakpoints": true
     }
   ]
 }

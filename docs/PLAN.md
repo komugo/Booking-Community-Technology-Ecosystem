@@ -92,7 +92,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 
 Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ticket type, Daily limit), ADR 0005.
 
-- [ ] Before any new Operator goes Bookable: Commission % on `operators`, snapshot on Tickets and Pack sales, staff "Payouts due" page (monthly, manual transfer, mark paid)
+- [x] Before any new Operator goes Bookable: Commission % on `operators`, snapshot on Tickets and Pack sales, staff "Payouts due" page (monthly, manual transfer, mark paid)
 - [ ] One-time import: CSV + PPJ scrape → reviewed `data/putrajaya.json` → D1, all Hidden; insert-only (never overwrites; dashboard is source of truth after); scrape fills empty fields only; horse/climbing seed stays as dev fixtures. Load the master list (120 rows, 69 venues) as Venues + Activities; merge duplicates (Pancarona, Lake Club/Kelab Tasik, Taman Ekuestrian, Taman Persahabatan); normalise Operators; unknown Operator → Hidden
 - [ ] Publish bar: Venue + map pin, Category, EN/BM description, a photo (stock allowed for now, swap later); staff fill the rest via dashboard
 - [ ] 19 Categories (EN/BM slugs): badminton, futsal, football, tennis, squash, pickleball, basketball, sepak takraw, volleyball & netball, gym, swimming, water sports, cruises & boats, horse riding, climbing & adventure parks, ice skating, parks & cycling, landmarks & tours, farms & nature

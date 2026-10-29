@@ -36,7 +36,7 @@ const holdAt = (w: World, ts: string, now: number) =>
 const payAt = (w: World, h: { holdId: string; amountSen: number }, now: number) =>
   runInDurableObject(w.stub, (_, s) => {
     expireDue(s.storage.sql, now);
-    return confirmHold(s.storage.sql, now, { billId: rid(), ...h });
+    return confirmHold(s.storage.sql, now, { billId: rid(), commissionBps: null, ...h });
   });
 
 const held = (h: Awaited<ReturnType<typeof holdAt>>) => {

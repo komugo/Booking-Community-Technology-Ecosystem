@@ -73,12 +73,18 @@ describe("ops authorization", () => {
     expect((await staff.call("GET", `/ops/operators/op_missing/setup`)).status).toBe(404);
   });
 
-  test("Listing mode is staff-only", async () => {
-    const w = await world({ listingMode: "hidden" });
+  test("Listing mode and Commission are staff-only, and Bookable needs a Commission", async () => {
+    const w = await world({ listingMode: "hidden", commissionBps: null });
     const own = await member("operator", w.operatorId);
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/listing-mode`;
+    const commission = `/ops/operators/${w.operatorId}/commission`;
     expect((await own.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ code: "forbidden" });
+    expect((await own.json("PUT", commission, { commissionBps: 1000 })).body).toEqual({ code: "forbidden" });
     const staff = await member("staff");
+    expect((await staff.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ code: "commission_unset", field: "listingMode" });
+    expect((await staff.json("PUT", commission, { commissionBps: 10_001 })).body).toEqual({ code: "invalid_field", field: "commissionBps" });
+    expect((await staff.json("PUT", commission, { commissionBps: 1250 })).body).toEqual({ commissionBps: 1250 });
+    expect((await own.json("GET", `/ops/operators/${w.operatorId}/setup`)).body.commissionBps).toBe(1250);
     expect((await staff.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ listingMode: "bookable" });
     expect(await d1("SELECT listing_mode, published FROM activities WHERE id = ?", w.activityId)).toEqual([{ listing_mode: "bookable", published: 1 }]);
   });

@@ -62,13 +62,19 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
 });
 
-test("only staff can set Listing mode", async ({ browser, request }) => {
+test("only staff can set Listing mode, and Bookable needs a Commission", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();
   await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
   await expect(page).toHaveURL(`/o/${fx.operatorId}/setup`);
   const mode = page.getByLabel("Listing mode");
   await expect(mode).toHaveValue("hidden");
+  await mode.selectOption("bookable");
+  await expect(page.getByText("Set the Commission before making an Activity Bookable.")).toBeVisible();
+  await expect(mode).toHaveValue("hidden");
+  await page.getByLabel("Commission (%)").fill("12.5");
+  await page.getByRole("button", { name: "Save" }).first().click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), mode.selectOption("bookable")]);
   await page.reload();
   await expect(page.getByLabel("Listing mode")).toHaveValue("bookable");

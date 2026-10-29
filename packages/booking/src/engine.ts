@@ -1296,7 +1296,11 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
   return bookingOutcome(sql, bookingId);
 }
 
-export function confirmHold(sql: SqlStorage, now: number, i: { billId: string; holdId: string; amountSen: number }) {
+export function confirmHold(
+  sql: SqlStorage,
+  now: number,
+  i: { billId: string; holdId: string; amountSen: number; commissionBps: number | null },
+) {
   const prior = first(
     sql.exec<{ hold_id: string; amount_sen: number; booking_id: string | null; refund_reason: PaymentRefundReason | null }>(
       "SELECT hold_id, amount_sen, booking_id, refund_reason FROM payments WHERE bill_id = ?",
@@ -1310,6 +1314,7 @@ export function confirmHold(sql: SqlStorage, now: number, i: { billId: string; h
       : ({ status: "refund_due", reason: prior.refund_reason! } as ConfirmResult);
   }
   const result = settle(sql, now, i);
+  if (result.status === "paid") sql.exec("UPDATE tickets SET commission_bps = ? WHERE booking_id = ?", i.commissionBps, result.bookingId);
   sql.exec(
     `INSERT INTO payments (bill_id, hold_id, amount_sen, received_at, status, refund_reason, booking_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -1419,7 +1424,11 @@ export function orderPack(sql: SqlStorage, now: number, i: { orderId: string; cu
 }
 
 // Idempotent by state: a bill already seen returns its stored outcome.
-export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: string; orderId: string; amountSen: number }): PackConfirm {
+export function confirmPackBill(
+  sql: SqlStorage,
+  now: number,
+  i: { billId: string; orderId: string; amountSen: number; commissionBps: number | null },
+): PackConfirm {
   const refunded = first(sql.exec<{ reason: "duplicate" | "amount_mismatch" }>("SELECT reason FROM refunds WHERE id = ?", `bill:${i.billId}`));
   if (refunded) return { status: "refund_due", reason: refunded.reason };
   const order = first(
@@ -1447,8 +1456,8 @@ export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: strin
   const packId = crypto.randomUUID();
   const expiresAt = packExpiry(now, order.valid_days);
   sql.exec(
-    `INSERT INTO packs (id, customer_id, sessions_total, expires_at, created_at, offer_id, option_ids)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO packs (id, customer_id, sessions_total, expires_at, created_at, offer_id, option_ids, commission_bps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     packId,
     order.customer_id,
     order.sessions,
@@ -1456,6 +1465,7 @@ export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: strin
     now,
     order.offer_id,
     order.option_ids,
+    i.commissionBps,
   );
   sql.exec("UPDATE pack_orders SET bill_id = ?, pack_id = ? WHERE id = ?", i.billId, packId, i.orderId);
   mark(sql, "pack", [packId]);

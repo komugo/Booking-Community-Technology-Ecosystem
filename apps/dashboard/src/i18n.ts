@@ -219,6 +219,18 @@ const en = {
     `Confirm you've paid ${amount} to ${who}${bill ? ` (Billplz bill ${bill})` : ""}.`,
   confirm: "Confirm",
   markedRefunded: "Marked refunded. Customer emailed.",
+  payouts: "Payouts",
+  payoutsTitle: "Payouts due",
+  paidTitle: "Paid",
+  noPayouts: "No Payouts due.",
+  sales: "Sales",
+  commission: "Commission",
+  commissionPct: "Commission (%)",
+  commissionHint: "Agreed at sign-up. A change applies to new sales only.",
+  markPaid: "Mark paid",
+  paidOn: (d: string) => `Paid ${d}`,
+  confirmPayout: (amount: string, operator: string, month: string) => `Confirm you've transferred ${amount} to ${operator} for ${month}.`,
+  markedPaid: "Marked paid.",
   errors: {
     network: "No connection. Try again.",
     signed_out: "Please sign in again.",
@@ -233,6 +245,8 @@ const en = {
     invalid_state: "That change isn't possible right now.",
     not_signed_up: "This Operator hasn't signed up, so its Activities can't be Bookable.",
     has_future_tickets: "This Activity has upcoming Tickets, so it must stay Bookable.",
+    commission_unset: "Set the Commission before making an Activity Bookable.",
+    amount_changed: "The amount changed. Check it and try again.",
     error: "Something went wrong. Try again.",
   },
 };
@@ -454,6 +468,19 @@ const ms: Dict = {
     `Sahkan anda telah membayar ${amount} kepada ${who}${bill ? ` (bil Billplz ${bill})` : ""}.`,
   confirm: "Sahkan",
   markedRefunded: "Ditandakan sudah dibayar balik. Pelanggan telah di-e-mel.",
+  payouts: "Bayaran pengendali",
+  payoutsTitle: "Bayaran pengendali perlu dibuat",
+  paidTitle: "Sudah dibayar",
+  noPayouts: "Tiada bayaran pengendali perlu dibuat.",
+  sales: "Jualan",
+  commission: "Komisen",
+  commissionPct: "Komisen (%)",
+  commissionHint: "Dipersetujui semasa pendaftaran. Perubahan hanya untuk jualan baharu.",
+  markPaid: "Tandakan sudah dibayar",
+  paidOn: (d: string) => `Dibayar ${d}`,
+  confirmPayout: (amount: string, operator: string, month: string) =>
+    `Sahkan anda telah memindahkan ${amount} kepada ${operator} untuk ${month}.`,
+  markedPaid: "Ditandakan sudah dibayar.",
   errors: {
     network: "Tiada sambungan. Cuba lagi.",
     signed_out: "Sila log masuk semula.",
@@ -468,6 +495,8 @@ const ms: Dict = {
     invalid_state: "Perubahan itu tidak boleh dibuat sekarang.",
     not_signed_up: "Pengendali ini belum mendaftar, jadi aktivitinya tidak boleh ditempah.",
     has_future_tickets: "Aktiviti ini ada tiket akan datang, jadi ia mesti kekal boleh ditempah.",
+    commission_unset: "Tetapkan Komisen sebelum menjadikan aktiviti boleh ditempah.",
+    amount_changed: "Jumlah telah berubah. Semak dan cuba lagi.",
     error: "Ada masalah. Cuba lagi.",
   },
 };
@@ -497,6 +526,7 @@ const fmt = (l: Locale, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeForma
 export const time = (ms: number, l: Locale) => fmt(l, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ms);
 export const day = (ms: number, l: Locale) => fmt(l, { weekday: "short", day: "numeric", month: "short" }).format(ms);
 export const dateLong = (ms: number, l: Locale) => fmt(l, { day: "numeric", month: "short", year: "numeric" }).format(ms);
+export const monthLong = (month: string, l: Locale) => fmt(l, { month: "long", year: "numeric" }).format(Date.parse(`${month}-01T00:00:00+08:00`));
 
 export function errorText(e: unknown, d: Dict) {
   const code = (e as { code?: string }).code ?? "error";

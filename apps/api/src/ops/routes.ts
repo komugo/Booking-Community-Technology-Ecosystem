@@ -42,9 +42,15 @@ async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   return !!row;
 }
 
+async function commissionBps(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
+  return o.bps;
+}
+
 routes.get("/setup", async (c) => {
-  const [setup, catalogue] = await Promise.all([
+  const [setup, commission, catalogue] = await Promise.all([
     c.var.b.setup(),
+    commissionBps(c.env, c.req.param("operatorId")!),
     createDb(c.env.DB)
       .select({
         id: activities.id,
@@ -57,7 +63,14 @@ routes.get("/setup", async (c) => {
       .from(activities)
       .where(eq(activities.operatorId, c.req.param("operatorId")!)),
   ]);
-  return c.json({ ...setup, catalogue });
+  return c.json({ ...setup, commissionBps: commission, catalogue });
+});
+
+routes.put("/commission", staffOnly, async (c) => {
+  const body = await json(c);
+  if (!int(body.commissionBps, 0, 10_000)) return fail(c, 400, { code: "invalid_field", field: "commissionBps" });
+  await createDb(c.env.DB).update(operators).set({ commissionBps: body.commissionBps }).where(eq(operators.id, c.req.param("operatorId")!));
+  return c.json({ commissionBps: body.commissionBps });
 });
 
 routes.put("/activities/:id", async (c) => {
@@ -85,12 +98,13 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
   const [row] = await db
-    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp })
+    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps })
     .from(activities)
     .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
   if (!row) return fail(c, 404, { code: "not_found" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
+  if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
   const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
   await set(mode);
   // Written before the check so a Hold made after it is refused at pay or redeem.

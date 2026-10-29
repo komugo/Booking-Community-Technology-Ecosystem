@@ -85,12 +85,14 @@ export function client(e: Partial<Env> = {}) {
 }
 export type Client = ReturnType<typeof client>;
 
-export async function world(o: { listingMode?: ListingMode; signedUp?: boolean; option?: Partial<OptionInput>; horses?: number } = {}) {
+export async function world(
+  o: { listingMode?: ListingMode; signedUp?: boolean; commissionBps?: number | null; option?: Partial<OptionInput>; horses?: number } = {},
+) {
   const s = rid();
   const operatorId = `op_${s}`;
   const activityId = `act_${s}`;
   const hub = { slugEn: s, slugMs: `${s}-ms`, nameEn: "Hub", nameMs: "Hub" };
-  await db.insert(operators).values({ id: operatorId, name: "Test Stable", signedUp: o.signedUp ?? true });
+  await db.insert(operators).values({ id: operatorId, name: "Test Stable", signedUp: o.signedUp ?? true, commissionBps: o.commissionBps === undefined ? 1000 : o.commissionBps });
   const [city] = await db.insert(cities).values(hub).returning();
   const [category] = await db.insert(categories).values(hub).returning();
   await db.insert(activities).values({
