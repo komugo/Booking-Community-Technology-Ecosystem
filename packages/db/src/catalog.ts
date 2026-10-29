@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, ne, or, sql, type Column, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or, sql, type Column, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "./client";
-import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers } from "./schema";
+import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers, projTimeslots } from "./schema";
 
 export type Locale = "en" | "ms";
 export type Slugs = { en: string; ms: string };
@@ -71,6 +71,21 @@ async function toHubs(db: Db, rows: HubRow[], l: Locale): Promise<Hub[]> {
   });
 }
 
+// Lowest price of each Option's open future Timeslots (a Schedule's price, else the Option's).
+const slotPrices = (db: Db, activityIds: string[]) =>
+  db
+    .select({ optionId: projTimeslots.optionId, priceSen: sql<number>`min(coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}))` })
+    .from(projTimeslots)
+    .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
+    .where(and(within(projOptions.activityId, activityIds), isNull(projTimeslots.closedAt), gt(projTimeslots.startsAt, Date.now())))
+    .groupBy(projTimeslots.optionId);
+
+// An Option with no open Timeslot counts at its own price.
+const fromPrice = (options: { id: string; priceSen: number }[], slots: { optionId: string; priceSen: number }[]) => {
+  const prices = options.map((o) => slots.find((s) => s.optionId === o.id)?.priceSen ?? o.priceSen);
+  return prices.length ? Math.min(...prices) : null;
+};
+
 const hubQuery = (db: Db, table: typeof cities | typeof categories, l: Locale, slug: string) =>
   db.select().from(table).where(bySlug(table, slug)).orderBy(localeFirst(table, l, slug)).limit(1);
 
@@ -84,9 +99,10 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
     .orderBy(asc(activities.nameEn));
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.a.id);
-  const [opts, covers] = await db.batch([
+  const [opts, covers, slots] = await db.batch([
     db
       .select({
+        id: projOptions.id,
         activityId: projOptions.activityId,
         priceSen: projOptions.priceSen,
         durationMinutes: projOptions.durationMinutes,
@@ -98,6 +114,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
       .select()
       .from(photos)
       .where(and(within(photos.activityId, ids), eq(photos.position, 0))),
+    slotPrices(db, ids),
   ]);
   const min = (xs: (number | null)[]) => {
     const n = xs.filter((x): x is number => x !== null);
@@ -114,7 +131,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
       category: { en: category.slugEn, ms: category.slugMs, name: q.locale === "en" ? category.nameEn : category.nameMs },
       name: q.locale === "en" ? a.nameEn : a.nameMs,
       published: a.published,
-      fromPriceSen: min(o.map((x) => x.priceSen)),
+      fromPriceSen: fromPrice(o, slots),
       minDurationMinutes: min(o.map((x) => x.durationMinutes)),
       maxDurationMinutes: max(o.map((x) => x.durationMinutes)),
       minAge: o.some((x) => x.minAge === null) ? null : min(o.map((x) => x.minAge)),
@@ -189,7 +206,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
   if (!row || cityRow?.id !== row.a.cityId || categoryRow?.id !== row.a.categoryId) return null;
   const { a } = row;
   const en = q.locale === "en";
-  const [[opts, extras, gallery, offers], [city, category], related] = await Promise.all([
+  const [[opts, extras, gallery, offers, slots], [city, category], related] = await Promise.all([
     db.batch([
       db
         .select()
@@ -207,6 +224,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
         .from(projPackOffers)
         .where(and(eq(projPackOffers.activityId, a.id), eq(projPackOffers.active, true)))
         .orderBy(asc(projPackOffers.priceSen)),
+      slotPrices(db, [a.id]),
     ]),
     toHubs(db, [cityRow, categoryRow], q.locale),
     listCards(db, q, and(eq(activities.cityId, a.cityId), ne(activities.id, a.id))),
@@ -222,6 +240,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
     description: en ? a.descriptionEn : a.descriptionMs,
     published: a.published,
     freeCancelHours: row.freeCancelHours,
+    fromPriceSen: fromPrice(opts, slots),
     streetAddress: a.streetAddress,
     postalCode: a.postalCode,
     lat: a.lat,

@@ -172,6 +172,7 @@ function scheduleInput(body: Body) {
       [list(body.times, 48, (t) => typeof t === "string" && HHMM.test(t)) && (body.times as string[]).length > 0, "times"],
       [validDate(body.startsOn), "startsOn"],
       [body.endsOn === null || (validDate(body.endsOn) && body.endsOn >= (body.startsOn as string)), "endsOn"],
+      [intOrNull(body.priceSen ?? null, 0, 10_000_000), "priceSen"],
       [bool(body.active), "active"],
     ]),
     value: () => ({
@@ -181,6 +182,7 @@ function scheduleInput(body: Body) {
       times: body.times as string[],
       startsOn: body.startsOn as string,
       endsOn: body.endsOn as string | null,
+      priceSen: (body.priceSen ?? null) as number | null,
       active: body.active as boolean,
     }),
   };

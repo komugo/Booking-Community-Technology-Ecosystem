@@ -13,13 +13,14 @@ const s = t[l];
 const c = s.checkout;
 const here = path(l, "book", o.id);
 const name = l === "ms" ? o.nameMs : o.nameEn;
-const total = o.priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
+const picked = times.find((x) => x.id === values.timeslotId);
+const priceSen = picked?.priceSen ?? o.priceSen;
+const total = priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
 const carried = new URLSearchParams({
   quantity: String(values.quantity),
   ...Object.fromEntries(Object.entries(values.addOns).filter(([, n]) => n > 0).map(([id, n]) => [`addOn.${id}`, String(n)])),
 });
 const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
-const picked = times.find((x) => x.id === values.timeslotId);
 ---
 
 <Checkout locale={l} title={c.pickTitle} step={1} problems={p}>
@@ -61,8 +62,9 @@ const picked = times.find((x) => x.id === values.timeslotId);
           <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {times.map((x) => (
               <label class="relative flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-2xl border border-line bg-white px-3 py-2 has-checked:border-forest has-checked:bg-forest has-checked:text-white has-focus-visible:outline-3 has-focus-visible:outline-lime">
-                <input type="radio" name="timeslotId" value={x.id} checked={x.id === values.timeslotId} data-spots={x.spots} data-low-text={c.onlyLeft(x.spots)} class="sr-only" />
+                <input type="radio" name="timeslotId" value={x.id} checked={x.id === values.timeslotId} data-spots={x.spots} data-price={x.priceSen} data-low-text={c.onlyLeft(x.spots)} class="sr-only" />
                 <span class="num font-semibold">{klTime(l, x.startsAt)}</span>
+                <span class="num text-xs">{rm(x.priceSen)}</span>
                 {x.spots <= 3 && <span class="text-xs">{c.left(x.spots)}</span>}
               </label>
             ))}
@@ -86,7 +88,7 @@ const picked = times.find((x) => x.id === values.timeslotId);
       <div class="flex items-center justify-between gap-4">
         <div>
           <h2 id="people-label" class="text-xl font-bold">{c.people}</h2>
-          <p class="text-sm text-muted">{rm(o.priceSen)} {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
+          <p class="text-sm text-muted"><span data-each>{rm(priceSen)}</span> {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
         </div>
         <Stepper id="quantity" name="quantity" label={c.people} value={values.quantity} min={min} max={10} fewer={c.fewer(c.people)} more={c.more(c.people)} />
       </div>

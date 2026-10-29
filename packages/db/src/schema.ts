@@ -187,6 +187,7 @@ export const projAddOns = sqliteTable(
 );
 
 // spots is not re-projected as time passes: readers must also filter starts_at - booking_cutoff_minutes > now.
+// price_sen is the Schedule's price; null means the Option's.
 export const projTimeslots = sqliteTable(
   "proj_timeslots",
   {
@@ -196,6 +197,7 @@ export const projTimeslots = sqliteTable(
     startsAt: integer().notNull(),
     closedAt: integer(),
     spots: integer().notNull(),
+    priceSen: integer(),
     version: integer().notNull(),
   },
   (t) => [index("proj_timeslots_option_starts").on(t.optionId, t.startsAt), index("proj_timeslots_starts").on(t.startsAt)],

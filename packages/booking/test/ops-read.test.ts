@@ -68,6 +68,7 @@ test("setup round-trips Activities with Closed days, Options, Add-ons, Resources
     times: ["11:00", "09:00", "09:00"],
     startsOn: "2030-01-01",
     endsOn: null,
+    priceSen: null,
     active: true,
   };
   await w.b.upsertSchedule(schedule);

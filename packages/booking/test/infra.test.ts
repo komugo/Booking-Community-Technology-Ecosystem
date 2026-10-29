@@ -3,7 +3,7 @@ import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
 import { tx } from "../src/tx";
-import { DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
+import { DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8, UNDO_V9 } from "./helpers";
 
 const stubFor = (op: string) => env.BOOKING.get(env.BOOKING.idFromName(op));
 
@@ -67,7 +67,7 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
   await w.book(w.customerId, booked, [await w.participant(w.customerId)]);
   const [free, monday] = [await w.slot(w.optionId, tue), await w.slot(w.optionId, mon)];
   await runInDurableObject(w.stub, (_, s) => {
-    for (const q of UNDO_V8) s.storage.sql.exec(q);
+    for (const q of [...UNDO_V9, ...UNDO_V8]) s.storage.sql.exec(q);
     s.storage.sql.exec("UPDATE meta SET schema_version = 6");
     s.storage.sql.exec("DELETE FROM outbox");
     migrate(s.storage);
@@ -84,6 +84,7 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
     times: ["09:00"],
     startsOn: monDay,
     endsOn: tueDay,
+    priceSen: null,
     active: true,
   });
   const rows = await w.sql("SELECT id, schedule_id IS NOT NULL AS scheduled, closed_reason FROM timeslots WHERE id IN (?, ?, ?)", free, monday, booked);

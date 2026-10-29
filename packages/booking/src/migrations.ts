@@ -172,6 +172,7 @@ export const migrations: string[][] = [
     `INSERT INTO outbox (entity, entity_id, rev) SELECT 'pack', id, (SELECT rev FROM meta) FROM packs WHERE true
      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
   ],
+  [`ALTER TABLE schedules ADD COLUMN price_sen INTEGER CHECK (price_sen >= 0)`],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

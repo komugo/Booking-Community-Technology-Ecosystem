@@ -85,6 +85,7 @@ export type Schedule = {
   times: string[];
   startsOn: string;
   endsOn: string | null;
+  priceSen: number | null;
   active: boolean;
 };
 export type PackOffer = Named & {

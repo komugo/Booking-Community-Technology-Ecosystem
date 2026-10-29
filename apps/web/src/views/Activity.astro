@@ -23,7 +23,7 @@ const crumbs = [
   { name: category.name, path: path(locale, city.slugs[locale], category.slugs[locale]) },
   { name: a.name, path: alternates[locale] },
 ];
-const fromSen = a.options.length ? Math.min(...a.options.map((o) => o.priceSen)) : null;
+const fromSen = a.fromPriceSen;
 const today = a.openingHours.find((h) => h.days.includes(todayKL()));
 const todayText = today ? s.openToday(`${time(locale, today.opens)} – ${time(locale, today.closes)}`) : s.closedToday;
 const address = [a.streetAddress, [a.postalCode, city.name].filter(Boolean).join(" ")].filter(Boolean).join(", ");

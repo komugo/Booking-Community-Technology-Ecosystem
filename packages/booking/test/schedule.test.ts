@@ -1,9 +1,12 @@
-import { env } from "cloudflare:test";
+import { env, runInDurableObject } from "cloudflare:test";
+import { activities, cities, getCityHub } from "@komugo/db";
 import { klDate, klWeekday, WEEKDAYS } from "@komugo/types";
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import type { ScheduleInput } from "../src";
+import { slotsPriceSen } from "../src/engine";
 import { expand } from "../src/schedule";
-import { kl, operator, rid, rideWorld } from "./helpers";
+import { db, kl, operator, rid, rideWorld } from "./helpers";
 
 const D = 86_400_000;
 const daysFromNow = (n: number) => klDate(Date.now() + n * D);
@@ -59,6 +62,7 @@ async function scheduled(times = ["09:00"]) {
     times,
     startsOn: daysFromNow(2),
     endsOn: daysFromNow(8),
+    priceSen: null,
     active: true,
   };
   const save = (patch: Partial<ScheduleInput> = {}) => w.b.upsertSchedule({ ...s, ...patch });
@@ -181,5 +185,57 @@ describe("Schedules", () => {
   test("generateTimeslots with no Schedules is all zeros", async () => {
     const w = await operator();
     expect(await w.b.generateTimeslots()).toEqual({ created: 0, removed: 0, kept: [] });
+  });
+});
+
+describe("Schedule price", () => {
+  async function tiers() {
+    const w = await scheduled();
+    const peak = { ...w.s, id: rid(), times: ["19:00"], priceSen: 15000 };
+    await w.save();
+    await w.b.upsertSchedule(peak);
+    const [offPeak, peakSlot] = await w.open();
+    return { ...w, peak, offPeak: offPeak.id, peakSlot: peakSlot.id };
+  }
+
+  test("peak and off-peak Schedules on one Option price their Timeslots differently, fixed at Hold", async () => {
+    const w = await tiers();
+    const p = await w.participant(w.customerId);
+    expect(await w.hold(w.customerId, w.offPeak, [p])).toMatchObject({ amountSen: 10000 });
+    const peakHold = await w.hold(w.customerId, w.peakSlot, [p, await w.participant(w.customerId)]);
+    expect(peakHold).toMatchObject({ amountSen: 30000 });
+    await w.b.upsertSchedule({ ...w.peak, priceSen: 20000 });
+    expect(await w.pay(peakHold)).toMatchObject({ status: "paid" });
+    expect(await w.sql("SELECT DISTINCT price_sen FROM tickets")).toEqual([{ price_sen: 15000 }]);
+  });
+
+  test("the projection carries the Schedule's price and follows a change; null falls back to the Option's", async () => {
+    const w = await tiers();
+    await w.flush();
+    const price = async (id: string) => (await d1("SELECT price_sen FROM proj_timeslots WHERE id = ?", id))[0].price_sen;
+    expect([await price(w.offPeak), await price(w.peakSlot)]).toEqual([null, 15000]);
+    await w.b.upsertSchedule({ ...w.peak, priceSen: 18000 });
+    await w.flush();
+    expect(await price(w.peakSlot)).toBe(18000);
+    expect((await w.b.setup()).schedules.map((s) => s.priceSen)).toEqual([null, 18000]);
+  });
+
+  test("the catalogue shows the lowest Timeslot price as From", async () => {
+    const w = await tiers();
+    await w.save({ priceSen: 8000 });
+    await w.flush();
+    const [{ city }] = await db
+      .select({ city: cities.slugEn })
+      .from(activities)
+      .innerJoin(cities, eq(cities.id, activities.cityId))
+      .where(eq(activities.id, w.activityId));
+    const hub = await getCityHub(db, { locale: "en", includeDrafts: true, city });
+    expect(hub?.activities.map((a) => a.fromPriceSen)).toEqual([8000]);
+  });
+
+  test("a booking crossing tiers sums each Timeslot's price", async () => {
+    const w = await tiers();
+    const sen = await runInDurableObject(w.stub, (_, state) => slotsPriceSen(state.storage.sql, [w.offPeak, w.peakSlot]));
+    expect(sen).toBe(25000);
   });
 });

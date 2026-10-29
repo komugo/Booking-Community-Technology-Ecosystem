@@ -88,7 +88,9 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
       low.hidden = !spots || spots > 3;
       low.textContent = slot?.dataset.lowText ?? "";
       if (num(qty) > Number(qty.max)) qty.value = qty.max;
-      let sen = num(qty) * Number(pick.dataset.pick);
+      const price = Number(slot?.dataset.price ?? pick.dataset.pick);
+      pick.querySelector("[data-each]")!.textContent = rm(price);
+      let sen = num(qty) * price;
       for (const a of $$("[data-addon]", pick)) {
         a.max = qty.value;
         if (num(a) > num(qty)) a.value = qty.value;

@@ -128,6 +128,7 @@ export type ScheduleInput = {
   times: string[];
   startsOn: string;
   endsOn: string | null;
+  priceSen: number | null;
   active: boolean;
 };
 export type GenerateResult = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };
@@ -241,6 +242,18 @@ function loadOption(sql: SqlStorage, id: string) {
       id,
     )
     .one();
+}
+
+// A Timeslot takes its Schedule's price, else its Option's; a booking over several Timeslots sums each one.
+export function slotsPriceSen(sql: SqlStorage, slotIds: string[]) {
+  return sql
+    .exec<{ sen: number }>(
+      `SELECT coalesce(sum(coalesce(sc.price_sen, o.price_sen)), 0) AS sen FROM timeslots t
+       JOIN options o ON o.id = t.option_id LEFT JOIN schedules sc ON sc.id = t.schedule_id
+       WHERE t.id IN (SELECT value FROM json_each(?))`,
+      ids(slotIds),
+    )
+    .one().sen;
 }
 
 const loadNeeds = (sql: SqlStorage, optionId: string) =>
@@ -509,7 +522,9 @@ export function upsertActivity(sql: SqlStorage, now: number, a: ActivityInput) {
 }
 
 export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
-  const existing = first(sql.exec<{ activity_id: string }>("SELECT activity_id FROM schedules WHERE id = ?", s.id));
+  const existing = first(
+    sql.exec<{ activity_id: string; price_sen: number | null }>("SELECT activity_id, price_sen FROM schedules WHERE id = ?", s.id),
+  );
   const options = new Set(
     sql
       .exec<{ id: string }>("SELECT id FROM options WHERE activity_id = ?", s.activityId)
@@ -524,10 +539,10 @@ export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
     throw new BookingError("invalid_state");
   }
   sql.exec(
-    `INSERT INTO schedules (id, activity_id, option_ids, weekdays, times, starts_on, ends_on, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO schedules (id, activity_id, option_ids, weekdays, times, starts_on, ends_on, price_sen, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET option_ids = excluded.option_ids, weekdays = excluded.weekdays, times = excluded.times,
-       starts_on = excluded.starts_on, ends_on = excluded.ends_on, active = excluded.active`,
+       starts_on = excluded.starts_on, ends_on = excluded.ends_on, price_sen = excluded.price_sen, active = excluded.active`,
     s.id,
     s.activityId,
     ids([...new Set(s.optionIds)]),
@@ -535,8 +550,16 @@ export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
     ids([...new Set(s.times)].sort()),
     s.startsOn,
     s.endsOn,
+    s.priceSen,
     s.active ? 1 : 0,
   );
+  if (existing && existing.price_sen !== s.priceSen) {
+    const repriced = sql
+      .exec<{ id: string }>("SELECT id FROM timeslots WHERE schedule_id = ? AND closed_at IS NULL AND starts_at > ?", s.id, now)
+      .toArray()
+      .map((r) => r.id);
+    mark(sql, "timeslot", repriced);
+  }
   return generate(sql, now, s.activityId);
 }
 
@@ -937,6 +960,7 @@ export function setup(sql: SqlStorage): Setup {
         times: string;
         starts_on: string;
         ends_on: string | null;
+        price_sen: number | null;
         active: number;
       }>("SELECT * FROM schedules ORDER BY rowid")
       .toArray()
@@ -948,6 +972,7 @@ export function setup(sql: SqlStorage): Setup {
         times: JSON.parse(s.times),
         startsOn: s.starts_on,
         endsOn: s.ends_on,
+        priceSen: s.price_sen,
         active: s.active === 1,
       })),
     packOffers: sql
@@ -1130,14 +1155,15 @@ export function createHold(
   if (i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
   const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
-  const amountSen = option.price_sen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
+  const priceSen = slotsPriceSen(sql, [slot.id]);
+  const amountSen = priceSen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
   sql.exec(
     `INSERT INTO holds (id, customer_id, timeslot_id, price_sen, amount_sen, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     holdId,
     i.customerId,
     slot.id,
-    option.price_sen,
+    priceSen,
     amountSen,
     now,
     expiresAt,

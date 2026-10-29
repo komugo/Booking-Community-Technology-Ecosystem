@@ -55,7 +55,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       .where(and(eq(projAddOns.activityId, o.activityId), eq(projAddOns.active, true)))
       .orderBy(asc(projAddOns.priceSen)),
     db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots, priceSen: projTimeslots.priceSen })
       .from(projTimeslots)
       .where(
         and(
@@ -107,7 +107,11 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     }
   }
 
-  const { days, date: day, times, nextOpen } = daysAndTimes(slots, date, now);
+  const { days, date: day, times, nextOpen } = daysAndTimes(
+    slots.map((x) => ({ ...x, priceSen: x.priceSen ?? o.priceSen })),
+    date,
+    now,
+  );
   if (!times.some((x) => x.id === values.timeslotId)) {
     values.timeslotId = (times.find((x) => x.spots >= values.quantity) ?? times[0])?.id ?? "";
   }
