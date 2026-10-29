@@ -32,6 +32,8 @@ describe("Venues", () => {
       ...body,
       id: created.body.id,
       nameEn: "Putrajaya Sports Complex",
+      slugEn: expect.stringMatching(/^putrajaya-sports-complex(-\d+)?$/),
+      slugMs: expect.stringMatching(/^kompleks-sukan-putrajaya(-\d+)?$/),
       lat: 2.95,
       lng: 101.7,
       photos: [unsplash(3)],

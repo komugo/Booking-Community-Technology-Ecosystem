@@ -1,4 +1,4 @@
-import { activities, cities, createDb, photos, venues as venueTable, type OpeningHours } from "@komugo/db";
+import { activities, cities, createDb, photos, venueSlugs, venues as venueTable, type OpeningHours } from "@komugo/db";
 import { HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, asc, count, eq, isNotNull, ne } from "drizzle-orm";
@@ -189,8 +189,9 @@ async function save(c: Ctx, id: string | null) {
   if (listed && v.lat === null) return publishBar(c, ["mapPin"], "lat");
   const venueId = id ?? crypto.randomUUID();
   const list = body.photos as PhotoInput[];
+  const slugs = id ? null : await venueSlugs(db, v.cityId, v);
   await db.batch([
-    id ? db.update(venueTable).set(v).where(eq(venueTable.id, id)) : db.insert(venueTable).values({ ...v, id: venueId }),
+    slugs ? db.insert(venueTable).values({ ...v, id: venueId, slugEn: slugs.en, slugMs: slugs.ms }) : db.update(venueTable).set(v).where(eq(venueTable.id, venueId)),
     db.delete(photos).where(eq(photos.venueId, venueId)),
     ...(list.length ? [db.insert(photos).values(photoRows({ venueId }, list))] : []),
   ]);
