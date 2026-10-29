@@ -32,6 +32,7 @@ for (const [l, sent] of [
     await notify.locator("input[name=email]").fill("nope");
     await notify.locator("button").click();
     await expect(notify.locator("#email-error")).toBeVisible();
+    await expect(notify.locator("input[name=email]")).toHaveValue("nope");
     await notify.locator("input[name=email]").fill(`interest-${Date.now()}@example.com`);
     await notify.locator("button").click();
     await expect(notify.getByRole("status")).toContainText(sent);

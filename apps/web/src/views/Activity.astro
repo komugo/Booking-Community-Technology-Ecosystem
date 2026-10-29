@@ -263,11 +263,11 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
                 {a.notify.sent ? (
                   <p role="status" class="mt-3 rounded-2xl bg-lime/40 p-4 font-semibold text-forest">{s.notify.sent}</p>
                 ) : (
-                  <form method="post" class="mt-2" novalidate>
+                  <form method="post" action="#notify" class="mt-2" novalidate>
                     <p>{s.notify.text}</p>
                     <label for="email" class="mt-4 block font-semibold">{s.checkout.email}</label>
                     <div class="mt-1.5 flex flex-col gap-3 sm:flex-row">
-                      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required class="h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-2 aria-invalid:border-clay" {...invalid(a.notify.problems, "email")} />
+                      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required value={a.notify.email} class="h-12 w-full rounded-xl border border-line bg-white px-3 text-base aria-invalid:border-2 aria-invalid:border-clay" {...invalid(a.notify.problems, "email")} />
                       <button class="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.notify.send}</button>
                     </div>
                     <FieldError p={a.notify.problems} id="email" />

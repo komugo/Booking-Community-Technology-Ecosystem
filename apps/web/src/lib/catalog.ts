@@ -1,8 +1,8 @@
 import { getActivityPage, getCategoryHub, getCityHub, getHome, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
-import { api, see } from "./api";
+import { api, errorsOf, see, type ApiError } from "./api";
 import { form } from "./checkout";
 import { db, sells, showDrafts } from "./db";
-import { codeFrom, problems } from "./form";
+import { problems } from "./form";
 import { path, type Alternates } from "./i18n";
 
 type Params = Record<string, string | undefined>;
@@ -39,9 +39,13 @@ export async function loadActivity({ params: p, request, url }: { params: Params
   const { city, category } = data;
   const alt = alternates(locale, url.search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
   if (alt instanceof Response) return alt;
+  let errors: ApiError[] = [];
+  let email = "";
   if (request.method === "POST") {
-    const res = await api(request, "POST", "/interests", { activityId: data.id, email: (await form(request))("email"), locale });
-    return see(`${alt[locale]}?${res.status === 204 ? "notify=sent" : `e=${res.error.code}`}#notify`);
+    email = (await form(request))("email");
+    const res = await api(request, "POST", "/interests", { activityId: data.id, email, locale });
+    if (res.status === 204) return see(`${alt[locale]}?notify=sent#notify`);
+    errors = errorsOf(res.error);
   }
   return {
     locale,
@@ -50,7 +54,8 @@ export async function loadActivity({ params: p, request, url }: { params: Params
     city,
     category,
     bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0,
-    notify: { sent: url.searchParams.get("notify") === "sent", problems: problems(locale, codeFrom(url)) },
+    notify: { sent: url.searchParams.get("notify") === "sent", email, problems: problems(locale, errors) },
+    status: errors.length ? 400 : 200,
   };
 }
 
