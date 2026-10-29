@@ -3,7 +3,7 @@ import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
 import { tx } from "../src/tx";
-import { DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
+import { DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8, UNDO_V9 } from "./helpers";
 
 const stubFor = (op: string) => env.BOOKING.get(env.BOOKING.idFromName(op));
 
@@ -41,7 +41,7 @@ test("migration 6 on a v5 Durable Object keeps its rows and defaults the new col
   const { ticketIds } = await w.book(w.customerId, ts, [await w.participant(w.customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V8, ...UNDO_V6]) sql.exec(q);
+    for (const q of [...UNDO_V9, ...UNDO_V8, ...UNDO_V6]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 5");
     migrate(s.storage);
     expect(sql.exec("SELECT schema_version AS v FROM meta").one().v).toBe(migrations.length);
@@ -56,6 +56,17 @@ test("migration 6 on a v5 Durable Object keeps its rows and defaults the new col
   });
 });
 
+test("migration 9 on a v8 Durable Object keeps its Options with the default max per booking", async () => {
+  const w = await rideWorld();
+  await runInDurableObject(w.stub, (_, s) => {
+    const sql = s.storage.sql;
+    for (const q of UNDO_V9) sql.exec(q);
+    sql.exec("UPDATE meta SET schema_version = 8");
+    migrate(s.storage);
+    expect(sql.exec("SELECT id, max_per_booking FROM options").toArray()).toEqual([{ id: w.optionId, max_per_booking: null }]);
+  });
+});
+
 test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it wants and Closed days stay closed", async () => {
   const w = await rideWorld();
   // Schedules only generate within the 60-day horizon, so use the Monday 1 to 2 weeks out.
@@ -67,7 +78,7 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
   await w.book(w.customerId, booked, [await w.participant(w.customerId)]);
   const [free, monday] = [await w.slot(w.optionId, tue), await w.slot(w.optionId, mon)];
   await runInDurableObject(w.stub, (_, s) => {
-    for (const q of UNDO_V8) s.storage.sql.exec(q);
+    for (const q of [...UNDO_V9, ...UNDO_V8]) s.storage.sql.exec(q);
     s.storage.sql.exec("UPDATE meta SET schema_version = 6");
     s.storage.sql.exec("DELETE FROM outbox");
     migrate(s.storage);

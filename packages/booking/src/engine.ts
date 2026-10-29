@@ -51,6 +51,7 @@ export type OptionInput = {
   maxWeightKg: number | null;
   requiredCert: string | null;
   minParticipants: number | null;
+  maxPerBooking: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -187,7 +188,8 @@ const HOUR = 3_600_000;
 export const DAY = 86_400_000;
 const KL_OFFSET = 8 * HOUR;
 const HOLD_MS = 15 * MIN;
-const MAX_PARTICIPANTS = 10;
+const DEFAULT_MAX_PER_BOOKING = 10;
+const MAX_PER_BOOKING = 50;
 const MAX_ACTIVE_HOLDS = 3;
 
 export const klDayStart = (t: number) => Math.floor((t + KL_OFFSET) / DAY) * DAY - KL_OFFSET;
@@ -202,6 +204,7 @@ type Option = {
   max_weight_kg: number | null;
   required_cert: string | null;
   min_participants: number | null;
+  max_per_booking: number | null;
   active: number;
   booking_cutoff_minutes: number;
 };
@@ -235,7 +238,7 @@ function loadOption(sql: SqlStorage, id: string) {
   return sql
     .exec<Option>(
       `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
-         min_participants, active,
+         min_participants, max_per_booking, active,
          (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes
        FROM options WHERE id = ?`,
       id,
@@ -652,12 +655,12 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", o.activityId))) throw new BookingError("invalid_state");
   sql.exec(
     `INSERT INTO options (id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age,
-       max_weight_kg, required_cert, min_participants, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       max_weight_kg, required_cert, min_participants, max_per_booking, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name_en = excluded.name_en, name_ms = excluded.name_ms,
        price_sen = excluded.price_sen, duration_minutes = excluded.duration_minutes, min_age = excluded.min_age,
        max_age = excluded.max_age, max_weight_kg = excluded.max_weight_kg, required_cert = excluded.required_cert,
-       min_participants = excluded.min_participants, active = excluded.active`,
+       min_participants = excluded.min_participants, max_per_booking = excluded.max_per_booking, active = excluded.active`,
     o.id,
     o.activityId,
     o.nameEn,
@@ -669,6 +672,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     o.maxWeightKg,
     o.requiredCert,
     o.minParticipants,
+    o.maxPerBooking,
     o.active ? 1 : 0,
   );
   sql.exec("DELETE FROM option_resources WHERE option_id = ?", o.id);
@@ -877,6 +881,7 @@ export function setup(sql: SqlStorage): Setup {
         max_weight_kg: number | null;
         required_cert: string | null;
         min_participants: number | null;
+        max_per_booking: number | null;
         active: number;
       }>("SELECT * FROM options ORDER BY rowid")
       .toArray()
@@ -892,6 +897,7 @@ export function setup(sql: SqlStorage): Setup {
         maxWeightKg: o.max_weight_kg,
         requiredCert: o.required_cert,
         minParticipants: o.min_participants,
+        maxPerBooking: o.max_per_booking,
         active: o.active === 1,
         needs: needs.get(o.id) ?? [],
       })),
@@ -1113,7 +1119,8 @@ export function createHold(
   const released = supersede(sql, now, { ...i, participantIds: i.participants.map((p) => p.id) });
   const { slot, option, picks } = allocate(sql, now, i.timeslotId, i.participants, i.customerId);
   if (n < (option.min_participants ?? 1)) throw new BookingError("below_min_participants");
-  if (n > MAX_PARTICIPANTS) throw new BookingError("invalid_participant");
+  const max = option.max_per_booking ?? DEFAULT_MAX_PER_BOOKING;
+  if (n > max) throw new BookingError("invalid_participant");
   const addOns = priceAddOns(sql, option, n, i.addOns);
   const { active } = sql
     .exec<{ active: number }>("SELECT count(*) AS active FROM holds WHERE customer_id = ? AND status = 'active'", i.customerId)
@@ -1126,7 +1133,7 @@ export function createHold(
       slot.id,
     )
     .one();
-  if (active >= MAX_ACTIVE_HOLDS || people + n > MAX_PARTICIPANTS) throw new BookingError("too_many_holds");
+  if (active >= MAX_ACTIVE_HOLDS || people + n > max) throw new BookingError("too_many_holds");
   if (i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
   const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
@@ -1510,7 +1517,7 @@ function groupTickets(sql: SqlStorage, customerId: string, group: Group, ticketI
     .toArray();
   if (
     ticketIds.length < 1 ||
-    ticketIds.length > MAX_PARTICIPANTS ||
+    ticketIds.length > MAX_PER_BOOKING ||
     new Set(ticketIds).size !== ticketIds.length ||
     rows.length !== ticketIds.length ||
     rows.some((t) => t.status !== "issued" || t.customer_id !== customerId || t[o.col as "booking_id" | "pack_id"] !== o.id)

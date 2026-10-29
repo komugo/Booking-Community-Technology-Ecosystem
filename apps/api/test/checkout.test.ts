@@ -21,6 +21,17 @@ describe("POST /checkouts", () => {
     expect((await post({ addOns: [{ id: rid(), qty: 1 }] })).body).toMatchObject({ code: "invalid_add_on" });
     expect((await post({ addOns: [{ id: w.helmetId, qty: 2 }] })).status).toBe(201);
   });
+
+  test("checks the Option's max per booking, 10 by default", async () => {
+    const post = (w: World, quantity: number) =>
+      client().json("POST", "/checkouts", { optionId: w.optionId, timeslotId: w.timeslotId, quantity, addOns: [] });
+    expect((await post(await world({ option: { maxPerBooking: 1 } }), 2)).body).toEqual({
+      code: "above_max_per_booking",
+      field: "quantity",
+      params: { max: 1 },
+    });
+    expect((await post(await world(), 11)).body).toEqual({ code: "above_max_per_booking", field: "quantity", params: { max: 10 } });
+  });
 });
 
 describe("Participants and Waivers", () => {

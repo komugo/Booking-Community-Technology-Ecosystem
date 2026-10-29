@@ -24,6 +24,7 @@ describe("ops Setup", () => {
       maxWeightKg: 90,
       requiredCert: null,
       minParticipants: 2,
+      maxPerBooking: 6,
       active: true,
       needs: [{ kind: "horse", quantity: 1 }, { kind: "instructor", quantity: 1 }],
     };
@@ -62,6 +63,9 @@ describe("ops Setup", () => {
       await bad("POST", "/resources", { kind: "belayer", name: "Ali", active: true, maxSessionsPerDay: 4, restMinutes: 0, maxRiderWeightKg: null }),
     ).toMatchObject({ field: "maxSessionsPerDay" });
     expect(await bad("POST", "/timeslots/x/close", { reason: "rain" })).toMatchObject({ field: "reason" });
+    const option = { activityId: w.activityId, nameEn: "Ride", nameMs: "Tunggang", priceSen: 100, durationMinutes: 60, minAge: null, maxAge: null, maxWeightKg: null, requiredCert: null, active: true, needs: [] };
+    expect(await bad("POST", "/options", { ...option, minParticipants: 3, maxPerBooking: 2 })).toMatchObject({ field: "maxPerBooking" });
+    expect(await bad("POST", "/options", { ...option, minParticipants: null, maxPerBooking: 51 })).toMatchObject({ field: "maxPerBooking" });
   });
 
   test("lengthening an Option under a live Booking is 409 invalid_state", async () => {

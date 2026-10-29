@@ -177,6 +177,7 @@ export const t = {
       errors: {
         no_availability: "Sorry, there aren't enough spots left at this time. Pick another time.",
         below_min_participants: (p: Params) => `This option is for groups of ${p.min ?? 2} or more.`,
+        above_max_per_booking: (p: Params) => `This option takes up to ${p.max ?? 10} people per booking.`,
         not_bookable: "This time can't be booked anymore.",
         invalid_participant: (p: Params) => (p.name ? `${p.name} is already on this booking.` : "Check the people on this booking."),
         waiver_missing: (p: Params) => `Please accept the waiver for ${p.name ?? "everyone"}.`,
@@ -486,6 +487,7 @@ export const t = {
       errors: {
         no_availability: "Maaf, tempat tidak mencukupi pada masa ini. Pilih masa lain.",
         below_min_participants: (p: Params) => `Pilihan ini untuk kumpulan ${p.min ?? 2} orang atau lebih.`,
+        above_max_per_booking: (p: Params) => `Pilihan ini untuk maksimum ${p.max ?? 10} orang setiap tempahan.`,
         not_bookable: "Masa ini tidak boleh ditempah lagi.",
         invalid_participant: (p: Params) => (p.name ? `${p.name} sudah ada dalam tempahan ini.` : "Semak senarai orang dalam tempahan ini."),
         waiver_missing: (p: Params) => `Sila terima penepian untuk ${p.name ?? "semua orang"}.`,

@@ -12,6 +12,7 @@ const option = (activityId: string) => ({
   maxWeightKg: null,
   requiredCert: null,
   minParticipants: null,
+  maxPerBooking: null,
   active: true,
   needs: [{ kind: "horse", quantity: 1 }],
 });

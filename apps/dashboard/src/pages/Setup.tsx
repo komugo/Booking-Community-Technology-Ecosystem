@@ -430,6 +430,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
     maxWeightKg: str(item?.maxWeightKg ?? null),
     requiredCert: item?.requiredCert ?? "",
     minParticipants: item?.minParticipants ?? 1,
+    maxPerBooking: item?.maxPerBooking ?? 10,
     active: item?.active ?? true,
     needs: Object.fromEntries(KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
   });
@@ -448,6 +449,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
       maxWeightKg: num(v.maxWeightKg),
       requiredCert: v.requiredCert.trim() || null,
       minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
+      maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
       active: v.active,
       needs: KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
     };
@@ -488,6 +490,8 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
           />
         </div>
         <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
+        <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
+        {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
       </Group>
       <Group title={t.resourceNeeds}>
         {KINDS.map((k) => (

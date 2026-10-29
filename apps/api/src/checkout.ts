@@ -23,7 +23,7 @@ import { fail, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type 
 import { bookingLink, groupLink } from "./manage";
 import { ensureSession, owns, readSession, type Session } from "./session";
 
-const MAX_PEOPLE = 10;
+const DEFAULT_MAX_PER_BOOKING = 10;
 const MAX_HOLDS_PER_CHECKOUT = 8;
 const PAY_MARGIN = MIN;
 
@@ -323,7 +323,8 @@ checkout.post("/", async (c) => {
   if (!Number.isInteger(quantity) || quantity < min) {
     return fail(c, 400, { code: "below_min_participants", field: "quantity", params: { min } });
   }
-  if (quantity > MAX_PEOPLE) return fail(c, 400, { code: "invalid_participant", field: "quantity", params: { max: MAX_PEOPLE } });
+  const max = d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING;
+  if (quantity > max) return fail(c, 400, { code: "above_max_per_booking", field: "quantity", params: { max } });
   if (quantity > d.slot.spots) return fail(c, 409, { code: "no_availability", params: { spots: d.slot.spots } });
   const addOnOf = new Map(d.addOns.map((a) => [a.id, a]));
   if (
@@ -412,6 +413,7 @@ checkout.get("/:id", async (c) => {
       maxWeightKg: d.option.maxWeightKg,
       requiredCert: d.option.requiredCert,
       minParticipants: d.option.minParticipants,
+      maxPerBooking: d.option.maxPerBooking,
       asksWeight: d.option.asksWeight,
     },
     activity: { ...d.activity, city: d.city, category: d.category },

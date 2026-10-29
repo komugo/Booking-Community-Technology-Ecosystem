@@ -131,6 +131,7 @@ export async function world(o: { published?: boolean; option?: Partial<OptionInp
     maxWeightKg: 90,
     requiredCert: null,
     minParticipants: null,
+    maxPerBooking: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,

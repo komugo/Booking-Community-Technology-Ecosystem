@@ -9,7 +9,7 @@ import { count, inArray } from "drizzle-orm";
 type PhotoSeed = Omit<typeof photos.$inferInsert, "activityId" | "position">;
 type HubSeed = typeof cities.$inferInsert & { id: string; photo: PhotoSeed };
 type OptionSeed = Pick<OptionInput, "id" | "nameEn" | "nameMs" | "priceSen" | "durationMinutes"> &
-  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "requiredCert">> & {
+  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "maxPerBooking" | "requiredCert">> & {
     needs: Partial<Record<ResourceKind, number>>;
   };
 type ResourceSeed = Pick<ResourceInput, "id" | "kind" | "name"> &
@@ -258,6 +258,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         maxAge: null,
         maxWeightKg: null,
         minParticipants: null,
+        maxPerBooking: null,
         requiredCert: null,
         active: true,
         ...o,

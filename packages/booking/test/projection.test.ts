@@ -60,13 +60,15 @@ test("confirm projects Tickets, Payment and Timeslot spots, then empties the out
   expect(await w.count("SELECT count(*) AS n FROM outbox")).toBe(0);
 });
 
-test("an Add-on and an Option's min_participants reach proj_*", async () => {
+test("an Add-on and an Option's min_participants and max_per_booking reach proj_*", async () => {
   const w = await rideWorld();
-  await w.editOption(w.optionId, { minParticipants: 2 });
+  await w.editOption(w.optionId, { minParticipants: 2, maxPerBooking: 4 });
   const addOnId = rid();
   await w.b.upsertAddOn({ id: addOnId, activityId: w.activityId, nameEn: "Helmet", nameMs: "Topi keledar", priceSen: 500, active: true });
   await w.flush();
-  expect(await d1("SELECT min_participants FROM proj_options WHERE id = ?", w.optionId)).toEqual([{ min_participants: 2 }]);
+  expect(await d1("SELECT min_participants, max_per_booking FROM proj_options WHERE id = ?", w.optionId)).toEqual([
+    { min_participants: 2, max_per_booking: 4 },
+  ]);
   expect(await d1("SELECT * FROM proj_add_ons WHERE id = ?", addOnId)).toEqual([
     expect.objectContaining({
       operator_id: w.operatorId,
