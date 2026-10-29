@@ -1,11 +1,13 @@
 import { WEEKDAYS, type Weekday } from "@komugo/types/rules";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useLocation, useParams, useSearch } from "wouter";
-import { api, ApiError, useApi } from "../api";
+import { api, useApi } from "../api";
+import { Group, Input, num, SaveBar, useSubmit } from "../form";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
 import { rm, sen } from "../money";
-import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
+import { PhotosEditor } from "../photos";
+import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup, Venues } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
 const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
@@ -14,8 +16,6 @@ const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lan
 const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
 const str = (n: number | null) => (n === null ? "" : String(n));
-// An unparseable value is sent as typed so the API rejects it on the right field.
-const num = (s: string) => (s.trim() === "" ? null : Number.isFinite(Number(s)) ? Number(s) : s);
 
 function closedParts(days: string[], t: Dict) {
   return WEEKDAYS.flatMap((d) => {
@@ -28,27 +28,7 @@ function closedParts(days: string[], t: Dict) {
 
 const closedSentence = (days: string[], t: Dict) => (days.length ? t.closedSentence(closedParts(days, t)) : t.openEveryDay);
 
-type Err = { field?: string; text: string } | null;
 type Item = Option | AddOn | PackOffer | Resource;
-
-function useSubmit(t: Dict) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<Err>(null);
-  async function submit(fn: () => Promise<unknown>, onConflict?: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-      return true;
-    } catch (e) {
-      setError({ field: (e as ApiError).field, text: onConflict && e instanceof ApiError && e.status === 409 ? onConflict : errorText(e, t) });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-  return { busy, error, submit, err: (f: string) => (error?.field === f ? error.text : undefined) };
-}
 
 export default function SetupPage() {
   const { t } = useT();
@@ -238,6 +218,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
   const [waiver, setWaiver] = useState(settings.requiresWaiver);
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
   const [mode, setMode] = useState(a.listingMode);
+  const [editingPage, setEditingPage] = useState(false);
   const { busy, error, submit, err } = useSubmit(t);
   const rule = pick.nth ? `${pick.day}#${pick.nth}` : pick.day;
 
@@ -286,6 +267,21 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           )}
         </Field>
       )}
+      <button type="button" className="btn btn-quiet" onClick={() => setEditingPage(true)}>
+        {t.editPage}
+      </button>
+      <Sheet open={editingPage} onClose={() => setEditingPage(false)} full title={t.activityPage}>
+        <CopyEditor
+          op={op}
+          activity={a}
+          staff={staff}
+          onSaved={() => {
+            setEditingPage(false);
+            toast(t.saved);
+            onSaved();
+          }}
+        />
+      </Sheet>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.freeCancelHours} error={err("freeCancelHours")}>
           {(fid, note) => (
@@ -376,49 +372,56 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
   );
 }
 
-function SaveBar({ busy, error, onSave }: { busy: boolean; error: Err; onSave: () => void }) {
+function CopyEditor({ op, activity, staff, onSaved }: { op: string; activity: Setup["catalogue"][number]; staff: boolean; onSaved: () => void }) {
   const { t } = useT();
+  const [v, setV] = useState({
+    descriptionEn: activity.descriptionEn,
+    descriptionMs: activity.descriptionMs,
+    venueId: activity.venueId,
+    photos: activity.photos,
+  });
+  const { busy, error, submit, err } = useSubmit(t);
+  const save = async () => {
+    if (await submit(() => api("PUT", `/operators/${op}/activities/${activity.id}/copy`, v))) onSaved();
+  };
   return (
-    <div className="sticky bottom-0 -mx-4 mt-6 border-t border-line bg-paper px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-      {error && !error.field && (
-        <p role="alert" className="mb-3 font-semibold text-clay">
-          {error.text}
-        </p>
-      )}
-      <button type="button" className="btn btn-primary w-full" disabled={busy} onClick={onSave}>
-        {t.save}
-      </button>
+    <div className="space-y-6">
+      {staff && <VenueSelect value={v.venueId} onChange={(venueId) => setV({ ...v, venueId })} error={err("venueId")} />}
+      {(["descriptionEn", "descriptionMs"] as const).map((k) => (
+        <Field key={k} label={t[k]} error={err(k)}>
+          {(id, note) => (
+            <textarea
+              id={id}
+              rows={6}
+              className="input min-h-36 py-3"
+              value={v[k]}
+              aria-describedby={note}
+              aria-invalid={!!err(k) || undefined}
+              onChange={(e) => setV({ ...v, [k]: e.target.value })}
+            />
+          )}
+        </Field>
+      ))}
+      <PhotosEditor photos={v.photos} onChange={(fn) => setV((x) => ({ ...x, photos: fn(x.photos) }))} error={err("photos")} />
+      <SaveBar busy={busy} error={error} onSave={save} />
     </div>
   );
 }
 
-function Input({
-  label,
-  value,
-  onChange,
-  error,
-  hint,
-  numeric = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  error?: string;
-  hint?: string;
-  numeric?: boolean;
-}) {
+function VenueSelect({ value, onChange, error }: { value: string | null; onChange: (v: string | null) => void; error?: string }) {
+  const { t, l } = useT();
+  const list = useApi<Venues>("/venues");
   return (
-    <Field label={label} error={error} hint={hint}>
+    <Field label={t.venue} error={error}>
       {(id, note) => (
-        <input
-          id={id}
-          className={`input ${numeric ? "num" : ""}`}
-          inputMode={numeric ? "decimal" : undefined}
-          value={value}
-          aria-describedby={note}
-          aria-invalid={!!error || undefined}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <select id={id} className="input" value={value ?? ""} aria-describedby={note} onChange={(e) => onChange(e.target.value || null)}>
+          <option value="">{t.noVenue}</option>
+          {list.data?.venues.map((x) => (
+            <option key={x.id} value={x.id}>
+              {named(x, l)}
+            </option>
+          ))}
+        </select>
       )}
     </Field>
   );
@@ -439,15 +442,6 @@ function ActivitySelect({ setup, value, onChange }: { setup: Setup; value: strin
         </select>
       )}
     </Field>
-  );
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <fieldset className="space-y-4">
-      <legend className="mb-3 font-display text-xl font-extrabold">{title}</legend>
-      {children}
-    </fieldset>
   );
 }
 

@@ -12,6 +12,7 @@ import { forOperator, ops, requireMember } from "./ops/auth";
 import { payouts } from "./ops/payouts";
 import { refunds } from "./ops/refunds";
 import { routes } from "./ops/routes";
+import { venues } from "./ops/venues";
 import { packs } from "./packs";
 import { seed } from "./seed";
 
@@ -32,6 +33,7 @@ ops.use("/operators/:operatorId/*", requireMember, forOperator);
 ops.route("/operators/:operatorId", routes);
 ops.route("/refunds", refunds);
 ops.route("/payouts", payouts);
+ops.route("/venues", venues);
 app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));
