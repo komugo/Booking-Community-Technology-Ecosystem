@@ -318,7 +318,7 @@ checkout.post("/", async (c) => {
     !d.option.active ||
     d.slot.closedAt !== null ||
     d.slot.startsAt - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
-    (d.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1")
+    ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")
   ) {
     return fail(c, 409, { code: "not_bookable" });
   }
@@ -509,7 +509,9 @@ checkout.post("/:id/pay", async (c) => {
     optionDetails(db, co.optionId, co.timeslotId, []),
   ]);
   if (!customer?.email || !d?.slot) return fail(c, 409, { code: "invalid_state" });
-  if (d.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1") return fail(c, 409, { code: "not_bookable" });
+  if ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1") {
+    return fail(c, 409, { code: "not_bookable" });
+  }
   const l = co.locale;
   let bill;
   try {

@@ -25,6 +25,7 @@ export async function optionDetails(db: Db, optionId: string, timeslotId: string
         city: { slugEn: cities.slugEn, slugMs: cities.slugMs, nameEn: cities.nameEn, nameMs: cities.nameMs },
         category: { slugEn: categories.slugEn, slugMs: categories.slugMs },
         operatorName: operators.name,
+        commissionBps: operators.commissionBps,
         freeCancelHours: projActivities.freeCancelHours,
         bookingCutoffMinutes: projActivities.bookingCutoffMinutes,
         requiresWaiver: projActivities.requiresWaiver,

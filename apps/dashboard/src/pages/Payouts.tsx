@@ -137,6 +137,9 @@ function Card({ p, children }: { p: PayoutRow; children?: ReactNode }) {
         ))}
       </dl>
       {p.paidAt && <p className="mt-2 text-sm font-semibold text-forest">{t.paidOn(dateLong(p.paidAt, l))}</p>}
+      {p.paidSen !== null && p.paidSen !== p.amountSen && (
+        <p className="mt-2 text-sm font-semibold text-clay">{t.changedSincePaid(`${p.amountSen > p.paidSen ? "+" : ""}${rm(p.amountSen - p.paidSen)}`)}</p>
+      )}
       {children}
     </li>
   );

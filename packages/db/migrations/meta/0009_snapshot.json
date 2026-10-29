@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "38632082-5e11-4348-9950-05470c66ebe3",
-  "prevId": "1afad9aa-677a-4102-b6cc-98d2a3dcea42",
+  "prevId": "f46cdc3e-6055-4111-b2b4-ca92fbe251e1",
   "tables": {
     "activities": {
       "name": "activities",
@@ -84,6 +84,50 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "venue_id": {
+          "name": "venue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "listing_mode": {
+          "name": "listing_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'hidden'"
+        },
+        "how_to_book": {
+          "name": "how_to_book",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'unknown'"
+        },
+        "book_url": {
+          "name": "book_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "price_note_en": {
+          "name": "price_note_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "price_note_ms": {
+          "name": "price_note_ms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "street_address": {
           "name": "street_address",
@@ -204,6 +248,13 @@
             "operator_id"
           ],
           "isUnique": false
+        },
+        "activities_venue": {
+          "name": "activities_venue",
+          "columns": [
+            "venue_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -239,6 +290,19 @@
           "tableTo": "categories",
           "columnsFrom": [
             "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "activities_venue_id_venues_id_fk": {
+          "name": "activities_venue_id_venues_id_fk",
+          "tableFrom": "activities",
+          "tableTo": "venues",
+          "columnsFrom": [
+            "venue_id"
           ],
           "columnsTo": [
             "id"
@@ -1095,6 +1159,21 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "signed_up": {
+          "name": "signed_up",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "commission_bps": {
+          "name": "commission_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1374,6 +1453,81 @@
         }
       }
     },
+    "payouts": {
+      "name": "payouts",
+      "columns": {
+        "operator_id": {
+          "name": "operator_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_sen": {
+          "name": "amount_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paid_at": {
+          "name": "paid_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paid_by": {
+          "name": "paid_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "payouts_paid_at": {
+          "name": "payouts_paid_at",
+          "columns": [
+            "paid_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "payouts_operator_id_operators_id_fk": {
+          "name": "payouts_operator_id_operators_id_fk",
+          "tableFrom": "payouts",
+          "tableTo": "operators",
+          "columnsFrom": [
+            "operator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "payouts_operator_id_month_pk": {
+          "columns": [
+            "operator_id",
+            "month"
+          ],
+          "name": "payouts_operator_id_month_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "photos": {
       "name": "photos",
       "columns": {
@@ -1386,6 +1540,13 @@
         },
         "activity_id": {
           "name": "activity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "venue_id": {
+          "name": "venue_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1464,6 +1625,14 @@
             "position"
           ],
           "isUnique": false
+        },
+        "photos_venue_position": {
+          "name": "photos_venue_position",
+          "columns": [
+            "venue_id",
+            "position"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1473,6 +1642,19 @@
           "tableTo": "activities",
           "columnsFrom": [
             "activity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "photos_venue_id_venues_id_fk": {
+          "name": "photos_venue_id_venues_id_fk",
+          "tableFrom": "photos",
+          "tableTo": "venues",
+          "columnsFrom": [
+            "venue_id"
           ],
           "columnsTo": [
             "id"
@@ -1517,6 +1699,13 @@
           "autoincrement": false,
           "default": 60
         },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "requires_waiver": {
           "name": "requires_waiver",
           "type": "integer",
@@ -1524,13 +1713,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1899,6 +2081,27 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "price_sen": {
+          "name": "price_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "commission_bps": {
+          "name": "commission_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -2192,6 +2395,13 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "commission_bps": {
+          "name": "commission_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -2390,6 +2600,121 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "venues": {
+      "name": "venues",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "city_id": {
+          "name": "city_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name_en": {
+          "name": "name_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name_ms": {
+          "name": "name_ms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "street_address": {
+          "name": "street_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "presint": {
+          "name": "presint",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lat": {
+          "name": "lat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "opening_hours": {
+          "name": "opening_hours",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        }
+      },
+      "indexes": {
+        "venues_city": {
+          "name": "venues_city",
+          "columns": [
+            "city_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "venues_city_id_cities_id_fk": {
+          "name": "venues_city_id_cities_id_fk",
+          "tableFrom": "venues",
+          "tableTo": "cities",
+          "columnsFrom": [
+            "city_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "venues_presint": {
+          "name": "venues_presint",
+          "value": "\"venues\".\"presint\" between 1 and 20"
+        }
+      }
     },
     "waivers": {
       "name": "waivers",

@@ -108,6 +108,7 @@ Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ti
 - [ ] Price per Schedule; weekend price on Date tickets; public holiday list; "From RMx" in the catalogue
 - [ ] Closure reasons + maintenance, event (`closed_reason` CHECK); horse unfit only on horse Activities; free-cancel default 24h for courts/Date tickets; policy shown on Pick and Pay
 - [x] Per-Option max per booking (stepper max 10 and `MAX_PEOPLE` are hard-coded)
+- Deploy note: Operators backfilled as signed up sell nothing until staff set their Commission; the daily 03:00 KL cron wakes every Operator so its Packs re-project into Payouts, so mark the first Payouts only after it has run
 - [ ] Check the Billplz collection has e-wallets (TnG, GrabPay, Boost), not only FPX/card
 - Eng risks: confirm nothing live in remote D1/DO before editing migrations in place, else additive only; `kind`/`closed_reason` CHECKs need one table rebuild (validate in code after), never one per value; `participant_id` NOT NULL on tickets/allocations/proj_tickets; `tickets.timeslot_id` single column vs back-to-back hours; `spots()` = 0 with no Resources; seed `onConflictDoUpdate` overwrites, block `/dev/seed` outside local; `listing_mode` backfill from `published`; venues backfilled from activities address/geo/hours; slug uniqueness across EN and MS
 - [ ] Reschedule with tiered prices: Customer same total only; after Closure same-or-cheaper with difference refunded (Klook customer-promises)

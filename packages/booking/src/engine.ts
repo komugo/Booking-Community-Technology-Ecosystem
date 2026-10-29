@@ -859,13 +859,19 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
   return { outcome: "checked_in", ticket: ticket(now) };
 }
 
+// Includes unexpired Packs with sessions left, which can only be redeemed while the Activity is Bookable.
 export const hasFutureBookings = (sql: SqlStorage, now: number, activityId: string) =>
   !!first(
     sql.exec(
       `SELECT 1 FROM timeslots s JOIN options o ON o.id = s.option_id
-       WHERE o.activity_id = ? AND s.starts_at > ?
+       WHERE o.activity_id = ?1 AND s.starts_at > ?2
          AND (EXISTS (SELECT 1 FROM tickets WHERE timeslot_id = s.id AND status = 'issued')
            OR EXISTS (SELECT 1 FROM holds WHERE timeslot_id = s.id AND status = 'active'))
+       UNION ALL
+       SELECT 1 FROM packs p
+       WHERE p.expires_at > ?2
+         AND EXISTS (SELECT 1 FROM json_each(p.option_ids) j JOIN options o ON o.id = j.value WHERE o.activity_id = ?1)
+         AND p.sessions_total > (SELECT count(*) FROM tickets WHERE pack_id = p.id AND status <> 'cancelled')
        LIMIT 1`,
       activityId,
       now,

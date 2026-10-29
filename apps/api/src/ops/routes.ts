@@ -1,8 +1,8 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, createDb, LISTING_MODES, operators, type ListingMode } from "@komugo/db";
+import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, projPackOffers, type Db, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
@@ -69,7 +69,11 @@ routes.get("/setup", async (c) => {
 routes.put("/commission", staffOnly, async (c) => {
   const body = await json(c);
   if (!int(body.commissionBps, 0, 10_000)) return fail(c, 400, { code: "invalid_field", field: "commissionBps" });
-  await createDb(c.env.DB).update(operators).set({ commissionBps: body.commissionBps }).where(eq(operators.id, c.req.param("operatorId")!));
+  // Agreeing the Commission is what signs an Operator up.
+  await createDb(c.env.DB)
+    .update(operators)
+    .set({ commissionBps: body.commissionBps, signedUp: true })
+    .where(eq(operators.id, c.req.param("operatorId")!));
   return c.json({ commissionBps: body.commissionBps });
 });
 
@@ -93,6 +97,32 @@ routes.put("/activities/:id", async (c) => {
   return c.json({ generated });
 });
 
+// A bill not yet paid or deleted can still be paid late and make a sale.
+async function hasOpenBills(db: Db, activityId: string) {
+  const [open] = await db
+    .select({ id: bills.id })
+    .from(bills)
+    .where(
+      and(
+        isNull(bills.paidAt),
+        isNull(bills.deletedAt),
+        or(
+          inArray(bills.checkoutId, db.select({ id: checkouts.id }).from(checkouts).where(eq(checkouts.activityId, activityId))),
+          inArray(
+            bills.checkoutId,
+            db
+              .select({ id: packOrders.id })
+              .from(packOrders)
+              .innerJoin(projPackOffers, eq(projPackOffers.id, packOrders.offerId))
+              .where(eq(projPackOffers.activityId, activityId)),
+          ),
+        ),
+      ),
+    )
+    .limit(1);
+  return !!open;
+}
+
 routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const body = await json(c);
   const mode = body.listingMode as ListingMode;
@@ -110,7 +140,7 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
   await set(mode);
   // Written before the check so a Hold made after it is refused at pay or redeem.
-  if (row.listingMode === "bookable" && mode !== "bookable" && (await c.var.b.hasFutureBookings(id))) {
+  if (row.listingMode === "bookable" && mode !== "bookable" && ((await c.var.b.hasFutureBookings(id)) || (await hasOpenBills(db, id)))) {
     await set("bookable");
     return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
   }

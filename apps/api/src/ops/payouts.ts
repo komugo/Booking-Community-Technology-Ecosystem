@@ -60,9 +60,10 @@ payouts.get("/", async (c) => {
   const rows = await months(c.env);
   return c.json({
     due: rows.filter((r) => r.paidAt === null),
+    // A month whose sales changed after it was paid comes first, so staff settle the difference by hand.
     paid: rows
       .filter((r) => r.paidAt !== null)
-      .sort((a, b) => b.paidAt! - a.paidAt!)
+      .sort((a, b) => Number(b.paidSen !== b.amountSen) - Number(a.paidSen !== a.amountSen) || b.paidAt! - a.paidAt!)
       .slice(0, 100),
   });
 });

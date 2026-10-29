@@ -1,5 +1,5 @@
 import { booking, BookingError } from "@komugo/booking";
-import { activities, bills, createDb, customers, packOrders, projPackOffers } from "@komugo/db";
+import { activities, bills, createDb, customers, operators, packOrders, projPackOffers } from "@komugo/db";
 import { Hono } from "hono";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createBill, type BillRow } from "./billplz";
@@ -19,11 +19,16 @@ packs.post("/", requireJson, async (c) => {
   const db = createDb(c.env.DB);
   const offerId = String(body.offerId ?? "");
   const [row] = await db
-    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode } })
+    .select({
+      offer: projPackOffers,
+      activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode },
+      commissionBps: operators.commissionBps,
+    })
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(eq(projPackOffers.id, offerId));
-  if (!row || !row.offer.active || (row.activity.listingMode !== "bookable" && c.env.BOOK_DRAFTS !== "1")) {
+  if (!row || !row.offer.active || ((row.activity.listingMode !== "bookable" || row.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")) {
     return fail(c, 409, { code: "not_bookable" });
   }
   const customerId = session.customerId;

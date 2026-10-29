@@ -96,6 +96,10 @@ test("marking a Payout paid is staff-only, checks the amount and is idempotent",
   expect(mine<{ operatorId: string; month: string }>(w, body.due).map((r) => r.month)).toEqual(["2025-04"]);
   expect(mine(w, body.paid)).toEqual([expect.objectContaining({ month: "2025-03", amountSen: 9000, paidSen: 9000, paidAt: first.body.paidAt })]);
 
+  await d1("UPDATE proj_refunds SET created_at = ? WHERE operator_id = ?", kl("2025-03-15T12:00"), w.operatorId);
+  const changed = (await staff.json("GET", "/ops/payouts")).body.paid[0];
+  expect(changed).toMatchObject({ operatorId: w.operatorId, month: "2025-03", amountSen: -1000, paidSen: 9000 });
+
   const current = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 7);
   expect((await staff.json("POST", `/ops/payouts/${w.operatorId}/${current}/paid`, { amountSen: 0 })).status).toBe(404);
   expect((await staff.json("POST", `/ops/payouts/${w.operatorId}/2025-13/paid`, { amountSen: 0 })).status).toBe(400);
