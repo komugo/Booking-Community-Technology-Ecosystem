@@ -26,6 +26,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
     startsAt: kl(`${DAY}T09:00`),
     closedAt: null,
     closedReason: null,
+    horse: true,
     spots: 1,
     tickets: [
       {

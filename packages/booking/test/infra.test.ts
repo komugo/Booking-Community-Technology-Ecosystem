@@ -3,7 +3,7 @@ import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
 import { tx } from "../src/tx";
-import { DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
+import { DAY, kl, operator, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
 
 const stubFor = (op: string) => env.BOOKING.get(env.BOOKING.idFromName(op));
 
@@ -94,4 +94,33 @@ test("migration 7 closes free step-4 Timeslots so a Schedule adopts the times it
       { id: booked, scheduled: 0, closed_reason: null },
     ]),
   );
+});
+
+test("the closed_reason migration keeps reasons and accepts maintenance and event", async () => {
+  const w = await rideWorld();
+  const [a, b] = [await w.slot(w.optionId, kl(`${DAY}T09:00`)), await w.slot(w.optionId, kl(`${DAY}T10:00`))];
+  await runInDurableObject(w.stub, (_, s) => {
+    const sql = s.storage.sql;
+    sql.exec("ALTER TABLE timeslots DROP COLUMN closed_reason");
+    sql.exec("ALTER TABLE timeslots ADD COLUMN closed_reason TEXT CHECK (closed_reason IN ('weather','horse_unfit','other','schedule'))");
+    sql.exec("UPDATE timeslots SET closed_at = 1, closed_reason = 'weather' WHERE id = ?", a);
+    sql.exec("UPDATE meta SET schema_version = ?", migrations.length - 1);
+    migrate(s.storage);
+    sql.exec("UPDATE timeslots SET closed_at = 1, closed_reason = 'maintenance' WHERE id = ?", b);
+    expect(sql.exec("SELECT id, closed_reason FROM timeslots ORDER BY starts_at").toArray()).toEqual([
+      { id: a, closed_reason: "weather" },
+      { id: b, closed_reason: "maintenance" },
+    ]);
+  });
+  await w.b.closeTimeslot(await w.slot(w.optionId, kl(`${DAY}T11:00`)), "event");
+});
+
+test("timeslots say whether their Activity uses horses", async () => {
+  const w = await rideWorld();
+  const walk = await w.option({}, [["instructor", 1]]);
+  const [ride, other] = [await w.slot(w.optionId, kl(`${DAY}T09:00`)), await w.slot(walk, kl(`${DAY}T09:00`))];
+  expect((await w.b.timeslots({ ids: [ride, other] })).map((x) => x.horse)).toEqual([true, true]);
+  const v = await operator();
+  const lone = await v.slot(await v.option({}, [["instructor", 1]]), kl(`${DAY}T09:00`));
+  expect((await v.b.timeslots({ ids: [lone] }))[0].horse).toBe(false);
 });

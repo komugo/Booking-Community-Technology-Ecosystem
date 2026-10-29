@@ -119,7 +119,7 @@ export type ResourceInput = {
   restMinutes: number;
   maxRiderWeightKg: number | null;
 };
-export type ClosureReason = "weather" | "horse_unfit" | "other";
+export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type ScheduleInput = {
   id: string;
   activityId: string;
@@ -158,6 +158,7 @@ export type TimeslotRow = {
   startsAt: number;
   closedAt: number | null;
   closedReason: string | null;
+  horse: boolean;
   spots: number;
   tickets: {
     id: string;
@@ -986,12 +987,13 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       starts_at: number;
       closed_at: number | null;
       closed_reason: string | null;
+      horse: number;
     }>(
-      "from" in q
-        ? `SELECT id, option_id, starts_at, closed_at, closed_reason FROM timeslots
-           WHERE starts_at >= ? AND starts_at < ? ORDER BY starts_at, option_id`
-        : `SELECT id, option_id, starts_at, closed_at, closed_reason FROM timeslots
-           WHERE id IN (SELECT value FROM json_each(?)) ORDER BY starts_at, option_id`,
+      `SELECT id, option_id, starts_at, closed_at, closed_reason,
+         EXISTS (SELECT 1 FROM options o JOIN option_resources r ON r.option_id = o.id
+           WHERE o.activity_id = (SELECT activity_id FROM options WHERE id = timeslots.option_id) AND r.kind = 'horse') AS horse
+       FROM timeslots WHERE ${"from" in q ? "starts_at >= ? AND starts_at < ?" : "id IN (SELECT value FROM json_each(?))"}
+       ORDER BY starts_at, option_id`,
       ...("from" in q ? [q.from, q.to] : [ids(q.ids)]),
     )
     .toArray();
@@ -1034,6 +1036,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       startsAt: s.starts_at,
       closedAt: s.closed_at,
       closedReason: s.closed_reason,
+      horse: s.horse === 1,
       spots: spots(sql, now, s.id),
       tickets: mine.map((t) => ({
         id: t.id,

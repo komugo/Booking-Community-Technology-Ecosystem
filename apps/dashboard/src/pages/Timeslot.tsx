@@ -6,7 +6,7 @@ import { dateLong, errorText, named, time, useT } from "../i18n";
 import type { ClosureReason, Group, Timeslot } from "../types";
 import { Icon, Sheet, Spinner, WaiverChip } from "../ui";
 
-const REASONS: ClosureReason[] = ["weather", "horse_unfit", "other"];
+const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 export default function TimeslotPage() {
   const { t, l } = useT();
@@ -181,7 +181,7 @@ export default function TimeslotPage() {
         <fieldset>
           <legend className="label">{t.whyClose}</legend>
           <div className="grid grid-cols-3 gap-2">
-            {REASONS.map((r) => (
+            {REASONS.filter((r) => r !== "horse_unfit" || slot.horse).map((r) => (
               <label
                 key={r}
                 className="flex min-h-16 cursor-pointer items-center justify-center rounded-2xl border border-line bg-white px-2 text-center font-semibold has-checked:border-forest has-checked:bg-forest has-checked:text-white has-focus-visible:outline-3 has-focus-visible:outline-lime"

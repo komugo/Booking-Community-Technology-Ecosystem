@@ -438,7 +438,7 @@ export const closureNotices = sqliteTable(
       .references(() => customers.id),
     bookingId: text(),
     packId: text(),
-    reason: text({ enum: ["weather", "horse_unfit", "other"] }).notNull(),
+    reason: text({ enum: ["weather", "maintenance", "event", "horse_unfit", "other"] }).notNull(),
     createdAt: integer().notNull(),
     emailedAt: integer(),
     choice: text({ enum: ["refund", "reschedule"] }),

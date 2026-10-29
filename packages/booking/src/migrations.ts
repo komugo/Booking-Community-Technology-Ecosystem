@@ -172,6 +172,13 @@ export const migrations: string[][] = [
     `INSERT INTO outbox (entity, entity_id, rev) SELECT 'pack', id, (SELECT rev FROM meta) FROM packs WHERE true
      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
   ],
+  // Closure reasons are validated in code, so new ones need no table rebuild.
+  [
+    `ALTER TABLE timeslots ADD COLUMN reason TEXT`,
+    `UPDATE timeslots SET reason = closed_reason`,
+    `ALTER TABLE timeslots DROP COLUMN closed_reason`,
+    `ALTER TABLE timeslots RENAME COLUMN reason TO closed_reason`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {
