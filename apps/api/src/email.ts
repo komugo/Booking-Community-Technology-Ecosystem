@@ -215,8 +215,20 @@ export async function sendClosureEmail(env: Env, timeslotId: string, ref: string
   if (!d) return;
   const when = klDateTime(slot.startsAt, l);
   const why = {
-    en: { weather: " due to the weather", horse_unfit: " because a horse is unfit to ride", other: "" },
-    ms: { weather: " kerana cuaca", horse_unfit: " kerana kuda tidak sihat untuk ditunggang", other: "" },
+    en: {
+      weather: " due to the weather",
+      maintenance: " for maintenance",
+      event: " for an event",
+      horse_unfit: " because a horse is unfit to ride",
+      other: "",
+    },
+    ms: {
+      weather: " kerana cuaca",
+      maintenance: " kerana penyelenggaraan",
+      event: " kerana acara",
+      horse_unfit: " kerana kuda tidak sihat untuk ditunggang",
+      other: "",
+    },
   }[l][n.reason];
   const lines =
     l === "ms"

@@ -35,6 +35,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       activityNameEn: activities.nameEn,
       activityNameMs: activities.nameMs,
       cutoffMinutes: projActivities.bookingCutoffMinutes,
+      freeCancelHours: projActivities.freeCancelHours,
     })
     .from(projOptions)
     .innerJoin(activities, eq(activities.id, projOptions.activityId))
@@ -117,6 +118,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     locale: l,
     option: o,
     activityName: l === "ms" ? row.activityNameMs : row.activityNameEn,
+    freeCancelHours: row.freeCancelHours,
     siblings,
     addOns,
     days,

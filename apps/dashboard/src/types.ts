@@ -4,7 +4,7 @@ export type Locale = "en" | "ms";
 export type Named = { nameEn: string; nameMs: string };
 export type Waiver = "signed" | "guardian" | "outdated" | "missing" | "not_required";
 export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane";
-export type ClosureReason = "weather" | "horse_unfit" | "other";
+export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type Outcome = "checked_in" | "already" | "not_today" | "closed" | "cancelled" | "not_found" | "ambiguous";
 
 export type Member = { email: string; name: string; role: "staff" | "operator" };
@@ -33,6 +33,7 @@ export type Timeslot = {
   startsAt: number;
   closedAt: number | null;
   closedReason: string | null;
+  horse: boolean;
   spots: number;
   option: Named & { id: string; durationMinutes: number };
   groups: Group[];

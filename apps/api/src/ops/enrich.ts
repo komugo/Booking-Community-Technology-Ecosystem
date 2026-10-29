@@ -106,6 +106,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
       startsAt: r.startsAt,
       closedAt: r.closedAt,
       closedReason: r.closedReason,
+      horse: r.horse,
       spots: r.spots,
       option: x.option(r.optionId),
       groups: [...groups.values()].map(({ bookingId, packId, customerId, tickets: ts }) => {

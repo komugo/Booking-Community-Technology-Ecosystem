@@ -182,6 +182,13 @@ export const migrations: string[][] = [
   ],
   [`ALTER TABLE activities ADD COLUMN requires_waiver INTEGER NOT NULL DEFAULT 1 CHECK (requires_waiver IN (0,1))`],
   [`ALTER TABLE options ADD COLUMN max_per_booking INTEGER CHECK (max_per_booking > 0)`],
+  // Closure reasons are validated in code, so new ones need no table rebuild.
+  [
+    `ALTER TABLE timeslots ADD COLUMN reason TEXT`,
+    `UPDATE timeslots SET reason = closed_reason`,
+    `ALTER TABLE timeslots DROP COLUMN closed_reason`,
+    `ALTER TABLE timeslots RENAME COLUMN reason TO closed_reason`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

@@ -232,7 +232,7 @@ function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSa
 function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Setup; id: string; staff: boolean; onSaved: () => void }) {
   const { t, l } = useT();
   const a = setup.catalogue.find((x) => x.id === id)!;
-  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
+  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 0, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
   const [hours, setHours] = useState(String(settings.freeCancelHours));
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);

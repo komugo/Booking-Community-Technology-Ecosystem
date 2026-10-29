@@ -12,7 +12,7 @@ import { enrichCheckIn, enrichTimeslots } from "./enrich";
 type Body = Record<string, unknown>;
 
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
-const REASONS: ClosureReason[] = ["weather", "horse_unfit", "other"];
+const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 const int = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
 const intOrNull = (v: unknown, min: number, max: number) => v === null || int(v, min, max);
@@ -337,9 +337,11 @@ routes.get("/timeslots/:id", async (c) => {
 
 routes.post("/timeslots/:id/close", async (c) => {
   const body = await json(c);
-  if (!REASONS.includes(body.reason as ClosureReason)) return fail(c, 400, { code: "invalid_field", field: "reason" });
-  const op = c.req.param("operatorId")!;
   const id = c.req.param("id");
+  if (!REASONS.includes(body.reason as ClosureReason) || (body.reason === "horse_unfit" && !(await c.var.b.timeslots({ ids: [id] }))[0]?.horse)) {
+    return fail(c, 400, { code: "invalid_field", field: "reason" });
+  }
+  const op = c.req.param("operatorId")!;
   await recordClosure(c.env, (p) => c.executionCtx.waitUntil(p), op, id, body.reason as ClosureReason);
   const [slot] = await enrichTimeslots(c.env, op, await c.var.b.timeslots({ ids: [id] }));
   return c.json({ timeslot: slot, affected: slot.groups });

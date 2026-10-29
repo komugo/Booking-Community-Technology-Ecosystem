@@ -8,7 +8,7 @@ import { duration, klDay, klTime, path, requirements, rm, t } from "../../lib/i1
 import type { pickStep } from "../../lib/checkout";
 
 type Props = Exclude<Awaited<ReturnType<typeof pickStep>>, Response>;
-const { locale: l, option: o, activityName, siblings, addOns, days, date, times, nextOpen, values, min, max, problems: p } = Astro.props;
+const { locale: l, option: o, activityName, freeCancelHours, siblings, addOns, days, date, times, nextOpen, values, min, max, problems: p } = Astro.props;
 const s = t[l];
 const c = s.checkout;
 const here = path(l, "book", o.id);
@@ -126,6 +126,11 @@ const picked = times.find((x) => x.id === values.timeslotId);
         </section>
       )
     }
+
+    <section class="rounded-2xl bg-sand p-4" aria-labelledby="cancel">
+      <h2 id="cancel" class="text-lg font-bold">{s.cancellation}</h2>
+      <p class="mt-1 text-sm">{s.cancelText(freeCancelHours)}</p>
+    </section>
 
     <BottomBar locale={l} label={c.estimated} sen={total}>
       <button class="inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest disabled:opacity-50" disabled={!times.length}>
