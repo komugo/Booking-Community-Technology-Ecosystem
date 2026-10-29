@@ -50,7 +50,7 @@ test("each sale keeps the Commission rate in force when it was paid", async () =
   expect(mine(w, (await staff.json("GET", "/ops/payouts")).body.due)).toEqual(mine(w, before.due));
 });
 
-test("a month's Payout is sales less Commission and Refunds, counting Pack sales and only Refunds of sales", async () => {
+test("a month's Payout is sales less Commission and Refunds, counting Pack sales and only Refunds of sales, with Commission given back on Refunds", async () => {
   const { w, staff } = await sales();
   const { body } = await staff.json("GET", "/ops/payouts");
   expect(mine(w, body.due)).toEqual([
@@ -61,6 +61,7 @@ test("a month's Payout is sales less Commission and Refunds, counting Pack sales
       salesSen: 10000,
       commissionSen: 1000,
       refundsSen: 0,
+      carriedSen: 0,
       amountSen: 9000,
       paidSen: null,
       paidAt: null,
@@ -70,9 +71,10 @@ test("a month's Payout is sales less Commission and Refunds, counting Pack sales
       operatorName: "Test Stable",
       month: "2025-04",
       salesSen: 35500,
-      commissionSen: 7100,
+      commissionSen: 6100,
       refundsSen: 10000,
-      amountSen: 18400,
+      carriedSen: 0,
+      amountSen: 19400,
       paidSen: null,
       paidAt: null,
     },
@@ -98,9 +100,21 @@ test("marking a Payout paid is staff-only, checks the amount and is idempotent",
 
   await d1("UPDATE proj_refunds SET created_at = ? WHERE operator_id = ?", kl("2025-03-15T12:00"), w.operatorId);
   const changed = (await staff.json("GET", "/ops/payouts")).body.paid[0];
-  expect(changed).toMatchObject({ operatorId: w.operatorId, month: "2025-03", amountSen: -1000, paidSen: 9000 });
+  expect(changed).toMatchObject({ operatorId: w.operatorId, month: "2025-03", amountSen: 0, paidSen: 9000 });
 
   const current = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 7);
   expect((await staff.json("POST", `/ops/payouts/${w.operatorId}/${current}/paid`, { amountSen: 0 })).status).toBe(404);
   expect((await staff.json("POST", `/ops/payouts/${w.operatorId}/2025-13/paid`, { amountSen: 0 })).status).toBe(400);
+});
+
+test("a negative month carries into the Operator's next month and can't be marked paid", async () => {
+  const { w, staff } = await sales();
+  await d1("UPDATE proj_refunds SET created_at = ? WHERE operator_id = ?", kl("2025-02-15T12:00"), w.operatorId);
+  const { body } = await staff.json("GET", "/ops/payouts");
+  expect(mine(w, body.carried)).toEqual([expect.objectContaining({ month: "2025-02", commissionSen: -1000, refundsSen: 10000, amountSen: -9000 })]);
+  expect(mine(w, body.due)).toEqual([
+    expect.objectContaining({ month: "2025-03", carriedSen: -9000, amountSen: 0 }),
+    expect.objectContaining({ month: "2025-04", carriedSen: 0, amountSen: 28400 }),
+  ]);
+  expect((await staff.json("POST", `/ops/payouts/${w.operatorId}/2025-02/paid`, { amountSen: -9000 })).body).toEqual({ code: "carried_forward" });
 });

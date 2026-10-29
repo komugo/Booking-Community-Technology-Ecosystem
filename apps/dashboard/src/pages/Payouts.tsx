@@ -10,7 +10,7 @@ const key = (p: PayoutRow) => `${p.operatorId}/${p.month}`;
 
 export default function Payouts() {
   const { t, l } = useT();
-  const list = useApi<{ due: PayoutRow[]; paid: PayoutRow[] }>("/payouts");
+  const list = useApi<{ due: PayoutRow[]; carried: PayoutRow[]; paid: PayoutRow[] }>("/payouts");
   const [confirming, setConfirming] = useState<PayoutRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +70,20 @@ export default function Payouts() {
                 ))}
               </ul>
             )}
+            {list.data.carried.length > 0 && (
+              <section className="mt-10" aria-labelledby="carried">
+                <h2 id="carried" className="text-2xl font-extrabold">
+                  {t.carriedTitle}
+                </h2>
+                <ul className="mt-3 grid gap-3 lg:grid-cols-2">
+                  {list.data.carried.map((p) => (
+                    <Card key={key(p)} p={p}>
+                      <p className="mt-2 text-sm text-muted">{t.carriedNote}</p>
+                    </Card>
+                  ))}
+                </ul>
+              </section>
+            )}
             {list.data.paid.length > 0 && (
               <section className="mt-10" aria-labelledby="paid">
                 <h2 id="paid" className="text-2xl font-extrabold">
@@ -128,6 +142,7 @@ function Card({ p, children }: { p: PayoutRow; children?: ReactNode }) {
             [t.sales, p.salesSen],
             [t.commission, -p.commissionSen],
             [t.refunds, -p.refundsSen],
+            ...(p.carriedSen ? ([[t.carried, p.carriedSen]] as const) : []),
           ] as const
         ).map(([label, sen]) => (
           <div key={label} className="flex justify-between gap-2">

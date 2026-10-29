@@ -162,7 +162,7 @@ Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of 
 Komugo's cut of each sale: a percentage agreed with each Operator at sign-up, fixed on each Ticket and Pack sale at the time of sale.
 
 **Payout**:
-Komugo's monthly transfer to an Operator of that month's sales net of Commission and Refunds, paid by staff by hand and then marked paid.
+Komugo's monthly transfer to an Operator of that month's sales net of Commission and Refunds, paid by staff by hand and then marked paid. A Refund gives back its Commission; a negative month is carried into the Operator's next month instead of being paid.
 
 ## Relationships
 

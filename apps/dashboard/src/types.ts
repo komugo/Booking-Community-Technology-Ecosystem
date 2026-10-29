@@ -118,6 +118,7 @@ export type PayoutRow = {
   salesSen: number;
   commissionSen: number;
   refundsSen: number;
+  carriedSen: number;
   amountSen: number;
   paidSen: number | null;
   paidAt: number | null;
