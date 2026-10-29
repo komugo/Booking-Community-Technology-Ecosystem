@@ -101,7 +101,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
     .innerJoin(cities, eq(cities.id, activities.cityId))
     .innerJoin(categories, eq(categories.id, activities.categoryId))
     .where(and(where, draftGate(q)))
-    .orderBy(asc(activities.nameEn));
+    .orderBy(sql`${activities.listingMode} = 'bookable' desc`, asc(activities.nameEn));
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.a.id);
   const [opts, covers, slots] = await db.batch([

@@ -74,12 +74,12 @@ const horseRiding: HubSeed = {
   photo: unsplash("1594768816441-1dd241ffaa67", "9h_bJdGqzCk", 5184, 3456, "Mikayla Storms", "mikham", "Rider on a chestnut horse in an outdoor arena", "Penunggang di atas kuda perang di gelanggang terbuka"),
 };
 
-const rockClimbing: HubSeed = {
+const climbing: HubSeed = {
   id: "cat_rock_climbing",
-  slugEn: "rock-climbing",
-  slugMs: "panjat-tebing",
-  nameEn: "Rock climbing",
-  nameMs: "Panjat tebing",
+  slugEn: "climbing-adventure-parks",
+  slugMs: "panjat-taman-pengembaraan",
+  nameEn: "Climbing & adventure parks",
+  nameMs: "Panjat & taman pengembaraan",
   introEn:
     "Indoor wall climbing in Putrajaya costs a few ringgit for a 3-hour session, with gear to rent on site and instructors for beginners. It's air-conditioned and open late, which makes it an easy weeknight plan.",
   introMs:
@@ -159,7 +159,7 @@ const equestrian: ActivitySeed = {
 const challengePark: ActivitySeed = {
   id: "act_challenge_park",
   operator: { id: "op_challenge_park", name: "Putrajaya Challenge Park" },
-  category: rockClimbing,
+  category: climbing,
   slugEn: "putrajaya-challenge-park",
   slugMs: "taman-cabaran-putrajaya",
   nameEn: "Putrajaya Challenge Park",

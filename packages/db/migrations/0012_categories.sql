@@ -1,0 +1,21 @@
+INSERT INTO `categories` (`id`, `slug_en`, `slug_ms`, `name_en`, `name_ms`) VALUES
+	('cat_badminton', 'badminton', 'badminton', 'Badminton', 'Badminton'),
+	('cat_futsal', 'futsal', 'futsal', 'Futsal', 'Futsal'),
+	('cat_football', 'football', 'bola-sepak', 'Football', 'Bola sepak'),
+	('cat_tennis', 'tennis', 'tenis', 'Tennis', 'Tenis'),
+	('cat_squash', 'squash', 'skuasy', 'Squash', 'Skuasy'),
+	('cat_pickleball', 'pickleball', 'pickleball', 'Pickleball', 'Pickleball'),
+	('cat_basketball', 'basketball', 'bola-keranjang', 'Basketball', 'Bola keranjang'),
+	('cat_sepak_takraw', 'sepak-takraw', 'sepak-takraw', 'Sepak takraw', 'Sepak takraw'),
+	('cat_volleyball_netball', 'volleyball-netball', 'bola-tampar-bola-jaring', 'Volleyball & netball', 'Bola tampar & bola jaring'),
+	('cat_gym', 'gym', 'gim', 'Gym', 'Gim'),
+	('cat_swimming', 'swimming', 'renang', 'Swimming', 'Renang'),
+	('cat_water_sports', 'water-sports', 'sukan-air', 'Water sports', 'Sukan air'),
+	('cat_cruises_boats', 'cruises-boats', 'pelayaran-bot', 'Cruises & boats', 'Pelayaran & bot'),
+	('cat_horse_riding', 'horse-riding', 'menunggang-kuda', 'Horse riding', 'Menunggang kuda'),
+	('cat_rock_climbing', 'climbing-adventure-parks', 'panjat-taman-pengembaraan', 'Climbing & adventure parks', 'Panjat & taman pengembaraan'),
+	('cat_ice_skating', 'ice-skating', 'luncur-ais', 'Ice skating', 'Luncur ais'),
+	('cat_parks_cycling', 'parks-cycling', 'taman-berbasikal', 'Parks & cycling', 'Taman & berbasikal'),
+	('cat_landmarks_tours', 'landmarks-tours', 'mercu-tanda-lawatan', 'Landmarks & tours', 'Mercu tanda & lawatan'),
+	('cat_farms_nature', 'farms-nature', 'ladang-alam-semula-jadi', 'Farms & nature', 'Ladang & alam semula jadi')
+ON CONFLICT(`id`) DO UPDATE SET `slug_en` = excluded.`slug_en`, `slug_ms` = excluded.`slug_ms`, `name_en` = excluded.`name_en`, `name_ms` = excluded.`name_ms`;
