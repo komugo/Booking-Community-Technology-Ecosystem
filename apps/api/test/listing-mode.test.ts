@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { activities, getActivityPage, getCityHub, listSitemapEntries, operators, photos, venues } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { booked, client, d1, db, member, rid, world } from "./helpers";
+import { booked, client, d1, db, held, member, rid, world } from "./helpers";
 
 const mode = async (w: { operatorId: string; activityId: string }, listingMode: string) =>
   (await member("staff")).json("PUT", `/ops/operators/${w.operatorId}/activities/${w.activityId}/listing-mode`, { listingMode });
@@ -27,7 +27,6 @@ describe("Listing mode", () => {
   test("an Activity with future Tickets cannot leave Bookable", async () => {
     const w = await world();
     await booked(w);
-    await w.flush();
     expect(await mode(w, "info")).toEqual({ status: 409, body: { code: "has_future_tickets", field: "listingMode" } });
     expect(await mode(w, "hidden")).toMatchObject({ status: 409 });
     expect(await mode(w, "bookable")).toEqual({ status: 200, body: { listingMode: "bookable" } });
@@ -35,6 +34,18 @@ describe("Listing mode", () => {
     const free = await world();
     expect(await mode(free, "info")).toEqual({ status: 200, body: { listingMode: "info" } });
     expect(await d1("SELECT listing_mode, published FROM activities WHERE id = ?", free.activityId)).toEqual([{ listing_mode: "info", published: 0 }]);
+  });
+
+  test("an unpaid Hold keeps an Activity Bookable; a Hold made after the switch cannot be paid", async () => {
+    const w = await world();
+    await held(w);
+    expect(await mode(w, "hidden")).toEqual({ status: 409, body: { code: "has_future_tickets", field: "listingMode" } });
+    expect(await d1("SELECT listing_mode, published FROM activities WHERE id = ?", w.activityId)).toEqual([{ listing_mode: "bookable", published: 1 }]);
+
+    const late = await world();
+    const { cl, id } = await held(late);
+    await db.update(activities).set({ listingMode: "info" }).where(eq(activities.id, late.activityId));
+    expect(await cl.json("POST", `/checkouts/${id}/pay`)).toEqual({ status: 409, body: { code: "not_bookable" } });
   });
 
   test("rejects an unknown mode", async () => {
@@ -48,8 +59,8 @@ describe("Listing mode", () => {
     expect(await client().json("POST", "/checkouts", body)).toEqual({ status: 409, body: { code: "not_bookable" } });
   });
 
-  test("backfill makes published Activities Bookable, others Hidden, and signs up existing Operators", async () => {
-    const live = await world({ listingMode: "hidden" });
+  test("backfill makes published Activities Bookable, others Hidden, and signs up only their Operators", async () => {
+    const live = await world({ listingMode: "hidden", signedUp: false });
     const draft = await world({ listingMode: "hidden", signedUp: false });
     await db.update(activities).set({ published: true }).where(eq(activities.id, live.activityId));
     const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith("0007_"))!;
@@ -59,7 +70,8 @@ describe("Listing mode", () => {
       { id: live.activityId, listing_mode: "bookable" },
       { id: draft.activityId, listing_mode: "hidden" },
     ]);
-    expect(await d1("SELECT signed_up FROM operators WHERE id = ?", draft.operatorId)).toEqual([{ signed_up: 1 }]);
+    expect(await d1("SELECT signed_up FROM operators WHERE id = ?", live.operatorId)).toEqual([{ signed_up: 1 }]);
+    expect(await d1("SELECT signed_up FROM operators WHERE id = ?", draft.operatorId)).toEqual([{ signed_up: 0 }]);
   });
 });
 

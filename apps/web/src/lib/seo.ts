@@ -34,7 +34,7 @@ export function activityLd(site: URL | undefined, l: Locale, a: ActivityData): J
   const venue: Json = {
     "@context": "https://schema.org",
     "@type": "SportsActivityLocation",
-    name: a.name,
+    name: a.venue?.name ?? a.name,
     url,
     image: images,
     telephone: a.phone ?? undefined,
@@ -53,7 +53,7 @@ export function activityLd(site: URL | undefined, l: Locale, a: ActivityData): J
       closes: h.closes,
     })),
   };
-  const products = a.options.map((o) => ({
+  const products = (a.bookable ? a.options : []).map((o) => ({
     "@context": "https://schema.org",
     "@type": "Product",
     name: `${a.name}: ${o.name}`,

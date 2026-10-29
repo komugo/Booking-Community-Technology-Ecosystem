@@ -235,9 +235,8 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
     photo(putrajaya.photo),
     ...SEEDS.flatMap(({ operator, category, freeCancelHours, closedDays, scheduleId, options, addOns, resources, photos: gallery, ...copy }) => {
       const values = { ...copy, operatorId: operator.id, cityId: putrajaya.id, categoryId: category.id };
-      const op = { ...operator, signedUp: true };
       return [
-        db.insert(operators).values(op).onConflictDoUpdate({ target: operators.id, set: op }),
+        db.insert(operators).values(operator).onConflictDoUpdate({ target: operators.id, set: operator }),
         hub(categories, category),
         photo(category.photo),
         db.insert(activities).values(values).onConflictDoUpdate({ target: activities.id, set: values }),

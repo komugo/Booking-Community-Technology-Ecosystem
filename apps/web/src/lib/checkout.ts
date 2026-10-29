@@ -40,7 +40,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     .innerJoin(activities, eq(activities.id, projOptions.activityId))
     .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
     .where(and(eq(projOptions.id, optionId), eq(projOptions.active, true)));
-  if (!row || !(row.listingMode === "bookable" || showDrafts)) return notFound();
+  if (!row || !(row.listingMode === "bookable" || (showDrafts && row.listingMode === "hidden"))) return notFound();
   const o = row.option;
   const now = Date.now();
   const [siblings, addOns, slots] = await db.batch([

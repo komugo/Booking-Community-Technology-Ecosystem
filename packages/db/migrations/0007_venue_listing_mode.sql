@@ -26,4 +26,4 @@ ALTER TABLE `operators` ADD `signed_up` integer DEFAULT false NOT NULL;--> state
 ALTER TABLE `photos` ADD `venue_id` text REFERENCES venues(id);--> statement-breakpoint
 CREATE INDEX `photos_venue_position` ON `photos` (`venue_id`,`position`);--> statement-breakpoint
 UPDATE `activities` SET `listing_mode` = 'bookable' WHERE `published` = 1;--> statement-breakpoint
-UPDATE `operators` SET `signed_up` = 1;
+UPDATE `operators` SET `signed_up` = 1 WHERE `id` IN (SELECT `operator_id` FROM `activities` WHERE `published` = 1);

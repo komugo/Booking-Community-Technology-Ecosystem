@@ -170,7 +170,7 @@ export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
     .where(eq(projPackOffers.id, params.offerId!));
-  if (!row || !row.offer.active || !(row.activity.listingMode === "bookable" || showDrafts)) return notFound();
+  if (!row || !row.offer.active || !(row.activity.listingMode === "bookable" || (showDrafts && row.activity.listingMode === "hidden"))) return notFound();
   const here = path(l, "packs", "buy", row.offer.id);
   let errors = codeFrom(url);
   if (request.method === "POST") {

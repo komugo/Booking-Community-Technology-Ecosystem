@@ -72,6 +72,10 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#read(op, (sql) => engine.setup(sql));
   }
 
+  hasFutureBookings(op: string, activityId: string) {
+    return this.#read(op, (sql, now) => engine.hasFutureBookings(sql, now, activityId));
+  }
+
   timeslots(op: string, q: { from: number; to: number } | { ids: string[] }) {
     return this.#read(op, (sql, now) => engine.timeslots(sql, now, q));
   }

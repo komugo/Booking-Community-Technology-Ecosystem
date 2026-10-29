@@ -55,7 +55,6 @@ export const venues = sqliteTable(
 export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
 export type ListingMode = (typeof LISTING_MODES)[number];
 export const HOW_TO_BOOK = ["walk_in", "external", "unknown"] as const;
-export type HowToBook = (typeof HOW_TO_BOOK)[number];
 
 export const activities = sqliteTable(
   "activities",

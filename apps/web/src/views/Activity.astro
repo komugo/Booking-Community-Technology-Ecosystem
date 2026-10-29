@@ -169,7 +169,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
                 {a.addOns.map((x) => (
                   <tr class="border-b border-line last:border-0">
                     <th scope="row" class="py-3 text-left font-normal">{x.name}</th>
-                    <td class="py-3 text-right"><Price locale={locale} sen={x.priceSen} confirmed={confirmed} /></td>
+                    {!info && <td class="py-3 text-right"><Price locale={locale} sen={x.priceSen} confirmed={confirmed} /></td>}
                   </tr>
                 ))}
               </tbody>
@@ -203,7 +203,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
             <div class="mt-3 text-sm" data-hours>{a.openingHours.length ? <HoursTable locale={locale} hours={a.openingHours} /> : s.checkWithVenue}</div>
             {a.hoursNote && <p class="mt-3 text-sm text-muted">{a.hoursNote}</p>}
           </div>
-          {a.freeCancelHours !== null && (
+          {!info && a.freeCancelHours !== null && (
             <div class="rounded-2xl bg-sand p-5 md:col-span-2">
               <h3 class="text-xl font-bold">{s.cancellation}</h3>
               <p class="mt-2">{s.cancelText(a.freeCancelHours)}</p>
@@ -273,7 +273,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
         {fromSen !== null && <p class="text-3xl"><Price locale={locale} sen={fromSen} confirmed={confirmed} from /></p>}
         <p class="mt-2 text-sm text-muted">{todayText}</p>
         <a href={bookHref ?? "#book"} class="mt-5 flex min-h-12 items-center justify-center rounded-full bg-leaf font-semibold text-white hover:bg-forest">{bookHref ? s.bookNow : s.howToBook}</a>
-        {a.freeCancelHours !== null && <p class="mt-4 text-sm text-muted">{s.cancelText(a.freeCancelHours)}</p>}
+        {!info && a.freeCancelHours !== null && <p class="mt-4 text-sm text-muted">{s.cancelText(a.freeCancelHours)}</p>}
       </div>
     </aside>
   </div>

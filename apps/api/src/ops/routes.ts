@@ -1,8 +1,8 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, createDb, LISTING_MODES, operators, projOptions, projTickets, type ListingMode } from "@komugo/db";
+import { activities, createDb, LISTING_MODES, operators, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
@@ -91,16 +91,13 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
     .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
   if (!row) return fail(c, 404, { code: "not_found" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
-  if (row.listingMode === "bookable" && mode !== "bookable") {
-    const [future] = await db
-      .select({ id: projTickets.id })
-      .from(projTickets)
-      .innerJoin(projOptions, eq(projOptions.id, projTickets.optionId))
-      .where(and(eq(projOptions.activityId, id), eq(projTickets.status, "issued"), gt(projTickets.startsAt, Date.now())))
-      .limit(1);
-    if (future) return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
+  const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
+  await set(mode);
+  // Written before the check so a Hold made after it is refused at pay or redeem.
+  if (row.listingMode === "bookable" && mode !== "bookable" && (await c.var.b.hasFutureBookings(id))) {
+    await set("bookable");
+    return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
   }
-  await db.update(activities).set({ listingMode: mode, published: mode === "bookable" }).where(eq(activities.id, id));
   return c.json({ listingMode: mode });
 });
 

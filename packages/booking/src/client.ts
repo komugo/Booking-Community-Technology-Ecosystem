@@ -73,6 +73,7 @@ export function booking(env: Env, operatorId: string) {
     closeTimeslot: (timeslotId: string, reason: ClosureReason) => call((s) => s.closeTimeslot(op, timeslotId, reason)),
     checkIn: (i: { requestId: string; code: string }) => call((s) => s.checkIn(op, i)),
     setup: () => call((s) => s.setup(op)),
+    hasFutureBookings: (activityId: string) => call((s) => s.hasFutureBookings(op, activityId)),
     timeslots: (q: { from: number; to: number } | { ids: string[] }) => call((s) => s.timeslots(op, q)),
     confirmHold: (i: { billId: string; holdId: string; amountSen: number }) => call((s) => s.confirmHold(op, i)),
     upsertPackOffer: (o: PackOfferInput) => call((s) => s.upsertPackOffer(op, o)),
