@@ -73,12 +73,18 @@ describe("ops authorization", () => {
     expect((await staff.call("GET", `/ops/operators/op_missing/setup`)).status).toBe(404);
   });
 
-  test("publishing is staff-only", async () => {
+  test("publishing and Commission are staff-only, and publishing needs a Commission", async () => {
     const w = await world({ published: false });
     const own = await member("operator", w.operatorId);
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/published`;
+    const commission = `/ops/operators/${w.operatorId}/commission`;
     expect((await own.json("PUT", url, { published: true })).body).toEqual({ code: "forbidden" });
+    expect((await own.json("PUT", commission, { commissionBps: 1000 })).body).toEqual({ code: "forbidden" });
     const staff = await member("staff");
+    expect((await staff.json("PUT", url, { published: true })).body).toEqual({ code: "commission_unset" });
+    expect((await staff.json("PUT", commission, { commissionBps: 10_001 })).body).toEqual({ code: "invalid_field", field: "commissionBps" });
+    expect((await staff.json("PUT", commission, { commissionBps: 1250 })).body).toEqual({ commissionBps: 1250 });
+    expect((await own.json("GET", `/ops/operators/${w.operatorId}/setup`)).body.commissionBps).toBe(1250);
     expect((await staff.json("PUT", url, { published: true })).body).toEqual({ published: true });
     expect(await d1("SELECT published FROM activities WHERE id = ?", w.activityId)).toEqual([{ published: 1 }]);
   });

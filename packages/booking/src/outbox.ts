@@ -55,7 +55,7 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     table: "proj_tickets",
     pk: "id",
     query: `SELECT t.id, t.customer_id, t.participant_id, t.booking_id, t.pack_id, s.option_id, t.timeslot_id,
-      s.starts_at, s.closed_at, t.price_sen, t.status
+      s.starts_at, s.closed_at, t.price_sen, t.commission_bps, t.status
       FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id WHERE t.id = ?`,
   },
   pack: {
@@ -63,7 +63,7 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     pk: "id",
     query: `SELECT id, customer_id, sessions_total,
       (SELECT count(*) FROM tickets WHERE pack_id = packs.id AND status <> 'cancelled') AS sessions_used, expires_at,
-      offer_id, option_ids
+      offer_id, option_ids, (SELECT price_sen FROM pack_orders WHERE pack_id = packs.id) AS price_sen, commission_bps, created_at
       FROM packs WHERE id = ?`,
   },
   payment: {

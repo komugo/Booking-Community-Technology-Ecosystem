@@ -1,4 +1,4 @@
-import { createDb, participants, waivers } from "@komugo/db";
+import { createDb, operators, participants, waivers } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
 import { and, eq, inArray } from "drizzle-orm";
 import {
@@ -44,6 +44,12 @@ async function loadFacts(env: Env, operatorId: string, ids: string[]): Promise<P
   });
 }
 
+// Read at the moment of sale, so a later rate change never alters it.
+async function commissionBps(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
+  return o?.bps ?? null;
+}
+
 export function booking(env: Env, operatorId: string) {
   const op = operatorId;
   const stub = () => env.BOOKING.get(env.BOOKING.idFromName(op), { locationHint: "apac" });
@@ -74,10 +80,16 @@ export function booking(env: Env, operatorId: string) {
     checkIn: (i: { requestId: string; code: string }) => call((s) => s.checkIn(op, i)),
     setup: () => call((s) => s.setup(op)),
     timeslots: (q: { from: number; to: number } | { ids: string[] }) => call((s) => s.timeslots(op, q)),
-    confirmHold: (i: { billId: string; holdId: string; amountSen: number }) => call((s) => s.confirmHold(op, i)),
+    async confirmHold(i: { billId: string; holdId: string; amountSen: number }) {
+      const bps = await commissionBps(env, op);
+      return call((s) => s.confirmHold(op, { ...i, commissionBps: bps }));
+    },
     upsertPackOffer: (o: PackOfferInput) => call((s) => s.upsertPackOffer(op, o)),
     orderPack: (i: { orderId: string; customerId: string; offerId: string }) => call((s) => s.orderPack(op, i)),
-    confirmPackBill: (i: { billId: string; orderId: string; amountSen: number }) => call((s) => s.confirmPackBill(op, i)),
+    async confirmPackBill(i: { billId: string; orderId: string; amountSen: number }) {
+      const bps = await commissionBps(env, op);
+      return call((s) => s.confirmPackBill(op, { ...i, commissionBps: bps }));
+    },
     redeemPack: (i: { requestId: string; customerId: string; packId: string; holdId: string }) =>
       call((s) => s.redeemPack(op, i)),
     cancelQuote: (i: { customerId: string; group: Group; ticketIds: string[]; onlyClosed: boolean }) =>

@@ -62,13 +62,19 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
 });
 
-test("only staff can publish an Activity", async ({ browser, request }) => {
+test("only staff can publish an Activity, once its Operator has a Commission", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();
   await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
   await expect(page).toHaveURL(`/o/${fx.operatorId}/setup`);
   const published = page.getByRole("switch", { name: "Published" });
   await expect(published).not.toBeChecked();
+  await published.check({ force: true });
+  await expect(page.getByRole("alert")).toHaveText("Set the Commission before publishing.");
+  await expect(published).not.toBeChecked();
+  await page.getByLabel("Commission (%)").fill("12.5");
+  await page.getByRole("button", { name: "Save" }).first().click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await published.check({ force: true });
   await expect(published).toBeChecked();
   await page.reload();

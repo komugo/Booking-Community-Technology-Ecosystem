@@ -1,5 +1,5 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, createDb } from "@komugo/db";
+import { activities, createDb, operators } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
@@ -42,9 +42,15 @@ async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   return !!row;
 }
 
+async function commissionBps(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
+  return o.bps;
+}
+
 routes.get("/setup", async (c) => {
-  const [setup, catalogue] = await Promise.all([
+  const [setup, commission, catalogue] = await Promise.all([
     c.var.b.setup(),
+    commissionBps(c.env, c.req.param("operatorId")!),
     createDb(c.env.DB)
       .select({
         id: activities.id,
@@ -57,7 +63,14 @@ routes.get("/setup", async (c) => {
       .from(activities)
       .where(eq(activities.operatorId, c.req.param("operatorId")!)),
   ]);
-  return c.json({ ...setup, catalogue });
+  return c.json({ ...setup, commissionBps: commission, catalogue });
+});
+
+routes.put("/commission", staffOnly, async (c) => {
+  const body = await json(c);
+  if (!int(body.commissionBps, 0, 10_000)) return fail(c, 400, { code: "invalid_field", field: "commissionBps" });
+  await createDb(c.env.DB).update(operators).set({ commissionBps: body.commissionBps }).where(eq(operators.id, c.req.param("operatorId")!));
+  return c.json({ commissionBps: body.commissionBps });
 });
 
 routes.put("/activities/:id", async (c) => {
@@ -82,6 +95,9 @@ routes.put("/activities/:id/published", staffOnly, async (c) => {
   const body = await json(c);
   if (!bool(body.published)) return fail(c, 400, { code: "invalid_field", field: "published" });
   if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
+  if (body.published && (await commissionBps(c.env, c.req.param("operatorId")!)) === null) {
+    return fail(c, 409, { code: "commission_unset" });
+  }
   await createDb(c.env.DB).update(activities).set({ published: body.published }).where(eq(activities.id, c.req.param("id")));
   return c.json({ published: body.published });
 });

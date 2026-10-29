@@ -1,0 +1,91 @@
+import { createDb, payouts as payoutsTable } from "@komugo/db";
+import { klDate } from "@komugo/types";
+import { Hono } from "hono";
+import { and, eq } from "drizzle-orm";
+import { fail } from "../lib";
+import { requireMember, staffOnly, type Ops } from "./auth";
+
+export const payouts = new Hono<Ops>();
+
+payouts.use(requireMember, staffOnly);
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const klMonth = (col: string) => `strftime('%Y-%m', (${col} + 28800000) / 1000, 'unixepoch')`;
+const cut = (sen: string, bps: string) => `(${sen} * coalesce(${bps}, 0) + 5000) / 10000`;
+
+type PayoutRow = {
+  operatorId: string;
+  operatorName: string;
+  month: string;
+  salesSen: number;
+  commissionSen: number;
+  refundsSen: number;
+  amountSen: number;
+  paidSen: number | null;
+  paidAt: number | null;
+};
+
+// A sale counts in the KL month it was paid, a Refund in the month it fell due. Refunds of payments that never
+// became a sale (duplicate, amount mismatch, ...) aren't the Operator's.
+async function months(env: Env, only?: { operatorId: string; month: string }): Promise<PayoutRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT s.operator_id AS operatorId, o.name AS operatorName, s.month,
+       sum(s.sales) AS salesSen, sum(s.commission) AS commissionSen, sum(s.refunds) AS refundsSen,
+       p.amount_sen AS paidSen, p.paid_at AS paidAt
+     FROM (
+       SELECT p.operator_id, ${klMonth("p.received_at")} AS month, p.amount_sen AS sales, ${cut("p.amount_sen", "t.bps")} AS commission,
+         0 AS refunds
+       FROM proj_payments p
+       LEFT JOIN (SELECT booking_id, max(commission_bps) AS bps FROM proj_tickets WHERE booking_id IS NOT NULL GROUP BY booking_id) t
+         ON t.booking_id = p.booking_id
+       WHERE p.status = 'paid'
+       UNION ALL
+       SELECT operator_id, ${klMonth("created_at")}, price_sen, ${cut("price_sen", "commission_bps")}, 0
+       FROM proj_packs WHERE price_sen IS NOT NULL
+       UNION ALL
+       SELECT operator_id, ${klMonth("created_at")}, 0, 0, amount_sen FROM proj_refunds WHERE reason IN ('cancel', 'closure')
+     ) s
+     JOIN operators o ON o.id = s.operator_id
+     LEFT JOIN payouts p ON p.operator_id = s.operator_id AND p.month = s.month
+     WHERE s.month < ?1 AND (?2 IS NULL OR (s.operator_id = ?2 AND s.month = ?3))
+     GROUP BY s.operator_id, s.month
+     ORDER BY s.month, o.name`,
+  )
+    .bind(klDate(Date.now()).slice(0, 7), only?.operatorId ?? null, only?.month ?? null)
+    .all<Omit<PayoutRow, "amountSen">>();
+  return results.map((r) => ({ ...r, amountSen: r.salesSen - r.commissionSen - r.refundsSen }));
+}
+
+payouts.get("/", async (c) => {
+  const rows = await months(c.env);
+  return c.json({
+    due: rows.filter((r) => r.paidAt === null),
+    paid: rows
+      .filter((r) => r.paidAt !== null)
+      .sort((a, b) => b.paidAt! - a.paidAt!)
+      .slice(0, 100),
+  });
+});
+
+// Idempotent: once a month is paid, marking it again returns the first record.
+payouts.post("/:operatorId/:month/paid", async (c) => {
+  const { operatorId, month } = c.req.param();
+  if (!MONTH.test(month)) return fail(c, 400, { code: "invalid_field", field: "month" });
+  const body = await c.req.json<{ amountSen?: unknown }>().catch(() => ({}) as { amountSen?: unknown });
+  if (!Number.isInteger(body.amountSen)) return fail(c, 400, { code: "invalid_field", field: "amountSen" });
+  const [row] = await months(c.env, { operatorId, month });
+  if (!row) return fail(c, 404, { code: "not_found" });
+  const db = createDb(c.env.DB);
+  if (row.paidAt === null) {
+    if (body.amountSen !== row.amountSen) return fail(c, 409, { code: "amount_changed" });
+    await db
+      .insert(payoutsTable)
+      .values({ operatorId, month, amountSen: row.amountSen, paidAt: Date.now(), paidBy: c.var.member.id })
+      .onConflictDoNothing();
+  }
+  const [paid] = await db
+    .select({ amountSen: payoutsTable.amountSen, paidAt: payoutsTable.paidAt })
+    .from(payoutsTable)
+    .where(and(eq(payoutsTable.operatorId, operatorId), eq(payoutsTable.month, month)));
+  return c.json(paid);
+});

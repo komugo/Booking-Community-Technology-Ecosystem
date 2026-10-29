@@ -16,6 +16,7 @@ const id = () =>
 export const operators = sqliteTable("operators", {
   id: id(),
   name: text().notNull(),
+  commissionBps: integer(),
 });
 
 const hub = () => ({
@@ -215,6 +216,7 @@ export const projTickets = sqliteTable(
     startsAt: integer().notNull(),
     closedAt: integer(),
     priceSen: integer().notNull(),
+    commissionBps: integer(),
     status: text({ enum: ["issued", "cancelled", "forfeited"] }).notNull(),
     version: integer().notNull(),
   },
@@ -232,6 +234,9 @@ export const projPacks = sqliteTable(
     expiresAt: integer().notNull(),
     offerId: text(),
     optionIds: json<string[]>(),
+    priceSen: integer(),
+    commissionBps: integer(),
+    createdAt: integer(),
     version: integer().notNull(),
   },
   (t) => [index("proj_packs_customer").on(t.customerId)],
@@ -445,6 +450,20 @@ export const closureNotices = sqliteTable(
     chosenAt: integer(),
   },
   (t) => [primaryKey({ columns: [t.timeslotId, t.ref] }), index("closure_notices_unsent").on(t.emailedAt, t.createdAt)],
+);
+
+export const payouts = sqliteTable(
+  "payouts",
+  {
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    month: text().notNull(),
+    amountSen: integer().notNull(),
+    paidAt: integer().notNull(),
+    paidBy: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.operatorId, t.month] }), index("payouts_paid_at").on(t.paidAt)],
 );
 
 export const refundEmails = sqliteTable(
