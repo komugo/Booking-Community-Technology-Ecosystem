@@ -38,6 +38,7 @@ test("a Customer books a court for 1 hour with no Who step and gets one QR Ticke
   expect(r.body.state).toBe("booked");
   const booking = await cl.json("GET", `/bookings/${r.body.bookingId}`);
   expect(booking.body.tickets).toEqual([expect.objectContaining({ participantName: "Aiman", court: "Court 1", priceSen: 2000, status: "issued" })]);
+  expect((await cl.json("GET", "/me")).body.upcoming).toEqual([expect.objectContaining({ participants: ["Aiman"] })]);
   expect(devInbox.find((e) => e.to === email && e.subject.startsWith("Booking confirmed"))?.text).toContain("1 court · RM 20.00");
 });
 
