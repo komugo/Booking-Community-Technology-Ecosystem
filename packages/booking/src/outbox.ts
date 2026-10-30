@@ -24,7 +24,7 @@ export function markWindow(sql: SqlStorage, now: number, startsAt: number) {
   const day = klDayStart(startsAt);
   const ids = sql
     .exec<{ id: string }>(
-      "SELECT id FROM timeslots WHERE closed_at IS NULL AND starts_at > ? AND starts_at >= ? AND starts_at < ?",
+      "SELECT id FROM timeslots WHERE closed_at IS NULL AND coalesce(ends_at, starts_at) > ? AND starts_at >= ? AND starts_at < ?",
       now,
       day - DAY,
       day + 2 * DAY,
@@ -40,7 +40,7 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
     table: "proj_options",
     pk: "id",
     query: `SELECT id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age, max_weight_kg,
-      required_cert, min_participants, max_per_booking, active,
+      required_cert, min_participants, max_per_booking, booking_unit, ticket_type, daily_limit, active,
       (max_weight_kg IS NOT NULL OR EXISTS (SELECT 1 FROM option_resources WHERE option_id = options.id AND kind = 'horse'))
         AS asks_weight
       FROM options WHERE id = ?`,
@@ -53,14 +53,14 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
   timeslot: {
     table: "proj_timeslots",
     pk: "id",
-    query: `SELECT id, option_id, starts_at, closed_at, (SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id) AS price_sen
+    query: `SELECT id, option_id, starts_at, ends_at, closed_at, (SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id) AS price_sen
       FROM timeslots WHERE id = ?`,
   },
   ticket: {
     table: "proj_tickets",
     pk: "id",
     query: `SELECT t.id, t.customer_id, t.participant_id, t.booking_id, t.pack_id, s.option_id, t.timeslot_id,
-      s.starts_at, s.closed_at, t.price_sen, t.commission_bps, t.status
+      s.starts_at, s.ends_at, s.closed_at, t.price_sen, t.commission_bps, t.status
       FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id WHERE t.id = ?`,
   },
   pack: {

@@ -1,6 +1,6 @@
 import type { Weekday } from "@komugo/types/rules";
 import { readLocal, store, writeLocal } from "./store";
-import type { ClosureReason, Gap, Locale, Named, Outcome, RefundRow, ResourceKind } from "./types";
+import type { BookingUnit, ClosureReason, Gap, Locale, Named, Outcome, RefundRow, ResourceKind, TicketType } from "./types";
 
 const TZ = "Asia/Kuala_Lumpur";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -88,6 +88,7 @@ const en = {
   participants: "Participants",
   noParticipants: "No Bookings yet.",
   closeTimeslot: "Close Timeslot",
+  closeDate: "Close date",
   whyClose: "Why are you closing it?",
   affectedSummary: (n: number, b: number) =>
     `${plural(n, "person", "people")} in ${plural(b, "Booking", "Bookings")} will be emailed to choose a free reschedule or a full refund. This can't be undone.`,
@@ -167,6 +168,15 @@ const en = {
   minParticipants: "Min participants",
   maxPerBooking: "Max per booking",
   resourceNeeds: "Resources per Participant",
+  bookingUnit: "Booking unit",
+  bookingUnits: { person: "Per person", court: "Per court" } as Record<BookingUnit, string>,
+  courtHint: "One court for 1 hour, priced per court. Customers skip the Who step, so there are no Requirements. Turn the Activity's waiver off to sell it.",
+  ticketType: "Ticket type",
+  ticketTypes: { timeslot: "Timeslot", date: "Date ticket" } as Record<TicketType, string>,
+  dateHint: "Valid any time during opening hours on the chosen date, sold until the booking cutoff before closing. Not in Packs.",
+  dailyLimit: "Daily limit",
+  dailyLimitHint: "Leave empty for no limit. Lowering it keeps Tickets already sold.",
+  noLimit: "No daily limit",
   lengthenBlocked: "Can't make this longer while it has upcoming Bookings. Create a new Option instead.",
   newAddOn: "New Add-on",
   editAddOn: "Edit Add-on",
@@ -174,7 +184,7 @@ const en = {
   editResource: "Edit Resource",
   kind: "Kind",
   name: "Name",
-  kinds: { horse: "Horse", instructor: "Instructor", belayer: "Belayer", auto_belay_lane: "Auto-belay lane" } as Record<ResourceKind, string>,
+  kinds: { horse: "Horse", instructor: "Instructor", belayer: "Belayer", auto_belay_lane: "Auto-belay lane", court: "Court" } as Record<ResourceKind, string>,
   welfare: "Welfare Rules",
   maxSessions: "Max sessions a day",
   maxSessionsHint: "Leave empty for no limit.",
@@ -404,6 +414,7 @@ const ms: Dict = {
   participants: "Peserta",
   noParticipants: "Belum ada tempahan.",
   closeTimeslot: "Tutup slot masa",
+  closeDate: "Tutup tarikh",
   whyClose: "Kenapa anda menutupnya?",
   affectedSummary: (n: number, b: number) =>
     `${n} orang dalam ${b} tempahan akan dihantar e-mel untuk pilih tukar masa percuma atau bayaran balik penuh. Ini tidak boleh dibatalkan.`,
@@ -483,6 +494,15 @@ const ms: Dict = {
   minParticipants: "Peserta min",
   maxPerBooking: "Maks setiap tempahan",
   resourceNeeds: "Sumber setiap peserta",
+  bookingUnit: "Unit tempahan",
+  bookingUnits: { person: "Setiap orang", court: "Setiap gelanggang" },
+  courtHint: "Satu gelanggang untuk 1 jam, harga setiap gelanggang. Pelanggan tidak mengisi butiran peserta, jadi tiada syarat. Matikan penepian aktiviti untuk menjualnya.",
+  ticketType: "Jenis tiket",
+  ticketTypes: { timeslot: "Slot masa", date: "Tiket tarikh" },
+  dateHint: "Sah bila-bila masa dalam waktu operasi pada tarikh dipilih, dijual sehingga had masa tempahan sebelum tutup. Tidak termasuk dalam Pakej.",
+  dailyLimit: "Had harian",
+  dailyLimitHint: "Biarkan kosong jika tiada had. Menurunkannya mengekalkan tiket yang sudah dijual.",
+  noLimit: "Tiada had harian",
   lengthenBlocked: "Tidak boleh dipanjangkan semasa ada tempahan akan datang. Cipta pilihan baharu.",
   newAddOn: "Tambahan baharu",
   editAddOn: "Sunting tambahan",
@@ -490,7 +510,7 @@ const ms: Dict = {
   editResource: "Sunting sumber",
   kind: "Jenis",
   name: "Nama",
-  kinds: { horse: "Kuda", instructor: "Jurulatih", belayer: "Penambat", auto_belay_lane: "Laluan auto-belay" },
+  kinds: { horse: "Kuda", instructor: "Jurulatih", belayer: "Penambat", auto_belay_lane: "Laluan auto-belay", court: "Gelanggang" },
   welfare: "Peraturan Kebajikan",
   maxSessions: "Maks sesi sehari",
   maxSessionsHint: "Biarkan kosong jika tiada had.",
@@ -658,6 +678,8 @@ export const named = (x: Named, l: Locale) => (l === "ms" ? x.nameMs : x.nameEn)
 
 const fmt = (l: Locale, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: TZ, ...o });
 export const time = (ms: number, l: Locale) => fmt(l, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ms);
+export const hours = (s: { startsAt: number; endsAt: number | null }, l: Locale) =>
+  s.endsAt === null ? time(s.startsAt, l) : `${time(s.startsAt, l)}–${time(s.endsAt, l)}`;
 export const day = (ms: number, l: Locale) => fmt(l, { weekday: "short", day: "numeric", month: "short" }).format(ms);
 export const dateLong = (ms: number, l: Locale) => fmt(l, { day: "numeric", month: "short", year: "numeric" }).format(ms);
 export const monthLong = (month: string, l: Locale) => fmt(l, { month: "long", year: "numeric" }).format(Date.parse(`${month}-01T00:00:00+08:00`));

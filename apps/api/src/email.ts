@@ -18,7 +18,7 @@ import {
   type Db,
 } from "@komugo/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { klDateTime, klDay, named, optionDetails, rm, type Locale, type OptionDetails } from "./details";
+import { klDay, klWhen, named, optionDetails, rm, type Locale, type OptionDetails } from "./details";
 import { interestLink } from "./interests";
 import { log } from "./lib";
 import { bookingLink, groupLink } from "./manage";
@@ -89,13 +89,16 @@ export async function sendBookedEmail(env: Env, checkoutId: string) {
     ? `${site(env, l)}/bookings/${c.bookingId}?k=${await bookingLink(env, c.bookingId)}`
     : `${site(env, l)}/packs/${c.packId}?k=${await groupLink(env, "pack", c.packId!)}`;
   const { what, when } = summary(d, l);
-  const people = c.bookingId
-    ? l === "ms"
-      ? [`${c.quantity} orang · ${rm(c.amountSen ?? 0)}`]
-      : [`${c.quantity} people · ${rm(c.amountSen ?? 0)}`]
-    : l === "ms"
-      ? [`${c.quantity} orang`]
-      : [`${c.quantity} people`];
+  const people =
+    d.option.bookingUnit === "court"
+      ? [l === "ms" ? `1 gelanggang · ${rm(c.amountSen ?? 0)}` : `1 court · ${rm(c.amountSen ?? 0)}`]
+      : c.bookingId
+        ? l === "ms"
+          ? [`${c.quantity} orang · ${rm(c.amountSen ?? 0)}`]
+          : [`${c.quantity} people · ${rm(c.amountSen ?? 0)}`]
+        : l === "ms"
+          ? [`${c.quantity} orang`]
+          : [`${c.quantity} people`];
   const lines =
     l === "ms"
       ? ["Tempahan anda disahkan!", what, when, ...people, "Tunjukkan tiket anda di kaunter semasa tiba."]
@@ -220,7 +223,8 @@ export async function sendClosureEmail(env: Env, timeslotId: string, ref: string
   const l = row.locale ?? row.packLocale ?? "en";
   const d = await optionDetails(db, slot.optionId, timeslotId, []);
   if (!d) return;
-  const when = klDateTime(slot.startsAt, l);
+  const when = klWhen(slot, l);
+  const dated = slot.endsAt !== null;
   const why = {
     en: {
       weather: " due to the weather",
@@ -242,13 +246,13 @@ export async function sendClosureEmail(env: Env, timeslotId: string, ref: string
       ? [
           `${d.operatorName} terpaksa menutup ${named(d.option, l)} anda pada ${when}${why}.`,
           n.bookingId
-            ? "Anda boleh tukar ke masa lain secara percuma, atau dapatkan bayaran balik penuh. Bayaran balik diterima dalam 7 hari bekerja."
+            ? `Anda boleh tukar ke ${dated ? "tarikh" : "masa"} lain secara percuma, atau dapatkan bayaran balik penuh. Bayaran balik diterima dalam 7 hari bekerja.`
             : "Anda boleh tukar ke masa lain secara percuma, atau dapatkan semula sesi itu dalam Pek anda.",
         ]
       : [
           `${d.operatorName} had to close your ${named(d.option, l)} on ${when}${why}.`,
           n.bookingId
-            ? "You can move to another time for free, or get a full refund. Refunds arrive within 7 working days."
+            ? `You can move to another ${dated ? "date" : "time"} for free, or get a full refund. Refunds arrive within 7 working days.`
             : "You can move to another time for free, or have the session returned to your Pack.",
         ];
   const label = n.bookingId
@@ -265,7 +269,7 @@ export async function sendClosureEmail(env: Env, timeslotId: string, ref: string
       : null;
   await sendEmail(env, {
     to: row.email,
-    subject: l === "ms" ? `Slot masa ditutup: ${named(d.activity, l)}` : `Timeslot closed: ${named(d.activity, l)}`,
+    subject: `${l === "ms" ? (dated ? "Tarikh ditutup" : "Slot masa ditutup") : dated ? "Date closed" : "Timeslot closed"}: ${named(d.activity, l)}`,
     text: [...lines, ...(href ? [`${label}: ${href}`] : [])].join("\n\n"),
     html: html(lines, href ? { href, label } : undefined),
     idempotencyKey: `closure:${timeslotId}:${ref}`,
@@ -363,8 +367,8 @@ export async function sendRefundDueEmail(env: Env, r: RefundRow) {
   ]);
   if (!d) return;
   const { what } = summary(d, l);
-  const when = klDateTime(tickets[0].startsAt, l);
-  const names = people.map((p) => p.name).join(", ");
+  const when = klWhen(tickets[0], l);
+  const names = people.map((p) => p.name).join(", ") || (l === "ms" ? "tempahan gelanggang anda" : "your court booking");
   const amount = rm(r.amountSen);
   const closed = r.reason === "closure";
   const lines =
@@ -448,5 +452,5 @@ const site = (env: Env, l: Locale) => `${env.PUBLIC_SITE_URL}${l === "ms" ? "/ms
 
 const summary = (d: OptionDetails, l: Locale) => ({
   what: `${named(d.activity, l)} – ${named(d.option, l)}`,
-  when: d.slot ? klDateTime(d.slot.startsAt, l) : "",
+  when: d.slot ? klWhen(d.slot, l) : "",
 });

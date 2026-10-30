@@ -318,6 +318,7 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
       name: en ? o.nameEn : o.nameMs,
       fromPriceSen: optionFrom(o, slots),
       durationMinutes: o.durationMinutes,
+      ticketType: o.ticketType,
       minAge: o.minAge,
       maxAge: o.maxAge,
       maxWeightKg: o.maxWeightKg,

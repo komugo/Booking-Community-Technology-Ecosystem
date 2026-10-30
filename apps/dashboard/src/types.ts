@@ -3,7 +3,9 @@ import type { Weekday } from "@komugo/types/rules";
 export type Locale = "en" | "ms";
 export type Named = { nameEn: string; nameMs: string };
 export type Waiver = "signed" | "guardian" | "outdated" | "missing" | "not_required";
-export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane";
+export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane" | "court";
+export type BookingUnit = "person" | "court";
+export type TicketType = "timeslot" | "date";
 export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type Outcome = "checked_in" | "already" | "not_today" | "closed" | "cancelled" | "not_found" | "ambiguous";
 
@@ -31,6 +33,7 @@ export type Group = {
 export type Timeslot = {
   id: string;
   startsAt: number;
+  endsAt: number | null;
   closedAt: number | null;
   closedReason: string | null;
   horse: boolean;
@@ -66,6 +69,9 @@ export type Option = Named & {
   requiredCert: string | null;
   minParticipants: number | null;
   maxPerBooking: number | null;
+  bookingUnit: BookingUnit;
+  ticketType: TicketType;
+  dailyLimit: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };

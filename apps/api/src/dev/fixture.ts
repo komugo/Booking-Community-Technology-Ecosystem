@@ -1,7 +1,7 @@
 import { booking } from "@komugo/booking";
 import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
-import { WAIVER } from "@komugo/types";
+import { WAIVER, WEEKDAYS } from "@komugo/types";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
 import { groupLink } from "../manage";
 import { recordClosure } from "../ops/closure";
@@ -23,6 +23,9 @@ export async function fixture(
     extraSlots?: unknown;
     close?: unknown;
     info?: unknown;
+    court?: unknown;
+    dateTicket?: unknown;
+    dailyLimit?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -71,6 +74,9 @@ export async function fixture(
     requiredCert: null,
     minParticipants: null,
     maxPerBooking: null,
+    bookingUnit: "person",
+    ticketType: "timeslot",
+    dailyLimit: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });
@@ -184,6 +190,61 @@ export async function fixture(
     venueSlug = slugs.en;
     await db.update(activities).set({ venueId: venue.id, listingMode: "info", free: true, setting: "outdoor" }).where(eq(activities.id, activityId));
   }
+  // A per-court Option with two courts and one free hour tomorrow; per-court sells only without a waiver.
+  const courtOptionId = `opt_${rid}_court`;
+  if (o.court === true) {
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    for (const n of ["A", "B"]) {
+      await b.upsertResource({ id: `res_${rid}_court${n}`, kind: "court", name: `Court ${n}`, active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null });
+    }
+    await b.upsertOption({
+      id: courtOptionId,
+      activityId,
+      nameEn: "Court hire",
+      nameMs: "Sewa gelanggang",
+      priceSen: 2000,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "court",
+      ticketType: "timeslot",
+      dailyLimit: null,
+      active: true,
+      needs: [{ kind: "court", quantity: 1 }],
+    });
+    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR] });
+  }
+  // A Date ticket Option open 06:00–23:30 every day, with no waiver.
+  const dateOptionId = `opt_${rid}_date`;
+  if (o.dateTicket === true) {
+    const hours = [{ days: WEEKDAYS, opens: "06:00", closes: "23:30" }];
+    await db.update(activities).set({ openingHours: hours }).where(eq(activities.id, activityId));
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    await b.setHours([{ activityId, hours }]);
+    await b.upsertOption({
+      id: dateOptionId,
+      activityId,
+      nameEn: "Day pass",
+      nameMs: "Pas harian",
+      priceSen: 1500,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "person",
+      ticketType: "date",
+      dailyLimit: Number.isInteger(o.dailyLimit) ? (o.dailyLimit as number) : null,
+      active: true,
+      needs: [],
+    });
+  }
   return {
     operatorId,
     cityId: city.id,
@@ -201,5 +262,7 @@ export async function fixture(
     email,
     ...(staffEmail ? { staffEmail } : {}),
     ...(o.packOffer === true || viaPack ? { offerId } : {}),
+    ...(o.court === true ? { courtOptionId } : {}),
+    ...(o.dateTicket === true ? { dateOptionId } : {}),
   };
 }

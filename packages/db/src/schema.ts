@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { Weekday } from "@komugo/types";
+import type { OpeningHours, Weekday } from "@komugo/types";
 
-export type { Weekday };
-export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+export type { OpeningHours, Weekday };
 export type Faq = { q: string; a: string };
 
 const json = <T>() => text({ mode: "json" }).$type<T>().notNull().default(sql`'[]'`);
@@ -216,6 +215,9 @@ export const projOptions = sqliteTable(
     requiredCert: text(),
     minParticipants: integer(),
     maxPerBooking: integer(),
+    bookingUnit: text({ enum: ["person", "court"] }).notNull().default("person"),
+    ticketType: text({ enum: ["timeslot", "date"] }).notNull().default("timeslot"),
+    dailyLimit: integer(),
     active: integer({ mode: "boolean" }).notNull(),
     asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),
@@ -238,8 +240,8 @@ export const projAddOns = sqliteTable(
   (t) => [index("proj_add_ons_activity").on(t.activityId)],
 );
 
-// spots is not re-projected as time passes: readers must also filter starts_at - booking_cutoff_minutes > now.
-// price_sen is the Schedule's price; null means the Option's.
+// spots is not re-projected as time passes: readers must also filter coalesce(ends_at, starts_at) - booking_cutoff_minutes > now.
+// price_sen is the Schedule's price; null means the Option's. Only a Date ticket's Timeslot has ends_at: that date's closing time.
 export const projTimeslots = sqliteTable(
   "proj_timeslots",
   {
@@ -247,6 +249,7 @@ export const projTimeslots = sqliteTable(
     operatorId: text().notNull(),
     optionId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     spots: integer().notNull(),
     priceSen: integer(),
@@ -267,6 +270,7 @@ export const projTickets = sqliteTable(
     optionId: text().notNull(),
     timeslotId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     priceSen: integer().notNull(),
     commissionBps: integer(),

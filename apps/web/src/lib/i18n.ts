@@ -75,6 +75,7 @@ export const t = {
     about: "About",
     goodToKnow: "Good to know",
     requirements: "Requirements",
+    anyTime: "Any time that day",
     hours: "Opening hours",
     closed: "Closed",
     today: "Today",
@@ -136,6 +137,12 @@ export const t = {
       fewer: (x: string) => `Remove one: ${x}`,
       more: (x: string) => `Add one: ${x}`,
       each: "each",
+      oneCourt: "1 court for 1 hour",
+      perCourt: "per court",
+      court: "Court",
+      pickDateTitle: "Choose a date",
+      validHours: "Valid during opening hours",
+      noDateTickets: "Not open or sold out on this day",
       estimated: "Estimated total",
       total: "Total",
       continue: "Continue",
@@ -213,7 +220,7 @@ export const t = {
       paid: "Paid",
       errorTitle: "There's a problem",
       errors: {
-        no_availability: "Sorry, there aren't enough spots left at this time. Pick another time.",
+        no_availability: "Sorry, there aren't enough spots left. Pick another time or date.",
         below_min_participants: (p: Params) => `This option is for groups of ${p.min ?? 2} or more.`,
         above_max_per_booking: (p: Params) => `This option takes up to ${p.max ?? 10} people per booking.`,
         not_bookable: "This time can't be booked anymore.",
@@ -428,6 +435,7 @@ export const t = {
     about: "Tentang",
     goodToKnow: "Perlu tahu",
     requirements: "Syarat",
+    anyTime: "Bila-bila masa pada hari itu",
     hours: "Waktu operasi",
     closed: "Tutup",
     today: "Hari ini",
@@ -489,6 +497,12 @@ export const t = {
       fewer: (x: string) => `Kurangkan satu: ${x}`,
       more: (x: string) => `Tambah satu: ${x}`,
       each: "seorang",
+      oneCourt: "1 gelanggang untuk 1 jam",
+      perCourt: "setiap gelanggang",
+      court: "Gelanggang",
+      pickDateTitle: "Pilih tarikh",
+      validHours: "Sah sepanjang waktu operasi",
+      noDateTickets: "Tutup atau habis dijual pada hari ini",
       estimated: "Anggaran jumlah",
       total: "Jumlah",
       continue: "Teruskan",
@@ -566,7 +580,7 @@ export const t = {
       paid: "Dibayar",
       errorTitle: "Ada masalah",
       errors: {
-        no_availability: "Maaf, tempat tidak mencukupi pada masa ini. Pilih masa lain.",
+        no_availability: "Maaf, tempat tidak mencukupi. Pilih masa atau tarikh lain.",
         below_min_participants: (p: Params) => `Pilihan ini untuk kumpulan ${p.min ?? 2} orang atau lebih.`,
         above_max_per_booking: (p: Params) => `Pilihan ini untuk maksimum ${p.max ?? 10} orang setiap tempahan.`,
         not_bookable: "Masa ini tidak boleh ditempah lagi.",
@@ -777,3 +791,6 @@ export const klWeekday = (l: Locale, ms: number) => fmt(l, { weekday: "short" })
 export const klDayMonth = (l: Locale, ms: number) => fmt(l, { day: "numeric", month: "short" }).format(ms);
 export const klDayYear = (l: Locale, ms: number) => fmt(l, { day: "numeric", month: "short", year: "numeric" }).format(ms);
 export const klDeadline = (l: Locale, ms: number) => `${klDay(l, ms)}, ${klTime(l, ms)}`;
+// A Date ticket is valid during its date's opening hours rather than from a start time.
+export const klHours = (l: Locale, x: { startsAt: number; endsAt: number | null }) =>
+  x.endsAt === null ? klTime(l, x.startsAt) : `${klTime(l, x.startsAt)}–${klTime(l, x.endsAt)}`;

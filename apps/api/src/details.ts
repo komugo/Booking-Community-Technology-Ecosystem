@@ -47,12 +47,19 @@ export type OptionDetails = NonNullable<Awaited<ReturnType<typeof optionDetails>
 
 export const named = (x: { nameEn: string; nameMs: string }, l: Locale) => (l === "ms" ? x.nameMs : x.nameEn);
 
-export const klDateTime = (t: number, l: Locale) =>
+const klDateTime = (t: number, l: Locale) =>
   new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", {
     timeZone: "Asia/Kuala_Lumpur",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(t);
+
+const klTime = (t: number, l: Locale) =>
+  new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: "Asia/Kuala_Lumpur", timeStyle: "short" }).format(t);
+
+// A Date ticket shows its date's opening hours instead of a start time.
+export const klWhen = (s: { startsAt: number; endsAt: number | null }, l: Locale) =>
+  s.endsAt === null ? klDateTime(s.startsAt, l) : `${klDay(s.startsAt, l)}, ${klTime(s.startsAt, l)}–${klTime(s.endsAt, l)}`;
 
 export const klDay = (t: number, l: Locale) =>
   new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: "Asia/Kuala_Lumpur", dateStyle: "medium" }).format(t);

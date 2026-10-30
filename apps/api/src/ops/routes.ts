@@ -1,4 +1,4 @@
-import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
+import { BookingError, RESOURCE_KINDS, type BookingUnit, type ClosureReason, type OptionInput, type ResourceKind, type TicketType } from "@komugo/booking";
 import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, SETTINGS, venues, type Db, type ListingMode, type Setting } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
@@ -9,9 +9,8 @@ import { staffOnly, type Ops } from "./auth";
 import { recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
 import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
-import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, type PhotoInput } from "./venues";
+import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, syncHours, type PhotoInput } from "./venues";
 
-const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 export const routes = new Hono<Ops>();
@@ -101,6 +100,7 @@ routes.put("/activities/:id", async (c) => {
     closedDays: [...new Set(body.closedDays as string[])],
     requiresWaiver: body.requiresWaiver as boolean,
   });
+  await syncHours(c.env, [c.req.param("id")]);
   return c.json({ generated });
 });
 
@@ -148,6 +148,7 @@ routes.put("/activities/:id/copy", async (c) => {
     db.delete(photos).where(eq(photos.activityId, id)),
     ...(list.length ? [db.insert(photos).values(photoRows({ activityId: id }, list))] : []),
   ]);
+  if (venueId !== a.venueId) await syncHours(c.env, [id]);
   return c.body(null, 204);
 });
 
@@ -207,7 +208,12 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
 
 function optionInput(body: Body) {
   const needs = body.needs as { kind?: unknown; quantity?: unknown }[];
+  const bookingUnit = (body.bookingUnit ?? "person") as BookingUnit;
+  const ticketType = (body.ticketType ?? "timeslot") as TicketType;
   const errors = invalid([
+    [bookingUnit === "person" || bookingUnit === "court", "bookingUnit"],
+    [ticketType === "timeslot" || (ticketType === "date" && bookingUnit === "person"), "ticketType"],
+    [ticketType === "date" ? intOrNull(body.dailyLimit ?? null, 1, 100_000) : (body.dailyLimit ?? null) === null, "dailyLimit"],
     [name(body.nameEn), "nameEn"],
     [name(body.nameMs), "nameMs"],
     [int(body.priceSen, 0, 10_000_000), "priceSen"],
@@ -224,7 +230,7 @@ function optionInput(body: Body) {
     ],
     [bool(body.active), "active"],
     [
-      list(body.needs, 4, (n) => KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
+      list(body.needs, 5, (n) => RESOURCE_KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
         new Set(needs.map((n) => n.kind)).size === needs.length,
       "needs",
     ],
@@ -243,6 +249,9 @@ function optionInput(body: Body) {
       requiredCert: (body.requiredCert as string | null)?.trim() ?? null,
       minParticipants: body.minParticipants as number | null,
       maxPerBooking: body.maxPerBooking as number | null,
+      bookingUnit,
+      ticketType,
+      dailyLimit: (body.dailyLimit ?? null) as number | null,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),
@@ -271,7 +280,7 @@ function resourceInput(body: Body) {
   const horse = body.kind === "horse";
   return {
     errors: invalid([
-      [KINDS.includes(body.kind as ResourceKind), "kind"],
+      [RESOURCE_KINDS.includes(body.kind as ResourceKind), "kind"],
       [name(body.name), "name"],
       [bool(body.active), "active"],
       [horse ? intOrNull(body.maxSessionsPerDay, 1, 50) : body.maxSessionsPerDay === null, "maxSessionsPerDay"],
@@ -359,8 +368,14 @@ async function save<T>(
   return c.json(kind === "schedules" ? { id: input.id, ...(result as object) } : { id: input.id }, id ? 200 : 201);
 }
 
-routes.post("/options", (c) => save(c, null, "options", optionInput, c.var.b.upsertOption));
-routes.put("/options/:id", (c) => save(c, c.req.param("id"), "options", optionInput, c.var.b.upsertOption));
+// A Date ticket Option needs the opening hours in the booking engine before its dates are made.
+const withHours = (env: Env, upsert: (o: OptionInput) => Promise<unknown>) => async (o: OptionInput) => {
+  if (o.ticketType === "date") await syncHours(env, [o.activityId]);
+  return upsert(o);
+};
+
+routes.post("/options", (c) => save(c, null, "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
+routes.put("/options/:id", (c) => save(c, c.req.param("id"), "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
 routes.post("/add-ons", (c) => save(c, null, "addOns", addOnInput, c.var.b.upsertAddOn));
 routes.put("/add-ons/:id", (c) => save(c, c.req.param("id"), "addOns", addOnInput, c.var.b.upsertAddOn));
 routes.post("/resources", (c) => save(c, null, "resources", resourceInput, c.var.b.upsertResource));

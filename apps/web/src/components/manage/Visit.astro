@@ -2,14 +2,14 @@
 import type { Locale } from "@komugo/db";
 import TicketCard from "../TicketCard.astro";
 import type { Group, GroupTicket } from "../../lib/api";
-import { klDeadline, klLongDay, klTime, rm, t } from "../../lib/i18n";
+import { klDeadline, klHours, klLongDay, rm, t } from "../../lib/i18n";
 import { changeHref, groupHref, inWindow, signInAt } from "../../lib/manage";
 import { named } from "../../lib/checkout";
 
 interface Props {
   locale: Locale;
   g: Group;
-  visit: { timeslotId: string; startsAt: number; closedAt: number | null; optionId: string; tickets: GroupTicket[] };
+  visit: { timeslotId: string; startsAt: number; endsAt: number | null; closedAt: number | null; optionId: string; tickets: GroupTicket[] };
 }
 const { locale: l, g, visit: v } = Astro.props;
 const m = t[l].manage;
@@ -47,7 +47,7 @@ const ids = changeable.map((x) => x.id).join(",");
 ---
 
 <section class="mt-8" aria-labelledby={`visit-${v.timeslotId}`} data-visit={v.timeslotId}>
-  <h2 id={`visit-${v.timeslotId}`} class="text-2xl font-extrabold">{klLongDay(l, v.startsAt)} · <span class="num">{klTime(l, v.startsAt)}</span></h2>
+  <h2 id={`visit-${v.timeslotId}`} class="text-2xl font-extrabold">{klLongDay(l, v.startsAt)} · <span class="num">{klHours(l, v)}</span></h2>
   <p class="mt-1 font-semibold text-muted">{named(option, l)}</p>
   {
     free && changeable.length > 0 && (

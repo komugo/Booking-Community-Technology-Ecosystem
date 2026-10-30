@@ -2,7 +2,7 @@ import { klDate } from "@komugo/types/rules";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { api, ApiError } from "../api";
-import { dateLong, errorText, named, time, useT } from "../i18n";
+import { dateLong, errorText, hours, named, time, useT } from "../i18n";
 import type { ClosureReason, Group, Timeslot } from "../types";
 import { Icon, Sheet, Spinner, WaiverChip } from "../ui";
 
@@ -72,7 +72,7 @@ export default function TimeslotPage() {
       </Link>
       <p className="mt-2 text-sm font-semibold text-muted">{dateLong(slot.startsAt, l)}</p>
       <h1 className="num mt-1 text-4xl font-extrabold">
-        {time(slot.startsAt, l)} · {named(slot.option, l)}
+        {hours(slot, l)} · {named(slot.option, l)}
       </h1>
 
       {slot.closedAt ? (
@@ -146,7 +146,7 @@ export default function TimeslotPage() {
               </ul>
             )}
           </section>
-          {slot.startsAt > Date.now() && (
+          {(slot.endsAt ?? slot.startsAt) > Date.now() && (
             <button
               type="button"
               className="btn btn-danger mt-8 w-full sm:w-auto"
@@ -155,7 +155,7 @@ export default function TimeslotPage() {
                 setOpen(true);
               }}
             >
-              {t.closeTimeslot}
+              {slot.endsAt === null ? t.closeTimeslot : t.closeDate}
             </button>
           )}
         </>
@@ -164,7 +164,7 @@ export default function TimeslotPage() {
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title={t.closeTimeslot}
+        title={slot.endsAt === null ? t.closeTimeslot : t.closeDate}
         footer={
           <>
             {error && (

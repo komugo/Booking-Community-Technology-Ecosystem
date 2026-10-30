@@ -46,6 +46,7 @@ export async function groupStep({ request, params, url }: Ctx, l: Locale, kind: 
       return {
         ...c,
         startsAt: tickets[0]?.startsAt ?? 0,
+        endsAt: tickets[0]?.endsAt ?? null,
         optionId: tickets[0]?.optionId ?? g.option.id,
         issued,
         refundSen: quote?.refundSen ?? tickets.reduce((s, x) => s + x.refundSen, 0),
@@ -113,7 +114,7 @@ export async function rescheduleStep({ request, params, url }: Ctx, l: Locale, k
     if (res.status === 401) return see(signInAt(l, url.pathname + url.search));
     errors = errorsOf(res.error);
   }
-  const res = await api<{ ticketIds: string[]; slots: { id: string; startsAt: number; spots: number }[] }>(
+  const res = await api<{ ticketIds: string[]; slots: { id: string; startsAt: number; endsAt: number | null; spots: number }[] }>(
     request,
     "GET",
     `/${plural(kind)}/${q(g.id)}/slots?t=${q(t)}&k=${g.k}`,

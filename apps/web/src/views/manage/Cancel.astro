@@ -1,7 +1,7 @@
 ---
 import Checkout from "../../layouts/Checkout.astro";
 import BottomBar from "../../components/checkout/BottomBar.astro";
-import { klDeadline, klLongDay, klTime, rm, t } from "../../lib/i18n";
+import { klDeadline, klHours, klLongDay, rm, t } from "../../lib/i18n";
 import { groupHref, type cancelStep } from "../../lib/manage";
 
 type Props = Exclude<Awaited<ReturnType<typeof cancelStep>>, Response>;
@@ -37,7 +37,7 @@ const label = !quote
             return (
               <li data-outcome={q.outcome} class:list={["rounded-2xl border-l-4 bg-white p-4 shadow-[0_1px_0_var(--color-line)]", q.outcome === "cancelled" ? "border-leaf" : "border-clay"]}>
                 <p class="font-display text-xl font-bold">{x.participantName}</p>
-                <p class="text-sm text-muted">{klLongDay(l, x.startsAt)} · <span class="num">{klTime(l, x.startsAt)}</span></p>
+                <p class="text-sm text-muted">{klLongDay(l, x.startsAt)} · <span class="num">{klHours(l, x)}</span></p>
                 <p class="mt-2">
                   {g.kind === "pack" ? (
                     q.outcome === "cancelled" ? m.returnsToPack : m.staysUsed
