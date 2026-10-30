@@ -42,7 +42,10 @@ app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));
 
-app.post("/dev/seed", async (c) => (c.env.DEV_SEED === "1" ? c.json(await seed(c.env)) : c.notFound()));
+// The seed overwrites its rows, so it never runs against a deployed D1.
+const local = (url: string) => ["localhost", "127.0.0.1"].includes(new URL(url).hostname);
+
+app.post("/dev/seed", async (c) => (c.env.DEV_SEED === "1" && local(c.req.url) ? c.json(await seed(c.env)) : c.notFound()));
 
 app.post("/dev/fixture", async (c) =>
   c.env.DEV_SEED === "1"

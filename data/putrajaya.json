@@ -1,0 +1,3902 @@
+{
+  "source": "data/putrajaya-master-list.csv",
+  "city": {
+    "id": "city_putrajaya",
+    "slugEn": "putrajaya",
+    "slugMs": "putrajaya",
+    "nameEn": "Putrajaya",
+    "nameMs": "Putrajaya",
+    "introEn": "Malaysia's garden capital sits about 30 minutes south of Kuala Lumpur, with lakes, parks and wide boulevards. Find courts, pools, water sports, cruises, parks and landmarks across its Presints.",
+    "introMs": "Ibu kota pentadbiran Malaysia yang hijau ini terletak kira-kira 30 minit ke selatan Kuala Lumpur, dikelilingi tasik, taman dan jalan raya yang lebar. Cari gelanggang, kolam renang, sukan air, pelayaran, taman dan mercu tanda di seluruh Presintnya."
+  },
+  "operators": [
+    {
+      "id": "op_marina_putrajaya",
+      "name": "Marina Putrajaya Sdn Bhd",
+      "rows": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "id": "op_flyboard_malaysia",
+      "name": "Flyboard Malaysia",
+      "rows": [
+        14
+      ]
+    },
+    {
+      "id": "op_kelab_tasik_putrajaya",
+      "name": "Kelab Tasik Putrajaya",
+      "rows": [
+        7,
+        86
+      ]
+    },
+    {
+      "id": "op_ppj",
+      "name": "Perbadanan Putrajaya (PPJ)",
+      "rows": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        75,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        114,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        118,
+        119,
+        120
+      ]
+    },
+    {
+      "id": "op_putrajaya_equestrian_park",
+      "name": "Taman Ekuestrian Putrajaya",
+      "unknown": true,
+      "rows": [
+        21,
+        87
+      ]
+    },
+    {
+      "id": "op_ioi_sports_centre",
+      "name": "IOI Sports Centre",
+      "rows": [
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "id": "op_glamping_wetland_putrajaya",
+      "name": "Glamping @ Wetland Putrajaya",
+      "unknown": true,
+      "rows": [
+        61
+      ]
+    },
+    {
+      "id": "op_ioi_city_mall",
+      "name": "IOI City Mall",
+      "rows": [
+        88,
+        89,
+        90,
+        91
+      ]
+    },
+    {
+      "id": "op_putrajaya_story",
+      "name": "Putrajaya Story",
+      "unknown": true,
+      "rows": [
+        94
+      ]
+    },
+    {
+      "id": "op_nasyrul_quran_complex",
+      "name": "Kompleks Nasyrul Quran",
+      "unknown": true,
+      "rows": [
+        95
+      ]
+    },
+    {
+      "id": "op_perdana_putra",
+      "name": "Perdana Putra",
+      "unknown": true,
+      "rows": [
+        98
+      ]
+    },
+    {
+      "id": "op_astaka_morocco",
+      "name": "Astaka Morocco",
+      "unknown": true,
+      "rows": [
+        113
+      ]
+    }
+  ],
+  "venues": [
+    {
+      "id": "ven_cruise_tasik_putrajaya",
+      "slugEn": "cruise-tasik-putrajaya",
+      "slugMs": "cruise-tasik-putrajaya",
+      "nameEn": "Cruise Tasik Putrajaya",
+      "nameMs": "Cruise Tasik Putrajaya",
+      "streetAddress": "Jeti Putra, Jambatan Putra",
+      "presint": 1,
+      "phone": "03-8881 0648",
+      "openingHours": [],
+      "rows": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "id": "ven_marina_putrajaya",
+      "slugEn": "marina-putrajaya",
+      "slugMs": "marina-putrajaya",
+      "nameEn": "Marina Putrajaya",
+      "nameMs": "Marina Putrajaya",
+      "streetAddress": "1, Jalan P5/5",
+      "presint": 5,
+      "phone": "03-8881 0648",
+      "openingHours": [],
+      "rows": [
+        6,
+        14
+      ]
+    },
+    {
+      "id": "ven_putrajaya_lake_club",
+      "slugEn": "putrajaya-lake-club",
+      "slugMs": "kelab-tasik-putrajaya",
+      "nameEn": "Putrajaya Lake Club",
+      "nameMs": "Kelab Tasik Putrajaya",
+      "streetAddress": "Jalan P8",
+      "presint": 8,
+      "phone": "03-8889 5008",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        7,
+        86
+      ]
+    },
+    {
+      "id": "ven_putrajaya_water_sports_complex",
+      "slugEn": "putrajaya-water-sports-complex",
+      "slugMs": "kompleks-sukan-air-putrajaya",
+      "nameEn": "Putrajaya Water Sports Complex",
+      "nameMs": "Kompleks Sukan Air Putrajaya",
+      "streetAddress": "Presint 6",
+      "presint": 6,
+      "phone": "03-8881 0648",
+      "openingHours": [],
+      "rows": [
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "id": "ven_putrajaya_water_recreation_centre",
+      "slugEn": "putrajaya-water-recreation-centre",
+      "slugMs": "pusat-rekreasi-air-putrajaya",
+      "nameEn": "Putrajaya Water Recreation Centre",
+      "nameMs": "Pusat Rekreasi Air Putrajaya",
+      "streetAddress": "Persiaran Utara",
+      "presint": 1,
+      "phone": "013-262 8857",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "18:00"
+        }
+      ],
+      "rows": [
+        13
+      ]
+    },
+    {
+      "id": "ven_putrajaya_challenge_park",
+      "slugEn": "putrajaya-challenge-park",
+      "slugMs": "taman-cabaran-putrajaya",
+      "nameEn": "Putrajaya Challenge Park",
+      "nameMs": "Taman Cabaran Putrajaya",
+      "streetAddress": "Jalan P5",
+      "presint": 5,
+      "phone": "03-8887 7335",
+      "openingHours": [],
+      "rows": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    },
+    {
+      "id": "ven_adventure_park",
+      "slugEn": "adventure-park",
+      "slugMs": "adventure-park",
+      "nameEn": "Adventure Park",
+      "nameMs": "Adventure Park",
+      "streetAddress": null,
+      "presint": null,
+      "phone": "03-8887 7000",
+      "openingHours": [],
+      "rows": [
+        20
+      ]
+    },
+    {
+      "id": "ven_putrajaya_equestrian_park",
+      "slugEn": "putrajaya-equestrian-park",
+      "slugMs": "taman-ekuestrian-putrajaya",
+      "nameEn": "Putrajaya Equestrian Park",
+      "nameMs": "Taman Ekuestrian Putrajaya",
+      "streetAddress": "Presint 5",
+      "presint": 5,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        21,
+        87
+      ]
+    },
+    {
+      "id": "ven_ioi_sports_centre",
+      "slugEn": "ioi-sports-centre",
+      "slugMs": "ioi-sports-centre",
+      "nameEn": "IOI Sports Centre",
+      "nameMs": "IOI Sports Centre",
+      "streetAddress": "IOI City Mall, Lebuh IRC",
+      "presint": null,
+      "phone": "03-8328 8875",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "10:00",
+          "closes": "01:00"
+        }
+      ],
+      "rows": [
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "id": "ven_kompleks_kejiranan_presint_8",
+      "slugEn": "kompleks-kejiranan-presint-8",
+      "slugMs": "kompleks-kejiranan-presint-8",
+      "nameEn": "Kompleks Kejiranan Presint 8",
+      "nameMs": "Kompleks Kejiranan Presint 8",
+      "streetAddress": "Jalan P8D",
+      "presint": 8,
+      "phone": "03-8887 7665",
+      "openingHours": [],
+      "rows": [
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "id": "ven_kompleks_kejiranan_presint_9",
+      "slugEn": "kompleks-kejiranan-presint-9",
+      "slugMs": "kompleks-kejiranan-presint-9",
+      "nameEn": "Kompleks Kejiranan Presint 9",
+      "nameMs": "Kompleks Kejiranan Presint 9",
+      "streetAddress": "Jalan P9/C7",
+      "presint": 9,
+      "phone": "03-8887 7668",
+      "openingHours": [],
+      "rows": [
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ]
+    },
+    {
+      "id": "ven_kompleks_kejiranan_presint_11",
+      "slugEn": "kompleks-kejiranan-presint-11",
+      "slugMs": "kompleks-kejiranan-presint-11",
+      "nameEn": "Kompleks Kejiranan Presint 11",
+      "nameMs": "Kompleks Kejiranan Presint 11",
+      "streetAddress": "Jalan P11/2",
+      "presint": 11,
+      "phone": "03-8887 7664",
+      "openingHours": [],
+      "rows": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ]
+    },
+    {
+      "id": "ven_kompleks_kejiranan_presint_16",
+      "slugEn": "kompleks-kejiranan-presint-16",
+      "slugMs": "kompleks-kejiranan-presint-16",
+      "nameEn": "Kompleks Kejiranan Presint 16",
+      "nameMs": "Kompleks Kejiranan Presint 16",
+      "streetAddress": "Jalan P16",
+      "presint": 16,
+      "phone": "03-8887 7669",
+      "openingHours": [],
+      "rows": [
+        41,
+        42,
+        43,
+        44,
+        45
+      ]
+    },
+    {
+      "id": "ven_kompleks_futsal_presint_18",
+      "slugEn": "kompleks-futsal-presint-18",
+      "slugMs": "kompleks-futsal-presint-18",
+      "nameEn": "Kompleks Futsal Presint 18",
+      "nameMs": "Kompleks Futsal Presint 18",
+      "streetAddress": "Presint 18",
+      "presint": 18,
+      "phone": "03-8887 7601",
+      "openingHours": [],
+      "rows": [
+        46,
+        47,
+        48
+      ]
+    },
+    {
+      "id": "ven_taman_pancarona",
+      "slugEn": "taman-pancarona",
+      "slugMs": "taman-pancarona",
+      "nameEn": "Taman Pancarona",
+      "nameMs": "Taman Pancarona",
+      "streetAddress": "Taman Pancarona",
+      "presint": 18,
+      "phone": "03-8887 7769",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "00:00"
+        }
+      ],
+      "rows": [
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        75
+      ]
+    },
+    {
+      "id": "ven_agricultural_heritage_park",
+      "slugEn": "agricultural-heritage-park",
+      "slugMs": "taman-warisan-pertanian",
+      "nameEn": "Agricultural Heritage Park",
+      "nameMs": "Taman Warisan Pertanian",
+      "streetAddress": "Presint 16",
+      "presint": 16,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        55,
+        56
+      ]
+    },
+    {
+      "id": "ven_putrajaya_wetland_park",
+      "slugEn": "putrajaya-wetland-park",
+      "slugMs": "taman-wetland-putrajaya",
+      "nameEn": "Putrajaya Wetland Park",
+      "nameMs": "Taman Wetland Putrajaya",
+      "streetAddress": "Putrajaya Wetlands",
+      "presint": null,
+      "phone": "03-8887 7774",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "07:00",
+          "closes": "19:00"
+        }
+      ],
+      "rows": [
+        57,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "ven_studio_wetland_putrajaya",
+      "slugEn": "studio-wetland-putrajaya",
+      "slugMs": "studio-wetland-putrajaya",
+      "nameEn": "Studio Wetland Putrajaya",
+      "nameMs": "Studio Wetland Putrajaya",
+      "streetAddress": "Wetlands",
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        60
+      ]
+    },
+    {
+      "id": "ven_glamping_wetland_putrajaya",
+      "slugEn": "glamping-wetland-putrajaya",
+      "slugMs": "glamping-wetland-putrajaya",
+      "nameEn": "Glamping @ Wetland Putrajaya",
+      "nameMs": "Glamping @ Wetland Putrajaya",
+      "streetAddress": "Wetlands",
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        61
+      ]
+    },
+    {
+      "id": "ven_putrajaya_botanical_garden",
+      "slugEn": "putrajaya-botanical-garden",
+      "slugMs": "taman-botani-putrajaya",
+      "nameEn": "Putrajaya Botanical Garden",
+      "nameMs": "Taman Botani Putrajaya",
+      "streetAddress": "Lebuh Perdana Barat",
+      "presint": 1,
+      "phone": "03-8887 7770",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "07:00",
+          "closes": "19:00"
+        }
+      ],
+      "rows": [
+        62,
+        63,
+        64
+      ]
+    },
+    {
+      "id": "ven_taman_saujana_hijau",
+      "slugEn": "taman-saujana-hijau",
+      "slugMs": "taman-saujana-hijau",
+      "nameEn": "Taman Saujana Hijau",
+      "nameMs": "Taman Saujana Hijau",
+      "streetAddress": "Jalan P11",
+      "presint": 11,
+      "phone": "03-8887 7770",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "07:00",
+          "closes": "19:00"
+        }
+      ],
+      "rows": [
+        65,
+        66
+      ]
+    },
+    {
+      "id": "ven_taman_rimba_alam",
+      "slugEn": "taman-rimba-alam",
+      "slugMs": "taman-rimba-alam",
+      "nameEn": "Taman Rimba Alam",
+      "nameMs": "Taman Rimba Alam",
+      "streetAddress": "Jalan P15 H4/1",
+      "presint": 15,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "07:00",
+          "closes": "19:00"
+        }
+      ],
+      "rows": [
+        67,
+        68
+      ]
+    },
+    {
+      "id": "ven_taman_wawasan",
+      "slugEn": "taman-wawasan",
+      "slugMs": "taman-wawasan",
+      "nameEn": "Taman Wawasan",
+      "nameMs": "Taman Wawasan",
+      "streetAddress": "Presint 2",
+      "presint": 2,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        69,
+        70
+      ]
+    },
+    {
+      "id": "ven_taman_putra_perdana",
+      "slugEn": "taman-putra-perdana",
+      "slugMs": "taman-putra-perdana",
+      "nameEn": "Taman Putra Perdana",
+      "nameMs": "Taman Putra Perdana",
+      "streetAddress": "Presint 1",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        71
+      ]
+    },
+    {
+      "id": "ven_taman_seri_empangan",
+      "slugEn": "taman-seri-empangan",
+      "slugMs": "taman-seri-empangan",
+      "nameEn": "Taman Seri Empangan",
+      "nameMs": "Taman Seri Empangan",
+      "streetAddress": "Lebuh Gemilang",
+      "presint": 5,
+      "phone": "013-362 1233",
+      "openingHours": [],
+      "rows": [
+        72,
+        73
+      ]
+    },
+    {
+      "id": "ven_china_malaysia_friendship_garden",
+      "slugEn": "china-malaysia-friendship-garden",
+      "slugMs": "taman-persahabatan-china-malaysia",
+      "nameEn": "China–Malaysia Friendship Garden",
+      "nameMs": "Taman Persahabatan China–Malaysia",
+      "streetAddress": null,
+      "presint": 4,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        74,
+        114
+      ]
+    },
+    {
+      "id": "ven_taman_cahaya_putra_perdana",
+      "slugEn": "taman-cahaya-putra-perdana",
+      "slugMs": "taman-cahaya-putra-perdana",
+      "nameEn": "Taman Cahaya Putra Perdana",
+      "nameMs": "Taman Cahaya Putra Perdana",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        76
+      ]
+    },
+    {
+      "id": "ven_pantai_floria",
+      "slugEn": "pantai-floria",
+      "slugMs": "pantai-floria",
+      "nameEn": "Pantai Floria",
+      "nameMs": "Pantai Floria",
+      "streetAddress": "Presint 4 area",
+      "presint": 4,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        77
+      ]
+    },
+    {
+      "id": "ven_anjung_floria",
+      "slugEn": "anjung-floria",
+      "slugMs": "anjung-floria",
+      "nameEn": "Anjung Floria",
+      "nameMs": "Anjung Floria",
+      "streetAddress": "Presint 4",
+      "presint": 4,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        78,
+        79
+      ]
+    },
+    {
+      "id": "ven_putrajaya_lake",
+      "slugEn": "putrajaya-lake",
+      "slugMs": "tasik-putrajaya",
+      "nameEn": "Putrajaya Lake",
+      "nameMs": "Tasik Putrajaya",
+      "streetAddress": "Central Putrajaya",
+      "presint": null,
+      "phone": "03-8887 7000",
+      "openingHours": [],
+      "rows": [
+        80,
+        81
+      ]
+    },
+    {
+      "id": "ven_city_trail_putrajaya",
+      "slugEn": "city-trail-putrajaya",
+      "slugMs": "denai-bandar-putrajaya",
+      "nameEn": "City Trail Putrajaya",
+      "nameMs": "Denai Bandar Putrajaya",
+      "streetAddress": "Presint 1 lakeside",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        82
+      ]
+    },
+    {
+      "id": "ven_architectural_trails",
+      "slugEn": "architectural-trails",
+      "slugMs": "denai-seni-bina-putrajaya",
+      "nameEn": "Architectural Trails",
+      "nameMs": "Denai Seni Bina Putrajaya",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        83
+      ]
+    },
+    {
+      "id": "ven_walking_trails_putrajaya",
+      "slugEn": "walking-trails-putrajaya",
+      "slugMs": "denai-pejalan-kaki-putrajaya",
+      "nameEn": "Walking Trails Putrajaya",
+      "nameMs": "Denai Pejalan Kaki Putrajaya",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        84
+      ]
+    },
+    {
+      "id": "ven_urban_birding_hotspot",
+      "slugEn": "urban-birding-hotspot",
+      "slugMs": "lokasi-memerhati-burung-bandar",
+      "nameEn": "Urban Birding Hotspot",
+      "nameMs": "Lokasi Memerhati Burung Bandar",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        85
+      ]
+    },
+    {
+      "id": "ven_ioi_city_farm",
+      "slugEn": "ioi-city-farm",
+      "slugMs": "ioi-city-farm",
+      "nameEn": "IOI City Farm",
+      "nameMs": "IOI City Farm",
+      "streetAddress": "IOI City Mall, Level 2",
+      "presint": null,
+      "phone": "03-8328 8900",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "10:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        88
+      ]
+    },
+    {
+      "id": "ven_district_21",
+      "slugEn": "district-21",
+      "slugMs": "district-21",
+      "nameEn": "District 21",
+      "nameMs": "District 21",
+      "streetAddress": "IOI City Mall",
+      "presint": null,
+      "phone": "03-8328 8888",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr"
+          ],
+          "opens": "12:00",
+          "closes": "20:00"
+        },
+        {
+          "days": [
+            "Sa",
+            "Su"
+          ],
+          "opens": "10:00",
+          "closes": "20:00"
+        }
+      ],
+      "rows": [
+        89
+      ]
+    },
+    {
+      "id": "ven_icescape_ice_skating_rink",
+      "slugEn": "icescape-ice-skating-rink",
+      "slugMs": "icescape-ice-skating-rink",
+      "nameEn": "Icescape Ice Skating Rink",
+      "nameMs": "Icescape Ice Skating Rink",
+      "streetAddress": "IOI City Mall",
+      "presint": null,
+      "phone": "03-8328 8900",
+      "openingHours": [],
+      "rows": [
+        90
+      ]
+    },
+    {
+      "id": "ven_the_symphony_walk",
+      "slugEn": "the-symphony-walk",
+      "slugMs": "the-symphony-walk",
+      "nameEn": "The Symphony Walk",
+      "nameMs": "The Symphony Walk",
+      "streetAddress": "IOI City Mall",
+      "presint": null,
+      "phone": "03-8328 8900",
+      "openingHours": [],
+      "rows": [
+        91
+      ]
+    },
+    {
+      "id": "ven_putrajaya_story",
+      "slugEn": "putrajaya-story",
+      "slugMs": "putrajaya-story",
+      "nameEn": "Putrajaya Story",
+      "nameMs": "Putrajaya Story",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        94
+      ]
+    },
+    {
+      "id": "ven_nasyrul_quran_complex",
+      "slugEn": "nasyrul-quran-complex",
+      "slugMs": "kompleks-nasyrul-quran",
+      "nameEn": "Nasyrul Quran Complex",
+      "nameMs": "Kompleks Nasyrul Quran",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        95
+      ]
+    },
+    {
+      "id": "ven_perdana_putra",
+      "slugEn": "perdana-putra",
+      "slugMs": "perdana-putra",
+      "nameEn": "Perdana Putra",
+      "nameMs": "Perdana Putra",
+      "streetAddress": "Presint 1",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        98
+      ]
+    },
+    {
+      "id": "ven_putra_square",
+      "slugEn": "putra-square",
+      "slugMs": "dataran-putra",
+      "nameEn": "Putra Square",
+      "nameMs": "Dataran Putra",
+      "streetAddress": "Presint 1",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        99
+      ]
+    },
+    {
+      "id": "ven_putra_bridge",
+      "slugEn": "putra-bridge",
+      "slugMs": "jambatan-putra",
+      "nameEn": "Putra Bridge",
+      "nameMs": "Jambatan Putra",
+      "streetAddress": "Presint 1",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        100
+      ]
+    },
+    {
+      "id": "ven_seri_wawasan_bridge",
+      "slugEn": "seri-wawasan-bridge",
+      "slugMs": "jambatan-seri-wawasan",
+      "nameEn": "Seri Wawasan Bridge",
+      "nameMs": "Jambatan Seri Wawasan",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        101
+      ]
+    },
+    {
+      "id": "ven_seri_gemilang_bridge",
+      "slugEn": "seri-gemilang-bridge",
+      "slugMs": "jambatan-seri-gemilang",
+      "nameEn": "Seri Gemilang Bridge",
+      "nameMs": "Jambatan Seri Gemilang",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        102
+      ]
+    },
+    {
+      "id": "ven_seri_saujana_bridge",
+      "slugEn": "seri-saujana-bridge",
+      "slugMs": "jambatan-seri-saujana",
+      "nameEn": "Seri Saujana Bridge",
+      "nameMs": "Jambatan Seri Saujana",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        103
+      ]
+    },
+    {
+      "id": "ven_seri_bakti_bridge",
+      "slugEn": "seri-bakti-bridge",
+      "slugMs": "jambatan-seri-bakti",
+      "nameEn": "Seri Bakti Bridge",
+      "nameMs": "Jambatan Seri Bakti",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        104
+      ]
+    },
+    {
+      "id": "ven_seri_bestari_bridge",
+      "slugEn": "seri-bestari-bridge",
+      "slugMs": "jambatan-seri-bestari",
+      "nameEn": "Seri Bestari Bridge",
+      "nameMs": "Jambatan Seri Bestari",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        105
+      ]
+    },
+    {
+      "id": "ven_seri_setia_bridge",
+      "slugEn": "seri-setia-bridge",
+      "slugMs": "jambatan-seri-setia",
+      "nameEn": "Seri Setia Bridge",
+      "nameMs": "Jambatan Seri Setia",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        106
+      ]
+    },
+    {
+      "id": "ven_seri_perdana_bridge",
+      "slugEn": "seri-perdana-bridge",
+      "slugMs": "jambatan-seri-perdana",
+      "nameEn": "Seri Perdana Bridge",
+      "nameMs": "Jambatan Seri Perdana",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        107
+      ]
+    },
+    {
+      "id": "ven_seri_ehsan_bridge",
+      "slugEn": "seri-ehsan-bridge",
+      "slugMs": "jambatan-seri-ehsan",
+      "nameEn": "Seri Ehsan Bridge",
+      "nameMs": "Jambatan Seri Ehsan",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        108
+      ]
+    },
+    {
+      "id": "ven_millennium_monument",
+      "slugEn": "millennium-monument",
+      "slugMs": "monumen-alaf-baru",
+      "nameEn": "Millennium Monument",
+      "nameMs": "Monumen Alaf Baru",
+      "streetAddress": "Lebuh Ehsan",
+      "presint": 2,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        109
+      ]
+    },
+    {
+      "id": "ven_astaka_morocco",
+      "slugEn": "astaka-morocco",
+      "slugMs": "astaka-morocco",
+      "nameEn": "Astaka Morocco",
+      "nameMs": "Astaka Morocco",
+      "streetAddress": null,
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        113
+      ]
+    },
+    {
+      "id": "ven_dataran_gemilang",
+      "slugEn": "dataran-gemilang",
+      "slugMs": "dataran-gemilang",
+      "nameEn": "Dataran Gemilang",
+      "nameMs": "Dataran Gemilang",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        118
+      ]
+    },
+    {
+      "id": "ven_dataran_pahlawan",
+      "slugEn": "dataran-pahlawan",
+      "slugMs": "dataran-pahlawan",
+      "nameEn": "Dataran Pahlawan",
+      "nameMs": "Dataran Pahlawan",
+      "streetAddress": null,
+      "presint": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        119
+      ]
+    },
+    {
+      "id": "ven_tangga_putrajaya",
+      "slugEn": "tangga-putrajaya",
+      "slugMs": "tangga-putrajaya",
+      "nameEn": "Tangga Putrajaya",
+      "nameMs": "Tangga Putrajaya",
+      "streetAddress": "Presint 1",
+      "presint": 1,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        120
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "id": "act_cruise_tasik_putrajaya_sightseeing_cruise",
+      "venueId": "ven_cruise_tasik_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "cruise-tasik-putrajaya-sightseeing-cruise",
+      "slugMs": "cruise-tasik-putrajaya-pelayaran-bersiar-siar",
+      "nameEn": "Sightseeing cruise at Cruise Tasik Putrajaya",
+      "nameMs": "Pelayaran bersiar-siar di Cruise Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        1
+      ]
+    },
+    {
+      "id": "act_cruise_tasik_putrajaya_dondang_sayang_boat_ride",
+      "venueId": "ven_cruise_tasik_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "cruise-tasik-putrajaya-dondang-sayang-boat-ride",
+      "slugMs": "cruise-tasik-putrajaya-perahu-dondang-sayang",
+      "nameEn": "Dondang Sayang boat ride at Cruise Tasik Putrajaya",
+      "nameMs": "Perahu Dondang Sayang di Cruise Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        2
+      ]
+    },
+    {
+      "id": "act_cruise_tasik_putrajaya_private_boat_charter",
+      "venueId": "ven_cruise_tasik_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "cruise-tasik-putrajaya-private-boat-charter",
+      "slugMs": "cruise-tasik-putrajaya-sewa-bot-persendirian",
+      "nameEn": "Private boat charter at Cruise Tasik Putrajaya",
+      "nameMs": "Sewa bot persendirian di Cruise Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        3
+      ]
+    },
+    {
+      "id": "act_cruise_tasik_putrajaya_dine_cruise",
+      "venueId": "ven_cruise_tasik_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "cruise-tasik-putrajaya-dine-cruise",
+      "slugMs": "cruise-tasik-putrajaya-dine-cruise",
+      "nameEn": "Dine@Cruise at Cruise Tasik Putrajaya",
+      "nameMs": "Dine@Cruise di Cruise Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        4
+      ]
+    },
+    {
+      "id": "act_cruise_tasik_putrajaya_boat_hire_for_events",
+      "venueId": "ven_cruise_tasik_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "cruise-tasik-putrajaya-boat-hire-for-events",
+      "slugMs": "cruise-tasik-putrajaya-sewa-bot-untuk-acara",
+      "nameEn": "Boat hire for events at Cruise Tasik Putrajaya",
+      "nameMs": "Sewa bot untuk acara di Cruise Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        5
+      ]
+    },
+    {
+      "id": "act_marina_putrajaya_water_recreation",
+      "venueId": "ven_marina_putrajaya",
+      "operatorId": "op_marina_putrajaya",
+      "categoryId": "cat_water_sports",
+      "slugEn": "marina-putrajaya-water-recreation",
+      "slugMs": "marina-putrajaya-rekreasi-air",
+      "nameEn": "Water recreation at Marina Putrajaya",
+      "nameMs": "Rekreasi air di Marina Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        6
+      ]
+    },
+    {
+      "id": "act_marina_putrajaya_flyboarding",
+      "venueId": "ven_marina_putrajaya",
+      "operatorId": "op_flyboard_malaysia",
+      "categoryId": "cat_water_sports",
+      "slugEn": "marina-putrajaya-flyboarding",
+      "slugMs": "marina-putrajaya-flyboard",
+      "nameEn": "Flyboarding at Marina Putrajaya",
+      "nameMs": "Flyboard di Marina Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": "012-287 1120",
+      "openingHours": [],
+      "rows": [
+        14
+      ]
+    },
+    {
+      "id": "act_putrajaya_lake_club_kayaking",
+      "venueId": "ven_putrajaya_lake_club",
+      "operatorId": "op_kelab_tasik_putrajaya",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-lake-club-kayaking",
+      "slugMs": "kelab-tasik-putrajaya-berkayak",
+      "nameEn": "Kayaking at Putrajaya Lake Club",
+      "nameMs": "Berkayak di Kelab Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        7
+      ]
+    },
+    {
+      "id": "act_putrajaya_lake_club_boating",
+      "venueId": "ven_putrajaya_lake_club",
+      "operatorId": "op_kelab_tasik_putrajaya",
+      "categoryId": "cat_cruises_boats",
+      "slugEn": "putrajaya-lake-club-boating",
+      "slugMs": "kelab-tasik-putrajaya-berperahu",
+      "nameEn": "Boating at Putrajaya Lake Club",
+      "nameMs": "Berperahu di Kelab Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        86
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_sports_complex_water_sports",
+      "venueId": "ven_putrajaya_water_sports_complex",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-sports-complex-water-sports",
+      "slugMs": "kompleks-sukan-air-putrajaya-sukan-air",
+      "nameEn": "Water sports at Putrajaya Water Sports Complex",
+      "nameMs": "Sukan air di Kompleks Sukan Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        8
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_sports_complex_kayaking",
+      "venueId": "ven_putrajaya_water_sports_complex",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-sports-complex-kayaking",
+      "slugMs": "kompleks-sukan-air-putrajaya-berkayak",
+      "nameEn": "Kayaking at Putrajaya Water Sports Complex",
+      "nameMs": "Berkayak di Kompleks Sukan Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        9
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_sports_complex_rowing",
+      "venueId": "ven_putrajaya_water_sports_complex",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-sports-complex-rowing",
+      "slugMs": "kompleks-sukan-air-putrajaya-mendayung",
+      "nameEn": "Rowing at Putrajaya Water Sports Complex",
+      "nameMs": "Mendayung di Kompleks Sukan Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        10
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_sports_complex_water_skiing",
+      "venueId": "ven_putrajaya_water_sports_complex",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-sports-complex-water-skiing",
+      "slugMs": "kompleks-sukan-air-putrajaya-ski-air",
+      "nameEn": "Water skiing at Putrajaya Water Sports Complex",
+      "nameMs": "Ski air di Kompleks Sukan Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        11
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_sports_complex_wakeboarding",
+      "venueId": "ven_putrajaya_water_sports_complex",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-sports-complex-wakeboarding",
+      "slugMs": "kompleks-sukan-air-putrajaya-wakeboarding",
+      "nameEn": "Wakeboarding at Putrajaya Water Sports Complex",
+      "nameMs": "Wakeboarding di Kompleks Sukan Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        12
+      ]
+    },
+    {
+      "id": "act_putrajaya_water_recreation_centre_water_recreation",
+      "venueId": "ven_putrajaya_water_recreation_centre",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-water-recreation-centre-water-recreation",
+      "slugMs": "pusat-rekreasi-air-putrajaya-rekreasi-air",
+      "nameEn": "Water recreation at Putrajaya Water Recreation Centre",
+      "nameMs": "Rekreasi air di Pusat Rekreasi Air Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        13
+      ]
+    },
+    {
+      "id": "act_putrajaya_challenge_park_wall_climbing",
+      "venueId": "ven_putrajaya_challenge_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_rock_climbing",
+      "slugEn": "putrajaya-challenge-park-wall-climbing",
+      "slugMs": "taman-cabaran-putrajaya-panjat-dinding",
+      "nameEn": "Wall climbing at Putrajaya Challenge Park",
+      "nameMs": "Panjat dinding di Taman Cabaran Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        15
+      ]
+    },
+    {
+      "id": "act_putrajaya_challenge_park_skateboarding",
+      "venueId": "ven_putrajaya_challenge_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-challenge-park-skateboarding",
+      "slugMs": "taman-cabaran-putrajaya-papan-luncur",
+      "nameEn": "Skateboarding at Putrajaya Challenge Park",
+      "nameMs": "Papan luncur di Taman Cabaran Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        16
+      ]
+    },
+    {
+      "id": "act_putrajaya_challenge_park_bmx",
+      "venueId": "ven_putrajaya_challenge_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-challenge-park-bmx",
+      "slugMs": "taman-cabaran-putrajaya-bmx",
+      "nameEn": "BMX at Putrajaya Challenge Park",
+      "nameMs": "BMX di Taman Cabaran Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        17
+      ]
+    },
+    {
+      "id": "act_putrajaya_challenge_park_mountain_biking",
+      "venueId": "ven_putrajaya_challenge_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-challenge-park-mountain-biking",
+      "slugMs": "taman-cabaran-putrajaya-basikal-gunung",
+      "nameEn": "Mountain biking at Putrajaya Challenge Park",
+      "nameMs": "Basikal gunung di Taman Cabaran Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        18
+      ]
+    },
+    {
+      "id": "act_putrajaya_challenge_park_cycling",
+      "venueId": "ven_putrajaya_challenge_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-challenge-park-cycling",
+      "slugMs": "taman-cabaran-putrajaya-berbasikal",
+      "nameEn": "Cycling at Putrajaya Challenge Park",
+      "nameMs": "Berbasikal di Taman Cabaran Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        19
+      ]
+    },
+    {
+      "id": "act_adventure_park_outdoor_adventure",
+      "venueId": "ven_adventure_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_rock_climbing",
+      "slugEn": "adventure-park-outdoor-adventure",
+      "slugMs": "adventure-park-pengembaraan-luar",
+      "nameEn": "Outdoor adventure at Adventure Park",
+      "nameMs": "Pengembaraan luar di Adventure Park",
+      "listingMode": "hidden",
+      "howToBook": "unknown",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        20
+      ]
+    },
+    {
+      "id": "act_putrajaya_equestrian_park_horse_riding",
+      "venueId": "ven_putrajaya_equestrian_park",
+      "operatorId": "op_putrajaya_equestrian_park",
+      "categoryId": "cat_horse_riding",
+      "slugEn": "putrajaya-equestrian-park-horse-riding",
+      "slugMs": "taman-ekuestrian-putrajaya-menunggang-kuda",
+      "nameEn": "Horse riding at Putrajaya Equestrian Park",
+      "nameMs": "Menunggang kuda di Taman Ekuestrian Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "unknown",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        21,
+        87
+      ]
+    },
+    {
+      "id": "act_ioi_sports_centre_badminton",
+      "venueId": "ven_ioi_sports_centre",
+      "operatorId": "op_ioi_sports_centre",
+      "categoryId": "cat_badminton",
+      "slugEn": "ioi-sports-centre-badminton",
+      "slugMs": "ioi-sports-centre-badminton",
+      "nameEn": "Badminton at IOI Sports Centre",
+      "nameMs": "Badminton di IOI Sports Centre",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        22
+      ]
+    },
+    {
+      "id": "act_ioi_sports_centre_mini_futsal",
+      "venueId": "ven_ioi_sports_centre",
+      "operatorId": "op_ioi_sports_centre",
+      "categoryId": "cat_futsal",
+      "slugEn": "ioi-sports-centre-mini-futsal",
+      "slugMs": "ioi-sports-centre-futsal-mini",
+      "nameEn": "Mini futsal at IOI Sports Centre",
+      "nameMs": "Futsal mini di IOI Sports Centre",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        23
+      ]
+    },
+    {
+      "id": "act_ioi_sports_centre_pickleball",
+      "venueId": "ven_ioi_sports_centre",
+      "operatorId": "op_ioi_sports_centre",
+      "categoryId": "cat_pickleball",
+      "slugEn": "ioi-sports-centre-pickleball",
+      "slugMs": "ioi-sports-centre-pickleball",
+      "nameEn": "Pickleball at IOI Sports Centre",
+      "nameMs": "Pickleball di IOI Sports Centre",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        24
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_8_badminton",
+      "venueId": "ven_kompleks_kejiranan_presint_8",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_badminton",
+      "slugEn": "kompleks-kejiranan-presint-8-badminton",
+      "slugMs": "kompleks-kejiranan-presint-8-badminton",
+      "nameEn": "Badminton at Kompleks Kejiranan Presint 8",
+      "nameMs": "Badminton di Kompleks Kejiranan Presint 8",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        25
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_8_sepak_takraw",
+      "venueId": "ven_kompleks_kejiranan_presint_8",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_sepak_takraw",
+      "slugEn": "kompleks-kejiranan-presint-8-sepak-takraw",
+      "slugMs": "kompleks-kejiranan-presint-8-sepak-takraw",
+      "nameEn": "Sepak takraw at Kompleks Kejiranan Presint 8",
+      "nameMs": "Sepak takraw di Kompleks Kejiranan Presint 8",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        26
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_8_gym",
+      "venueId": "ven_kompleks_kejiranan_presint_8",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_gym",
+      "slugEn": "kompleks-kejiranan-presint-8-gym",
+      "slugMs": "kompleks-kejiranan-presint-8-gim",
+      "nameEn": "Gym at Kompleks Kejiranan Presint 8",
+      "nameMs": "Gim di Kompleks Kejiranan Presint 8",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        27
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_badminton",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_badminton",
+      "slugEn": "kompleks-kejiranan-presint-9-badminton",
+      "slugMs": "kompleks-kejiranan-presint-9-badminton",
+      "nameEn": "Badminton at Kompleks Kejiranan Presint 9",
+      "nameMs": "Badminton di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        28
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_sepak_takraw",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_sepak_takraw",
+      "slugEn": "kompleks-kejiranan-presint-9-sepak-takraw",
+      "slugMs": "kompleks-kejiranan-presint-9-sepak-takraw",
+      "nameEn": "Sepak takraw at Kompleks Kejiranan Presint 9",
+      "nameMs": "Sepak takraw di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        29
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_squash",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_squash",
+      "slugEn": "kompleks-kejiranan-presint-9-squash",
+      "slugMs": "kompleks-kejiranan-presint-9-skuasy",
+      "nameEn": "Squash at Kompleks Kejiranan Presint 9",
+      "nameMs": "Skuasy di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        30
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_tennis",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_tennis",
+      "slugEn": "kompleks-kejiranan-presint-9-tennis",
+      "slugMs": "kompleks-kejiranan-presint-9-tenis",
+      "nameEn": "Tennis at Kompleks Kejiranan Presint 9",
+      "nameMs": "Tenis di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        31
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_swimming",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_swimming",
+      "slugEn": "kompleks-kejiranan-presint-9-swimming",
+      "slugMs": "kompleks-kejiranan-presint-9-renang",
+      "nameEn": "Swimming at Kompleks Kejiranan Presint 9",
+      "nameMs": "Renang di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        32
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_9_gym",
+      "venueId": "ven_kompleks_kejiranan_presint_9",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_gym",
+      "slugEn": "kompleks-kejiranan-presint-9-gym",
+      "slugMs": "kompleks-kejiranan-presint-9-gim",
+      "nameEn": "Gym at Kompleks Kejiranan Presint 9",
+      "nameMs": "Gim di Kompleks Kejiranan Presint 9",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        33
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_badminton",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_badminton",
+      "slugEn": "kompleks-kejiranan-presint-11-badminton",
+      "slugMs": "kompleks-kejiranan-presint-11-badminton",
+      "nameEn": "Badminton at Kompleks Kejiranan Presint 11",
+      "nameMs": "Badminton di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        34
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_sepak_takraw",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_sepak_takraw",
+      "slugEn": "kompleks-kejiranan-presint-11-sepak-takraw",
+      "slugMs": "kompleks-kejiranan-presint-11-sepak-takraw",
+      "nameEn": "Sepak takraw at Kompleks Kejiranan Presint 11",
+      "nameMs": "Sepak takraw di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        35
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_squash",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_squash",
+      "slugEn": "kompleks-kejiranan-presint-11-squash",
+      "slugMs": "kompleks-kejiranan-presint-11-skuasy",
+      "nameEn": "Squash at Kompleks Kejiranan Presint 11",
+      "nameMs": "Skuasy di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        36
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_tennis",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_tennis",
+      "slugEn": "kompleks-kejiranan-presint-11-tennis",
+      "slugMs": "kompleks-kejiranan-presint-11-tenis",
+      "nameEn": "Tennis at Kompleks Kejiranan Presint 11",
+      "nameMs": "Tenis di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        37
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_basketball",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_basketball",
+      "slugEn": "kompleks-kejiranan-presint-11-basketball",
+      "slugMs": "kompleks-kejiranan-presint-11-bola-keranjang",
+      "nameEn": "Basketball at Kompleks Kejiranan Presint 11",
+      "nameMs": "Bola keranjang di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        38
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_swimming",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_swimming",
+      "slugEn": "kompleks-kejiranan-presint-11-swimming",
+      "slugMs": "kompleks-kejiranan-presint-11-renang",
+      "nameEn": "Swimming at Kompleks Kejiranan Presint 11",
+      "nameMs": "Renang di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        39
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_11_gym",
+      "venueId": "ven_kompleks_kejiranan_presint_11",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_gym",
+      "slugEn": "kompleks-kejiranan-presint-11-gym",
+      "slugMs": "kompleks-kejiranan-presint-11-gim",
+      "nameEn": "Gym at Kompleks Kejiranan Presint 11",
+      "nameMs": "Gim di Kompleks Kejiranan Presint 11",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        40
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_16_badminton",
+      "venueId": "ven_kompleks_kejiranan_presint_16",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_badminton",
+      "slugEn": "kompleks-kejiranan-presint-16-badminton",
+      "slugMs": "kompleks-kejiranan-presint-16-badminton",
+      "nameEn": "Badminton at Kompleks Kejiranan Presint 16",
+      "nameMs": "Badminton di Kompleks Kejiranan Presint 16",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        41
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_16_sepak_takraw",
+      "venueId": "ven_kompleks_kejiranan_presint_16",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_sepak_takraw",
+      "slugEn": "kompleks-kejiranan-presint-16-sepak-takraw",
+      "slugMs": "kompleks-kejiranan-presint-16-sepak-takraw",
+      "nameEn": "Sepak takraw at Kompleks Kejiranan Presint 16",
+      "nameMs": "Sepak takraw di Kompleks Kejiranan Presint 16",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        42
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_16_squash",
+      "venueId": "ven_kompleks_kejiranan_presint_16",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_squash",
+      "slugEn": "kompleks-kejiranan-presint-16-squash",
+      "slugMs": "kompleks-kejiranan-presint-16-skuasy",
+      "nameEn": "Squash at Kompleks Kejiranan Presint 16",
+      "nameMs": "Skuasy di Kompleks Kejiranan Presint 16",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        43
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_16_swimming",
+      "venueId": "ven_kompleks_kejiranan_presint_16",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_swimming",
+      "slugEn": "kompleks-kejiranan-presint-16-swimming",
+      "slugMs": "kompleks-kejiranan-presint-16-renang",
+      "nameEn": "Swimming at Kompleks Kejiranan Presint 16",
+      "nameMs": "Renang di Kompleks Kejiranan Presint 16",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        44
+      ]
+    },
+    {
+      "id": "act_kompleks_kejiranan_presint_16_gym",
+      "venueId": "ven_kompleks_kejiranan_presint_16",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_gym",
+      "slugEn": "kompleks-kejiranan-presint-16-gym",
+      "slugMs": "kompleks-kejiranan-presint-16-gim",
+      "nameEn": "Gym at Kompleks Kejiranan Presint 16",
+      "nameMs": "Gim di Kompleks Kejiranan Presint 16",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        45
+      ]
+    },
+    {
+      "id": "act_kompleks_futsal_presint_18_futsal_mokhtar_dahari_court",
+      "venueId": "ven_kompleks_futsal_presint_18",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_futsal",
+      "slugEn": "kompleks-futsal-presint-18-futsal-mokhtar-dahari-court",
+      "slugMs": "kompleks-futsal-presint-18-futsal-gelanggang-mokhtar-dahari",
+      "nameEn": "Futsal (Mokhtar Dahari court) at Kompleks Futsal Presint 18",
+      "nameMs": "Futsal (gelanggang Mokhtar Dahari) di Kompleks Futsal Presint 18",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM20–RM70 per hour",
+      "priceNoteMs": "RM20–RM70 sejam",
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "00:00"
+        }
+      ],
+      "rows": [
+        46
+      ]
+    },
+    {
+      "id": "act_kompleks_futsal_presint_18_outdoor_futsal",
+      "venueId": "ven_kompleks_futsal_presint_18",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_futsal",
+      "slugEn": "kompleks-futsal-presint-18-outdoor-futsal",
+      "slugMs": "kompleks-futsal-presint-18-futsal-luar",
+      "nameEn": "Outdoor futsal at Kompleks Futsal Presint 18",
+      "nameMs": "Futsal luar di Kompleks Futsal Presint 18",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM15–RM50 per hour",
+      "priceNoteMs": "RM15–RM50 sejam",
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "00:00"
+        }
+      ],
+      "rows": [
+        47
+      ]
+    },
+    {
+      "id": "act_kompleks_futsal_presint_18_gym",
+      "venueId": "ven_kompleks_futsal_presint_18",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_gym",
+      "slugEn": "kompleks-futsal-presint-18-gym",
+      "slugMs": "kompleks-futsal-presint-18-gim",
+      "nameEn": "Gym at Kompleks Futsal Presint 18",
+      "nameMs": "Gim di Kompleks Futsal Presint 18",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM2 entry",
+      "priceNoteMs": "Masuk RM2",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        48
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_football",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_football",
+      "slugEn": "taman-pancarona-football",
+      "slugMs": "taman-pancarona-bola-sepak",
+      "nameEn": "Football at Taman Pancarona",
+      "nameMs": "Bola sepak di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM70–RM200 per hour",
+      "priceNoteMs": "RM70–RM200 sejam",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        49
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_futsal",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_futsal",
+      "slugEn": "taman-pancarona-futsal",
+      "slugMs": "taman-pancarona-futsal",
+      "nameEn": "Futsal at Taman Pancarona",
+      "nameMs": "Futsal di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM15–RM50 per hour",
+      "priceNoteMs": "RM15–RM50 sejam",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        50
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_basketball",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_basketball",
+      "slugEn": "taman-pancarona-basketball",
+      "slugMs": "taman-pancarona-bola-keranjang",
+      "nameEn": "Basketball at Taman Pancarona",
+      "nameMs": "Bola keranjang di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM15–RM50 per hour",
+      "priceNoteMs": "RM15–RM50 sejam",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        51
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_volleyball",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_volleyball_netball",
+      "slugEn": "taman-pancarona-volleyball",
+      "slugMs": "taman-pancarona-bola-tampar",
+      "nameEn": "Volleyball at Taman Pancarona",
+      "nameMs": "Bola tampar di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM4–RM14 per hour",
+      "priceNoteMs": "RM4–RM14 sejam",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        52
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_sepak_takraw",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_sepak_takraw",
+      "slugEn": "taman-pancarona-sepak-takraw",
+      "slugMs": "taman-pancarona-sepak-takraw",
+      "nameEn": "Sepak takraw at Taman Pancarona",
+      "nameMs": "Sepak takraw di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "RM2–RM10 per hour",
+      "priceNoteMs": "RM2–RM10 sejam",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        53
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_netball",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_volleyball_netball",
+      "slugEn": "taman-pancarona-netball",
+      "slugMs": "taman-pancarona-bola-jaring",
+      "nameEn": "Netball at Taman Pancarona",
+      "nameMs": "Bola jaring di Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "Free in the daytime",
+      "priceNoteMs": "Percuma pada waktu siang",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        54
+      ]
+    },
+    {
+      "id": "act_taman_pancarona_park_visit",
+      "venueId": "ven_taman_pancarona",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-pancarona-park-visit",
+      "slugMs": "taman-pancarona-lawatan-taman",
+      "nameEn": "Taman Pancarona",
+      "nameMs": "Taman Pancarona",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        75
+      ]
+    },
+    {
+      "id": "act_agricultural_heritage_park_farm_experience",
+      "venueId": "ven_agricultural_heritage_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "agricultural-heritage-park-farm-experience",
+      "slugMs": "taman-warisan-pertanian-pengalaman-ladang",
+      "nameEn": "Farm experience at Agricultural Heritage Park",
+      "nameMs": "Pengalaman ladang di Taman Warisan Pertanian",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        55
+      ]
+    },
+    {
+      "id": "act_agricultural_heritage_park_fruit_farm_tour",
+      "venueId": "ven_agricultural_heritage_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "agricultural-heritage-park-fruit-farm-tour",
+      "slugMs": "taman-warisan-pertanian-lawatan-ladang-buah",
+      "nameEn": "Fruit farm tour at Agricultural Heritage Park",
+      "nameMs": "Lawatan ladang buah di Taman Warisan Pertanian",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        56
+      ]
+    },
+    {
+      "id": "act_putrajaya_wetland_park_nature_walk",
+      "venueId": "ven_putrajaya_wetland_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "putrajaya-wetland-park-nature-walk",
+      "slugMs": "taman-wetland-putrajaya-jelajah-alam",
+      "nameEn": "Nature walk at Putrajaya Wetland Park",
+      "nameMs": "Jelajah alam di Taman Wetland Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        57
+      ]
+    },
+    {
+      "id": "act_putrajaya_wetland_park_birdwatching",
+      "venueId": "ven_putrajaya_wetland_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "putrajaya-wetland-park-birdwatching",
+      "slugMs": "taman-wetland-putrajaya-memerhati-burung",
+      "nameEn": "Birdwatching at Putrajaya Wetland Park",
+      "nameMs": "Memerhati burung di Taman Wetland Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        58
+      ]
+    },
+    {
+      "id": "act_putrajaya_wetland_park_cycling",
+      "venueId": "ven_putrajaya_wetland_park",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-wetland-park-cycling",
+      "slugMs": "taman-wetland-putrajaya-berbasikal",
+      "nameEn": "Cycling at Putrajaya Wetland Park",
+      "nameMs": "Berbasikal di Taman Wetland Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        59
+      ]
+    },
+    {
+      "id": "act_studio_wetland_putrajaya_wetland_learning",
+      "venueId": "ven_studio_wetland_putrajaya",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "studio-wetland-putrajaya-wetland-learning",
+      "slugMs": "studio-wetland-putrajaya-pembelajaran-tanah-bencah",
+      "nameEn": "Studio Wetland Putrajaya",
+      "nameMs": "Studio Wetland Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        60
+      ]
+    },
+    {
+      "id": "act_glamping_wetland_putrajaya_glamping",
+      "venueId": "ven_glamping_wetland_putrajaya",
+      "operatorId": "op_glamping_wetland_putrajaya",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "glamping-wetland-putrajaya-glamping",
+      "slugMs": "glamping-wetland-putrajaya-glamping",
+      "nameEn": "Glamping @ Wetland Putrajaya",
+      "nameMs": "Glamping @ Wetland Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "unknown",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        61
+      ]
+    },
+    {
+      "id": "act_putrajaya_botanical_garden_garden_visit",
+      "venueId": "ven_putrajaya_botanical_garden",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-botanical-garden-garden-visit",
+      "slugMs": "taman-botani-putrajaya-lawatan-taman",
+      "nameEn": "Putrajaya Botanical Garden",
+      "nameMs": "Taman Botani Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        62
+      ]
+    },
+    {
+      "id": "act_putrajaya_botanical_garden_cycling",
+      "venueId": "ven_putrajaya_botanical_garden",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-botanical-garden-cycling",
+      "slugMs": "taman-botani-putrajaya-berbasikal",
+      "nameEn": "Cycling at Putrajaya Botanical Garden",
+      "nameMs": "Berbasikal di Taman Botani Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        63
+      ]
+    },
+    {
+      "id": "act_putrajaya_botanical_garden_walking_jogging",
+      "venueId": "ven_putrajaya_botanical_garden",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "putrajaya-botanical-garden-walking-jogging",
+      "slugMs": "taman-botani-putrajaya-berjalan-kaki-berjoging",
+      "nameEn": "Walking & jogging at Putrajaya Botanical Garden",
+      "nameMs": "Berjalan kaki & berjoging di Taman Botani Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        64
+      ]
+    },
+    {
+      "id": "act_taman_saujana_hijau_jogging",
+      "venueId": "ven_taman_saujana_hijau",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-saujana-hijau-jogging",
+      "slugMs": "taman-saujana-hijau-berjoging",
+      "nameEn": "Jogging at Taman Saujana Hijau",
+      "nameMs": "Berjoging di Taman Saujana Hijau",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        65
+      ]
+    },
+    {
+      "id": "act_taman_saujana_hijau_cycling",
+      "venueId": "ven_taman_saujana_hijau",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-saujana-hijau-cycling",
+      "slugMs": "taman-saujana-hijau-berbasikal",
+      "nameEn": "Cycling at Taman Saujana Hijau",
+      "nameMs": "Berbasikal di Taman Saujana Hijau",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        66
+      ]
+    },
+    {
+      "id": "act_taman_rimba_alam_jogging_nature_walk",
+      "venueId": "ven_taman_rimba_alam",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-rimba-alam-jogging-nature-walk",
+      "slugMs": "taman-rimba-alam-berjoging-jelajah-alam",
+      "nameEn": "Jogging & nature walk at Taman Rimba Alam",
+      "nameMs": "Berjoging & jelajah alam di Taman Rimba Alam",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        67
+      ]
+    },
+    {
+      "id": "act_taman_rimba_alam_cycling_mountain_biking",
+      "venueId": "ven_taman_rimba_alam",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-rimba-alam-cycling-mountain-biking",
+      "slugMs": "taman-rimba-alam-berbasikal-basikal-gunung",
+      "nameEn": "Cycling & mountain biking at Taman Rimba Alam",
+      "nameMs": "Berbasikal & basikal gunung di Taman Rimba Alam",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        68
+      ]
+    },
+    {
+      "id": "act_taman_wawasan_jogging",
+      "venueId": "ven_taman_wawasan",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-wawasan-jogging",
+      "slugMs": "taman-wawasan-berjoging",
+      "nameEn": "Jogging at Taman Wawasan",
+      "nameMs": "Berjoging di Taman Wawasan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        69
+      ]
+    },
+    {
+      "id": "act_taman_wawasan_cycling",
+      "venueId": "ven_taman_wawasan",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-wawasan-cycling",
+      "slugMs": "taman-wawasan-berbasikal",
+      "nameEn": "Cycling at Taman Wawasan",
+      "nameMs": "Berbasikal di Taman Wawasan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        70
+      ]
+    },
+    {
+      "id": "act_taman_putra_perdana_park_visit",
+      "venueId": "ven_taman_putra_perdana",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-putra-perdana-park-visit",
+      "slugMs": "taman-putra-perdana-lawatan-taman",
+      "nameEn": "Taman Putra Perdana",
+      "nameMs": "Taman Putra Perdana",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        71
+      ]
+    },
+    {
+      "id": "act_taman_seri_empangan_jogging",
+      "venueId": "ven_taman_seri_empangan",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-seri-empangan-jogging",
+      "slugMs": "taman-seri-empangan-berjoging",
+      "nameEn": "Jogging at Taman Seri Empangan",
+      "nameMs": "Berjoging di Taman Seri Empangan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "08:00",
+          "closes": "22:00"
+        }
+      ],
+      "rows": [
+        72
+      ]
+    },
+    {
+      "id": "act_taman_seri_empangan_cycling",
+      "venueId": "ven_taman_seri_empangan",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-seri-empangan-cycling",
+      "slugMs": "taman-seri-empangan-berbasikal",
+      "nameEn": "Cycling at Taman Seri Empangan",
+      "nameMs": "Berbasikal di Taman Seri Empangan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        73
+      ]
+    },
+    {
+      "id": "act_china_malaysia_friendship_garden_garden_visit",
+      "venueId": "ven_china_malaysia_friendship_garden",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "china-malaysia-friendship-garden-garden-visit",
+      "slugMs": "taman-persahabatan-china-malaysia-lawatan-taman",
+      "nameEn": "China–Malaysia Friendship Garden",
+      "nameMs": "Taman Persahabatan China–Malaysia",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        74,
+        114
+      ]
+    },
+    {
+      "id": "act_taman_cahaya_putra_perdana_garden_visit",
+      "venueId": "ven_taman_cahaya_putra_perdana",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "taman-cahaya-putra-perdana-garden-visit",
+      "slugMs": "taman-cahaya-putra-perdana-lawatan-taman",
+      "nameEn": "Taman Cahaya Putra Perdana",
+      "nameMs": "Taman Cahaya Putra Perdana",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        76
+      ]
+    },
+    {
+      "id": "act_pantai_floria_lakeside_visit",
+      "venueId": "ven_pantai_floria",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "pantai-floria-lakeside-visit",
+      "slugMs": "pantai-floria-rekreasi-tepi-tasik",
+      "nameEn": "Pantai Floria",
+      "nameMs": "Pantai Floria",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        77
+      ]
+    },
+    {
+      "id": "act_anjung_floria_recreation_events",
+      "venueId": "ven_anjung_floria",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "anjung-floria-recreation-events",
+      "slugMs": "anjung-floria-rekreasi-acara",
+      "nameEn": "Recreation & events at Anjung Floria",
+      "nameMs": "Rekreasi & acara di Anjung Floria",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        78
+      ]
+    },
+    {
+      "id": "act_anjung_floria_cycling_walking",
+      "venueId": "ven_anjung_floria",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "anjung-floria-cycling-walking",
+      "slugMs": "anjung-floria-berbasikal-berjalan-kaki",
+      "nameEn": "Cycling & walking at Anjung Floria",
+      "nameMs": "Berbasikal & berjalan kaki di Anjung Floria",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        79
+      ]
+    },
+    {
+      "id": "act_putrajaya_lake_lake_recreation",
+      "venueId": "ven_putrajaya_lake",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-lake-lake-recreation",
+      "slugMs": "tasik-putrajaya-rekreasi-tasik",
+      "nameEn": "Lake recreation at Putrajaya Lake",
+      "nameMs": "Rekreasi tasik di Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "unknown",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        80
+      ]
+    },
+    {
+      "id": "act_putrajaya_lake_water_sports_events",
+      "venueId": "ven_putrajaya_lake",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_water_sports",
+      "slugEn": "putrajaya-lake-water-sports-events",
+      "slugMs": "tasik-putrajaya-acara-sukan-air",
+      "nameEn": "Water sports events at Putrajaya Lake",
+      "nameMs": "Acara sukan air di Tasik Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "Depends on the event",
+      "priceNoteMs": "Bergantung pada acara",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        81
+      ]
+    },
+    {
+      "id": "act_city_trail_putrajaya_walking_jogging",
+      "venueId": "ven_city_trail_putrajaya",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "city-trail-putrajaya-walking-jogging",
+      "slugMs": "denai-bandar-putrajaya-berjalan-kaki-berjoging",
+      "nameEn": "Walking & jogging at City Trail Putrajaya",
+      "nameMs": "Berjalan kaki & berjoging di Denai Bandar Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        82
+      ]
+    },
+    {
+      "id": "act_architectural_trails_architecture_walk",
+      "venueId": "ven_architectural_trails",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "architectural-trails-architecture-walk",
+      "slugMs": "denai-seni-bina-putrajaya-jelajah-seni-bina",
+      "nameEn": "Architectural Trails",
+      "nameMs": "Denai Seni Bina Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        83
+      ]
+    },
+    {
+      "id": "act_walking_trails_putrajaya_walking_jogging",
+      "venueId": "ven_walking_trails_putrajaya",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "walking-trails-putrajaya-walking-jogging",
+      "slugMs": "denai-pejalan-kaki-putrajaya-berjalan-kaki-berjoging",
+      "nameEn": "Walking & jogging at Walking Trails Putrajaya",
+      "nameMs": "Berjalan kaki & berjoging di Denai Pejalan Kaki Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        84
+      ]
+    },
+    {
+      "id": "act_urban_birding_hotspot_birdwatching",
+      "venueId": "ven_urban_birding_hotspot",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "urban-birding-hotspot-birdwatching",
+      "slugMs": "lokasi-memerhati-burung-bandar-memerhati-burung",
+      "nameEn": "Birdwatching at Urban Birding Hotspot",
+      "nameMs": "Memerhati burung di Lokasi Memerhati Burung Bandar",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        85
+      ]
+    },
+    {
+      "id": "act_ioi_city_farm_animal_plant_discovery",
+      "venueId": "ven_ioi_city_farm",
+      "operatorId": "op_ioi_city_mall",
+      "categoryId": "cat_farms_nature",
+      "slugEn": "ioi-city-farm-animal-plant-discovery",
+      "slugMs": "ioi-city-farm-penerokaan-haiwan-tumbuhan",
+      "nameEn": "IOI City Farm",
+      "nameMs": "IOI City Farm",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        88
+      ]
+    },
+    {
+      "id": "act_district_21_indoor_adventure_park",
+      "venueId": "ven_district_21",
+      "operatorId": "op_ioi_city_mall",
+      "categoryId": "cat_rock_climbing",
+      "slugEn": "district-21-indoor-adventure-park",
+      "slugMs": "district-21-taman-pengembaraan-dalaman",
+      "nameEn": "District 21",
+      "nameMs": "District 21",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": "From RM64",
+      "priceNoteMs": "Dari RM64",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        89
+      ]
+    },
+    {
+      "id": "act_icescape_ice_skating_rink_ice_skating",
+      "venueId": "ven_icescape_ice_skating_rink",
+      "operatorId": "op_ioi_city_mall",
+      "categoryId": "cat_ice_skating",
+      "slugEn": "icescape-ice-skating-rink-ice-skating",
+      "slugMs": "icescape-ice-skating-rink-luncur-ais",
+      "nameEn": "Ice skating at Icescape Ice Skating Rink",
+      "nameMs": "Luncur ais di Icescape Ice Skating Rink",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        90
+      ]
+    },
+    {
+      "id": "act_the_symphony_walk_leisure_walk",
+      "venueId": "ven_the_symphony_walk",
+      "operatorId": "op_ioi_city_mall",
+      "categoryId": "cat_parks_cycling",
+      "slugEn": "the-symphony-walk-leisure-walk",
+      "slugMs": "the-symphony-walk-bersiar-siar",
+      "nameEn": "The Symphony Walk",
+      "nameMs": "The Symphony Walk",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        91
+      ]
+    },
+    {
+      "id": "act_putrajaya_story_cultural_experience",
+      "venueId": "ven_putrajaya_story",
+      "operatorId": "op_putrajaya_story",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "putrajaya-story-cultural-experience",
+      "slugMs": "putrajaya-story-pengalaman-budaya",
+      "nameEn": "Putrajaya Story",
+      "nameMs": "Putrajaya Story",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        94
+      ]
+    },
+    {
+      "id": "act_nasyrul_quran_complex_sightseeing",
+      "venueId": "ven_nasyrul_quran_complex",
+      "operatorId": "op_nasyrul_quran_complex",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "nasyrul-quran-complex-sightseeing",
+      "slugMs": "kompleks-nasyrul-quran-bersiar-siar",
+      "nameEn": "Nasyrul Quran Complex",
+      "nameMs": "Kompleks Nasyrul Quran",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        95
+      ]
+    },
+    {
+      "id": "act_perdana_putra_sightseeing",
+      "venueId": "ven_perdana_putra",
+      "operatorId": "op_perdana_putra",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "perdana-putra-sightseeing",
+      "slugMs": "perdana-putra-bersiar-siar",
+      "nameEn": "Perdana Putra",
+      "nameMs": "Perdana Putra",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        98
+      ]
+    },
+    {
+      "id": "act_putra_square_sightseeing",
+      "venueId": "ven_putra_square",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "putra-square-sightseeing",
+      "slugMs": "dataran-putra-bersiar-siar",
+      "nameEn": "Putra Square",
+      "nameMs": "Dataran Putra",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        99
+      ]
+    },
+    {
+      "id": "act_putra_bridge_sightseeing",
+      "venueId": "ven_putra_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "putra-bridge-sightseeing",
+      "slugMs": "jambatan-putra-bersiar-siar",
+      "nameEn": "Putra Bridge",
+      "nameMs": "Jambatan Putra",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        100
+      ]
+    },
+    {
+      "id": "act_seri_wawasan_bridge_sightseeing",
+      "venueId": "ven_seri_wawasan_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-wawasan-bridge-sightseeing",
+      "slugMs": "jambatan-seri-wawasan-bersiar-siar",
+      "nameEn": "Seri Wawasan Bridge",
+      "nameMs": "Jambatan Seri Wawasan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        101
+      ]
+    },
+    {
+      "id": "act_seri_gemilang_bridge_sightseeing",
+      "venueId": "ven_seri_gemilang_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-gemilang-bridge-sightseeing",
+      "slugMs": "jambatan-seri-gemilang-bersiar-siar",
+      "nameEn": "Seri Gemilang Bridge",
+      "nameMs": "Jambatan Seri Gemilang",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        102
+      ]
+    },
+    {
+      "id": "act_seri_saujana_bridge_sightseeing",
+      "venueId": "ven_seri_saujana_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-saujana-bridge-sightseeing",
+      "slugMs": "jambatan-seri-saujana-bersiar-siar",
+      "nameEn": "Seri Saujana Bridge",
+      "nameMs": "Jambatan Seri Saujana",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        103
+      ]
+    },
+    {
+      "id": "act_seri_bakti_bridge_sightseeing",
+      "venueId": "ven_seri_bakti_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-bakti-bridge-sightseeing",
+      "slugMs": "jambatan-seri-bakti-bersiar-siar",
+      "nameEn": "Seri Bakti Bridge",
+      "nameMs": "Jambatan Seri Bakti",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        104
+      ]
+    },
+    {
+      "id": "act_seri_bestari_bridge_sightseeing",
+      "venueId": "ven_seri_bestari_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-bestari-bridge-sightseeing",
+      "slugMs": "jambatan-seri-bestari-bersiar-siar",
+      "nameEn": "Seri Bestari Bridge",
+      "nameMs": "Jambatan Seri Bestari",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        105
+      ]
+    },
+    {
+      "id": "act_seri_setia_bridge_sightseeing",
+      "venueId": "ven_seri_setia_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-setia-bridge-sightseeing",
+      "slugMs": "jambatan-seri-setia-bersiar-siar",
+      "nameEn": "Seri Setia Bridge",
+      "nameMs": "Jambatan Seri Setia",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        106
+      ]
+    },
+    {
+      "id": "act_seri_perdana_bridge_sightseeing",
+      "venueId": "ven_seri_perdana_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-perdana-bridge-sightseeing",
+      "slugMs": "jambatan-seri-perdana-bersiar-siar",
+      "nameEn": "Seri Perdana Bridge",
+      "nameMs": "Jambatan Seri Perdana",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        107
+      ]
+    },
+    {
+      "id": "act_seri_ehsan_bridge_sightseeing",
+      "venueId": "ven_seri_ehsan_bridge",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "seri-ehsan-bridge-sightseeing",
+      "slugMs": "jambatan-seri-ehsan-bersiar-siar",
+      "nameEn": "Seri Ehsan Bridge",
+      "nameMs": "Jambatan Seri Ehsan",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        108
+      ]
+    },
+    {
+      "id": "act_millennium_monument_sightseeing",
+      "venueId": "ven_millennium_monument",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "millennium-monument-sightseeing",
+      "slugMs": "monumen-alaf-baru-bersiar-siar",
+      "nameEn": "Millennium Monument",
+      "nameMs": "Monumen Alaf Baru",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        109
+      ]
+    },
+    {
+      "id": "act_astaka_morocco_sightseeing",
+      "venueId": "ven_astaka_morocco",
+      "operatorId": "op_astaka_morocco",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "astaka-morocco-sightseeing",
+      "slugMs": "astaka-morocco-bersiar-siar",
+      "nameEn": "Astaka Morocco",
+      "nameMs": "Astaka Morocco",
+      "listingMode": "hidden",
+      "howToBook": "unknown",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        113
+      ]
+    },
+    {
+      "id": "act_dataran_gemilang_sightseeing",
+      "venueId": "ven_dataran_gemilang",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "dataran-gemilang-sightseeing",
+      "slugMs": "dataran-gemilang-bersiar-siar",
+      "nameEn": "Dataran Gemilang",
+      "nameMs": "Dataran Gemilang",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        118
+      ]
+    },
+    {
+      "id": "act_dataran_pahlawan_sightseeing",
+      "venueId": "ven_dataran_pahlawan",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "dataran-pahlawan-sightseeing",
+      "slugMs": "dataran-pahlawan-bersiar-siar",
+      "nameEn": "Dataran Pahlawan",
+      "nameMs": "Dataran Pahlawan",
+      "listingMode": "hidden",
+      "howToBook": "external",
+      "priceNoteEn": null,
+      "priceNoteMs": null,
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        119
+      ]
+    },
+    {
+      "id": "act_tangga_putrajaya_sightseeing",
+      "venueId": "ven_tangga_putrajaya",
+      "operatorId": "op_ppj",
+      "categoryId": "cat_landmarks_tours",
+      "slugEn": "tangga-putrajaya-sightseeing",
+      "slugMs": "tangga-putrajaya-bersiar-siar",
+      "nameEn": "Tangga Putrajaya",
+      "nameMs": "Tangga Putrajaya",
+      "listingMode": "hidden",
+      "howToBook": "walk_in",
+      "priceNoteEn": "Free",
+      "priceNoteMs": "Percuma",
+      "phone": null,
+      "openingHours": [],
+      "rows": [
+        120
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "row": 92,
+      "venue": "Alamanda Putrajaya",
+      "activity": "Shopping / Entertainment",
+      "reason": "Retail, not an Activity (Shopping / Entertainment)"
+    },
+    {
+      "row": 93,
+      "venue": "Chocolate Souq Shoppe Putrajaya",
+      "activity": "Food / Shopping",
+      "reason": "Retail, not an Activity (Food / Shopping)"
+    },
+    {
+      "row": 96,
+      "venue": "Masjid Putra",
+      "activity": "Islamic Tourism / Architecture",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 97,
+      "venue": "Masjid Tuanku Mizan Zainal Abidin",
+      "activity": "Islamic Tourism / Architecture",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 110,
+      "venue": "Istana Kehakiman",
+      "activity": "Architecture / Photography",
+      "reason": "Public access restricted (Walk-in/Restricted)"
+    },
+    {
+      "row": 111,
+      "venue": "Kompleks Seri Perdana",
+      "activity": "Architecture / Sightseeing",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 112,
+      "venue": "Istana Melawati",
+      "activity": "Architecture / Sightseeing",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 115,
+      "venue": "Suruhanjaya Tenaga",
+      "activity": "Architecture / Photography",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 116,
+      "venue": "Menara Putrajaya Holdings",
+      "activity": "Architecture / Photography",
+      "reason": "Marked N/A for Komugo"
+    },
+    {
+      "row": 117,
+      "venue": "Bangunan 4G",
+      "activity": "Architecture / Photography",
+      "reason": "Marked N/A for Komugo"
+    }
+  ],
+  "review": [
+    {
+      "rows": [
+        6,
+        14
+      ],
+      "note": "Merged Venue: Marina Putrajaya + Flyboard Malaysia → Marina Putrajaya"
+    },
+    {
+      "rows": [
+        14
+      ],
+      "note": "Hours \"Weekends\" not parsed"
+    },
+    {
+      "rows": [
+        7,
+        86
+      ],
+      "note": "Merged Venue: Kelab Tasik Putrajaya + Putrajaya Lake Club → Kelab Tasik Putrajaya"
+    },
+    {
+      "rows": [
+        8
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        9
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        10
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        11
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        12
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        16
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        20
+      ],
+      "note": "No location for Adventure Park: needs an address and map pin"
+    },
+    {
+      "rows": [
+        21,
+        87
+      ],
+      "note": "Merged Activity at Taman Ekuestrian Putrajaya: Horse Riding / Equestrian + Horse Riding → Horse riding"
+    },
+    {
+      "rows": [
+        21,
+        87
+      ],
+      "note": "Unknown Operator (\"Operator\") at Taman Ekuestrian Putrajaya: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        32
+      ],
+      "note": "Hours \"4 sessions\" not parsed"
+    },
+    {
+      "rows": [
+        39
+      ],
+      "note": "Hours \"4 sessions\" not parsed"
+    },
+    {
+      "rows": [
+        44
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        48
+      ],
+      "note": "Hours \"Session-based\" not parsed"
+    },
+    {
+      "rows": [
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        75
+      ],
+      "note": "Merged Venue: Kompleks Sukan Taman Pancarona + Taman Pancarona → Taman Pancarona"
+    },
+    {
+      "rows": [
+        75
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        61
+      ],
+      "note": "Unknown Operator (\"Operator\") at Glamping @ Wetland Putrajaya: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        64
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        67
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        72
+      ],
+      "note": "Hours \"8am–10pm+\" read without the \"+\""
+    },
+    {
+      "rows": [
+        74,
+        114
+      ],
+      "note": "Merged Activity at Taman Persahabatan China–Malaysia: Garden / Sightseeing + Garden / Cultural → Garden visit"
+    },
+    {
+      "rows": [
+        74,
+        114
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        76
+      ],
+      "note": "No location for Taman Cahaya Putra Perdana: needs an address and map pin"
+    },
+    {
+      "rows": [
+        77
+      ],
+      "note": "Price \"Free/Verify\" read as Free"
+    },
+    {
+      "rows": [
+        80
+      ],
+      "note": "Hours \"Various\" not parsed"
+    },
+    {
+      "rows": [
+        81
+      ],
+      "note": "Hours \"Event-based\" not parsed"
+    },
+    {
+      "rows": [
+        83
+      ],
+      "note": "No location for Denai Seni Bina Putrajaya: needs an address and map pin"
+    },
+    {
+      "rows": [
+        84
+      ],
+      "note": "No location for Denai Pejalan Kaki Putrajaya: needs an address and map pin"
+    },
+    {
+      "rows": [
+        85
+      ],
+      "note": "No location for Lokasi Memerhati Burung Bandar: needs an address and map pin"
+    },
+    {
+      "rows": [
+        91
+      ],
+      "note": "Hours \"Mall hours\" not parsed"
+    },
+    {
+      "rows": [
+        94
+      ],
+      "note": "No location for Putrajaya Story: needs an address and map pin"
+    },
+    {
+      "rows": [
+        94
+      ],
+      "note": "Unknown Operator (\"Operator\") at Putrajaya Story: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        95
+      ],
+      "note": "No location for Kompleks Nasyrul Quran: needs an address and map pin"
+    },
+    {
+      "rows": [
+        95
+      ],
+      "note": "Unknown Operator (\"Operator\") at Kompleks Nasyrul Quran: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        98
+      ],
+      "note": "Unknown Operator (\"Government\") at Perdana Putra: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        99
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        100
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        101
+      ],
+      "note": "No location for Jambatan Seri Wawasan: needs an address and map pin"
+    },
+    {
+      "rows": [
+        101
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        102
+      ],
+      "note": "No location for Jambatan Seri Gemilang: needs an address and map pin"
+    },
+    {
+      "rows": [
+        102
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        103
+      ],
+      "note": "No location for Jambatan Seri Saujana: needs an address and map pin"
+    },
+    {
+      "rows": [
+        103
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        104
+      ],
+      "note": "No location for Jambatan Seri Bakti: needs an address and map pin"
+    },
+    {
+      "rows": [
+        104
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        105
+      ],
+      "note": "No location for Jambatan Seri Bestari: needs an address and map pin"
+    },
+    {
+      "rows": [
+        105
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        106
+      ],
+      "note": "No location for Jambatan Seri Setia: needs an address and map pin"
+    },
+    {
+      "rows": [
+        106
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        107
+      ],
+      "note": "No location for Jambatan Seri Perdana: needs an address and map pin"
+    },
+    {
+      "rows": [
+        107
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        108
+      ],
+      "note": "No location for Jambatan Seri Ehsan: needs an address and map pin"
+    },
+    {
+      "rows": [
+        108
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        109
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    },
+    {
+      "rows": [
+        113
+      ],
+      "note": "Unknown Operator (\"Operator\") at Astaka Morocco: placeholder Operator, stays Hidden"
+    },
+    {
+      "rows": [
+        118
+      ],
+      "note": "No location for Dataran Gemilang: needs an address and map pin"
+    },
+    {
+      "rows": [
+        118
+      ],
+      "note": "Hours \"Event-based\" not parsed"
+    },
+    {
+      "rows": [
+        119
+      ],
+      "note": "No location for Dataran Pahlawan: needs an address and map pin"
+    },
+    {
+      "rows": [
+        119
+      ],
+      "note": "Hours \"Event-based\" not parsed"
+    },
+    {
+      "rows": [
+        120
+      ],
+      "note": "Hours \"Public area\" not parsed"
+    }
+  ]
+}
