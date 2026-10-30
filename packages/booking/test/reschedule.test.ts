@@ -20,7 +20,7 @@ test("inside the window a Reschedule keeps the Ticket and moves its Allocations;
   const next = await w.slot(w.optionId, later(96));
   const requestId = rid();
   const moved = await w.move(next, undefined, undefined, requestId);
-  expect(moved).toEqual({ timeslotId: next, startsAt: later(96) });
+  expect(moved).toEqual({ timeslotId: next, startsAt: later(96), refund: null });
   expect(await w.move(next, undefined, undefined, requestId)).toEqual(moved);
   expect(await w.sql("SELECT id, timeslot_id, status FROM tickets")).toEqual([{ id: w.ticketIds[0], timeslot_id: next, status: "issued" }]);
   expect(await w.sql("SELECT ticket_id, block_start FROM allocations")).toEqual([{ ticket_id: w.ticketIds[0], block_start: later(96) }]);
@@ -43,13 +43,44 @@ test("after the window it is window_passed, once started it is started, and anot
   });
 });
 
-test("inside the window a Timeslot at another price is price_differs; after a Closure it moves free", async () => {
+// Sold at 10000; the target's Schedule price is what changes.
+const priced = async (w: Awaited<ReturnType<typeof booked>>, ts: string, sen: number) => {
+  const id = rid();
+  await w.sql(
+    "INSERT INTO schedules (id, activity_id, option_ids, weekdays, times, starts_on, price_sen) VALUES (?, ?, '[]', '[]', '[]', '2026-01-01', ?)",
+    id,
+    w.activityId,
+    sen,
+  );
+  await w.sql("UPDATE timeslots SET schedule_id = ? WHERE id = ?", id, ts);
+};
+
+test("inside the window a target priced unlike the current Timeslot is price_differs; a later Option price change moves both", async () => {
   const w = await booked();
   const next = await w.slot(w.optionId, later(96));
   await w.sql("UPDATE options SET price_sen = price_sen + 4000 WHERE id = ?", w.optionId);
-  await expect(w.move(next)).rejects.toMatchObject({ code: "price_differs" });
+  expect(await w.move(next)).toMatchObject({ timeslotId: next, refund: null });
+
+  const o = await booked();
+  const dearer = await o.slot(o.optionId, later(96));
+  await priced(o, dearer, 14000);
+  await expect(o.move(dearer)).rejects.toMatchObject({ code: "price_differs" });
+});
+
+test("after a Closure a dearer target is price_differs and a cheaper one refunds the difference", async () => {
+  const w = await booked();
+  const dearer = await w.slot(w.optionId, later(96));
+  const cheaper = await w.slot(w.optionId, later(97));
+  await priced(w, dearer, 14000);
+  await priced(w, cheaper, 6000);
   await w.b.closeTimeslot(w.ts, "weather");
-  expect(await w.move(next, undefined, undefined, rid(), true)).toMatchObject({ timeslotId: next });
+  await expect(w.move(dearer, undefined, undefined, rid(), true)).rejects.toMatchObject({ code: "price_differs" });
+  expect(await w.move(cheaper, undefined, undefined, rid(), true)).toMatchObject({
+    timeslotId: cheaper,
+    refund: { amountSen: 4000, reason: "closure" },
+  });
+  expect(await w.sql("SELECT price_sen, refund_id FROM tickets")).toEqual([{ price_sen: 6000, refund_id: null }]);
+  expect(await w.sql("SELECT amount_sen, reason FROM refunds")).toEqual([{ amount_sen: 4000, reason: "closure" }]);
 });
 
 test("after a Closure any future open Timeslot is free, ignoring the window and Pack expiry", async () => {

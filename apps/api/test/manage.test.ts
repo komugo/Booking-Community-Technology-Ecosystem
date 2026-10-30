@@ -77,7 +77,7 @@ describe("cancel and reschedule", () => {
     const { body } = await owner.json("GET", `${base}/slots?t=${t}`);
     expect(body).toEqual({ ticketIds: [t], slots: [{ id: next, startsAt: at, spots: 3 }] });
     const r = await owner.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: next });
-    expect(r).toEqual({ status: 200, body: { timeslotId: next, startsAt: at } });
+    expect(r).toEqual({ status: 200, body: { timeslotId: next, startsAt: at, refund: null } });
   });
 
   test("after the free-cancel window the slots list is window_passed", async () => {
@@ -114,7 +114,7 @@ describe("Closure choice", () => {
     await close(w);
     const next = await slotAt(w, SLOT_AT + DAY_MS);
     const r = await client().json("POST", `${base}/reschedule`, { requestId: rid(), t: `closed:${w.timeslotId}`, timeslotId: next, k });
-    expect(r.body).toEqual({ timeslotId: next, startsAt: SLOT_AT + DAY_MS });
+    expect(r.body).toEqual({ timeslotId: next, startsAt: SLOT_AT + DAY_MS, refund: null });
     await w.flush();
     expect(await d1("SELECT choice FROM closure_notices WHERE ref = ?", b.bookingId)).toEqual([{ choice: "reschedule" }]);
   });

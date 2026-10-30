@@ -156,7 +156,7 @@ _Avoid_: Transaction, charge
 Money returned to the Customer by Komugo: one row per refund_due Payment or per cancel action, with a reason (duplicate, amount mismatch, unavailable, unknown Hold, cancel, Closure). It is **due** until staff mark it refunded on "Refunds to pay" after paying it out by hand. The Customer is emailed when it is due ("within 7 working days") and when it is sent.
 
 **Reschedule**:
-Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of the same Option, same Ticket (QR unchanged), with Resources re-allocated; a per-court Ticket moves whole, to the same number of back-to-back hours on one court. By the Customer only inside the free-cancel window and only to a target of the same total price (Pack: to a Timeslot before expiry). After a Closure, free to any future open target at the same price or cheaper, with the difference refunded. Prices are fixed when the Hold is made.
+Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of the same Option, same Ticket (QR unchanged), with Resources re-allocated; a per-court Ticket moves whole, to the same number of back-to-back hours on one court. By the Customer only inside the free-cancel window and only to a target priced the same as the current Timeslot is now (Pack: to a Timeslot before expiry). After a Closure, free to any future open target priced at most what was paid, with the difference refunded (the Tickets take the new price). Prices are fixed when the Hold is made.
 
 **Commission**:
 Komugo's cut of each sale: a percentage agreed with each Operator at sign-up, fixed on each Ticket and Pack sale at the time of sale.

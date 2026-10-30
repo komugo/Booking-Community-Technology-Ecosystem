@@ -1661,6 +1661,29 @@ export function cancelQuote(
   return quote(sql, now, i.customerId, i.group, i.ticketIds, i.onlyClosed).q;
 }
 
+function insertRefund(sql: SqlStorage, now: number, customerId: string, bookingId: string, amountSen: number, reason: "cancel" | "closure") {
+  const paid = first(
+    sql.exec<{ bill_id: string; amount_sen: number }>("SELECT bill_id, amount_sen FROM payments WHERE booking_id = ? AND status = 'paid'", bookingId),
+  );
+  const refund = { id: crypto.randomUUID(), amountSen, reason };
+  sql.exec(
+    `INSERT INTO refunds (id, customer_id, bill_id, booking_id, amount_sen, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    refund.id,
+    customerId,
+    paid?.bill_id ?? null,
+    bookingId,
+    amountSen,
+    reason,
+    now,
+  );
+  const { total } = sql
+    .exec<{ total: number }>("SELECT sum(amount_sen) AS total FROM refunds WHERE booking_id = ? AND reason IN ('cancel','closure')", bookingId)
+    .one();
+  if (total > (paid?.amount_sen ?? 0)) throw new Error("refund_exceeds_payment");
+  mark(sql, "refund", [refund.id]);
+  return refund;
+}
+
 export function cancelTickets(
   sql: SqlStorage,
   now: number,
@@ -1673,37 +1696,12 @@ export function cancelTickets(
   sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT value FROM json_each(?))", ids(i.ticketIds));
   let refund: CancelResult["refund"] = null;
   if (q.refundSen > 0 && "bookingId" in i.group) {
-    const bookingId = i.group.bookingId;
-    const paid = first(
-      sql.exec<{ bill_id: string; amount_sen: number }>(
-        "SELECT bill_id, amount_sen FROM payments WHERE booking_id = ? AND status = 'paid'",
-        bookingId,
-      ),
-    );
-    refund = { id: crypto.randomUUID(), amountSen: q.refundSen, reason: q.reason! };
-    sql.exec(
-      `INSERT INTO refunds (id, customer_id, bill_id, booking_id, amount_sen, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      refund.id,
-      i.customerId,
-      paid?.bill_id ?? null,
-      bookingId,
-      refund.amountSen,
-      refund.reason,
-      now,
-    );
+    refund = insertRefund(sql, now, i.customerId, i.group.bookingId, q.refundSen, q.reason!);
     sql.exec(
       "UPDATE tickets SET refund_id = ? WHERE id IN (SELECT value FROM json_each(?))",
       refund.id,
       ids(q.tickets.filter((t) => t.refundSen > 0).map((t) => t.id)),
     );
-    const { total } = sql
-      .exec<{ total: number }>(
-        "SELECT sum(amount_sen) AS total FROM refunds WHERE booking_id = ? AND reason IN ('cancel','closure')",
-        bookingId,
-      )
-      .one();
-    if (total > (paid?.amount_sen ?? 0)) throw new Error("refund_exceeds_payment");
-    mark(sql, "refund", [refund.id]);
   }
   if (q.reason === "closure") choose(sql, now, i.group, rows[0].timeslot_id, "refund");
   mark(sql, "ticket", i.ticketIds);
@@ -1712,7 +1710,8 @@ export function cancelTickets(
   return { ...q, refund };
 }
 
-// Same Tickets (QR unchanged), same Option and price, Resources re-allocated on the new Timeslot.
+// Same Tickets (QR unchanged) and Option, Resources re-allocated on the new Timeslot.
+// After a Closure a cheaper target refunds the difference and the Tickets take its price.
 export function rescheduleTickets(
   sql: SqlStorage,
   now: number,
@@ -1738,6 +1737,7 @@ export function rescheduleTickets(
     throw new BookingError("invalid_state");
   }
   const open = current.closed_at === null;
+  let refund: CancelResult["refund"] = null;
   if (open) {
     if (i.onlyClosed) throw new BookingError("invalid_state");
     if (rows.some((t) => started(t, now))) throw new BookingError("started");
@@ -1745,12 +1745,21 @@ export function rescheduleTickets(
     if (current.pack_id) {
       const pack = sql.exec<{ expires_at: number }>("SELECT expires_at FROM packs WHERE id = ?", current.pack_id).one();
       if (target.starts_at > pack.expires_at) throw new BookingError("pack_expired");
-    } else if (slotsPriceSen(sql, [target.id]) !== current.price_sen) {
+    } else if (slotsPriceSen(sql, [target.id]) !== slotsPriceSen(sql, [current.timeslot_id])) {
       throw new BookingError("price_differs");
     }
   } else {
     wholeClosedGroup(sql, i.group, rows);
     choose(sql, now, i.group, current.timeslot_id, "reschedule");
+    if ("bookingId" in i.group) {
+      const sen = slotsPriceSen(sql, [target.id]);
+      if (rows.some((t) => sen > t.price_sen)) throw new BookingError("price_differs");
+      const diff = rows.reduce((sum, t) => sum + t.price_sen - sen, 0);
+      if (diff > 0) {
+        refund = insertRefund(sql, now, i.customerId, i.group.bookingId, diff, "closure");
+        sql.exec("UPDATE tickets SET price_sen = ? WHERE id IN (SELECT value FROM json_each(?))", sen, ids(i.ticketIds));
+      }
+    }
   }
   sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT value FROM json_each(?))", ids(i.ticketIds));
   const { picks } = allocate(sql, now, target.id, i.participants, i.customerId, i.ticketIds);
@@ -1759,7 +1768,7 @@ export function rescheduleTickets(
   mark(sql, "ticket", i.ticketIds);
   markWindow(sql, now, target.starts_at);
   if (open) markWindow(sql, now, current.starts_at);
-  return { timeslotId: target.id, startsAt: target.starts_at };
+  return { timeslotId: target.id, startsAt: target.starts_at, refund };
 }
 
 function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>): ViewTicket[] {
