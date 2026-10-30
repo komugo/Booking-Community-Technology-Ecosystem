@@ -189,9 +189,10 @@ async function save(c: Ctx, id: string | null) {
   if (listed && v.lat === null) return publishBar(c, ["mapPin"], "lat");
   const venueId = id ?? crypto.randomUUID();
   const list = body.photos as PhotoInput[];
-  // Moving City keeps the slugs unless the new City already uses them.
-  const kept = existing?.slugEn && existing.slugMs ? { nameEn: existing.slugEn, nameMs: existing.slugMs } : v;
-  const slugs = existing?.cityId === v.cityId ? null : await venueSlugs(db, v.cityId, kept);
+  // Moving City keeps the slugs unless the new City already uses them; a Venue without slugs gets them on its next save.
+  const hasSlugs = !!(existing?.slugEn && existing.slugMs);
+  const kept = hasSlugs ? { nameEn: existing!.slugEn!, nameMs: existing!.slugMs! } : v;
+  const slugs = hasSlugs && existing!.cityId === v.cityId ? null : await venueSlugs(db, v.cityId, kept);
   const row = slugs ? { ...v, slugEn: slugs.en, slugMs: slugs.ms } : v;
   await db.batch([
     id ? db.update(venueTable).set(row).where(eq(venueTable.id, venueId)) : db.insert(venueTable).values({ ...row, id: venueId }),

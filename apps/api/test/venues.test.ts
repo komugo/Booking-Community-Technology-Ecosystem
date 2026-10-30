@@ -102,6 +102,15 @@ describe("Venues", () => {
     expect(await slugs(a)).toEqual({ slug_en: `${before.slug_en}-2`, slug_ms: `${before.slug_ms}-2` });
     expect(await slugs(b)).toEqual(before);
   });
+
+  test("a Venue saved before it had slugs gets them on its next edit in the same City", async () => {
+    const staff = await member("staff");
+    const x = await cityOf((await world()).activityId);
+    const a = (await staff.json<{ id: string }>("POST", "/ops/venues", venue(x))).body.id;
+    await d1("UPDATE venues SET slug_en = NULL, slug_ms = NULL WHERE id = ?", a);
+    expect((await staff.json("PUT", `/ops/venues/${a}`, venue(x))).status).toBe(200);
+    expect(await d1("SELECT slug_en IS NOT NULL AND slug_ms IS NOT NULL AS ok FROM venues WHERE id = ?", a)).toEqual([{ ok: 1 }]);
+  });
 });
 
 describe("Publish bar", () => {
