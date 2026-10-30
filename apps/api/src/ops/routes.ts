@@ -1,5 +1,5 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, venues, type Db, type ListingMode } from "@komugo/db";
+import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, SETTINGS, venues, type Db, type ListingMode, type Setting } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
@@ -53,6 +53,8 @@ routes.get("/setup", async (c) => {
           descriptionEn: activities.descriptionEn,
           descriptionMs: activities.descriptionMs,
           venueId: activities.venueId,
+          free: activities.free,
+          setting: activities.setting,
         })
         .from(activities)
         .where(eq(activities.operatorId, op)),
@@ -111,6 +113,8 @@ routes.put("/activities/:id/copy", async (c) => {
     [text(body.descriptionEn), "descriptionEn"],
     [text(body.descriptionMs), "descriptionMs"],
     [body.venueId === null || typeof body.venueId === "string", "venueId"],
+    [bool(body.free), "free"],
+    [body.setting === null || SETTINGS.includes(body.setting as Setting), "setting"],
     [photoList(body.photos), "photos"],
   ]);
   if (errors.length) return fail(c, 400, errors[0], errors);
@@ -125,7 +129,13 @@ routes.put("/activities/:id/copy", async (c) => {
   if (venueId !== a.venueId && c.var.member.role !== "staff") return fail(c, 403, { code: "forbidden", field: "venueId" });
   const [venue] = venueId ? await db.select({ cityId: venues.cityId, lat: venues.lat, lng: venues.lng }).from(venues).where(eq(venues.id, venueId)) : [];
   if (venueId && venue?.cityId !== a.cityId) return fail(c, 400, { code: "invalid_field", field: "venueId" });
-  const copy = { descriptionEn: (body.descriptionEn as string).trim(), descriptionMs: (body.descriptionMs as string).trim(), venueId };
+  const copy = {
+    descriptionEn: (body.descriptionEn as string).trim(),
+    descriptionMs: (body.descriptionMs as string).trim(),
+    venueId,
+    free: body.free as boolean,
+    setting: body.setting as Setting | null,
+  };
   const list = body.photos as PhotoInput[];
   // A listed Activity can't drop below the publish bar; gaps it already had (e.g. pre-Venue data) don't block the edit.
   if (a.listingMode !== "hidden") {

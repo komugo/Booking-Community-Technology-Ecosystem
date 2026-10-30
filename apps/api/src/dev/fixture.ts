@@ -180,9 +180,9 @@ export async function fixture(
   if (o.info === true) {
     const names = { nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9" };
     const slugs = await venueSlugs(db, city.id, names);
-    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9 }).returning();
+    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9, lat: 2.9264, lng: 101.6964 }).returning();
     venueSlug = slugs.en;
-    await db.update(activities).set({ venueId: venue.id, listingMode: "info" }).where(eq(activities.id, activityId));
+    await db.update(activities).set({ venueId: venue.id, listingMode: "info", free: true, setting: "outdoor" }).where(eq(activities.id, activityId));
   }
   return {
     operatorId,

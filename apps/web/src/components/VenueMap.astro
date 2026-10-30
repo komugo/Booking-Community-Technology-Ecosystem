@@ -1,0 +1,68 @@
+---
+import type { Locale, MapVenue } from "@komugo/db";
+import { project, TILE } from "@komugo/types/map";
+import { path, VENUE } from "../lib/i18n";
+
+interface Props {
+  venues: MapVenue[];
+  locale: Locale;
+  city: string;
+  label: string;
+}
+const { venues, locale, city, label } = Astro.props;
+
+// Square, server-rendered OpenStreetMap: zoomed in as far as every pin still fits.
+const SIZE = 640;
+const PAD = 48;
+const at = (z: number) => venues.map((v) => ({ v, ...project(v.lat, v.lng, z) }));
+const span = (ns: number[]) => Math.max(...ns) - Math.min(...ns);
+const fits = (z: number) => {
+  const p = at(z);
+  return span(p.map((q) => q.x)) <= SIZE - 2 * PAD && span(p.map((q) => q.y)) <= SIZE - 2 * PAD;
+};
+let zoom = 16;
+while (zoom > 10 && !fits(zoom)) zoom--;
+const pins = at(zoom);
+const mid = (ns: number[]) => (Math.max(...ns) + Math.min(...ns)) / 2;
+const left = mid(pins.map((p) => p.x)) - SIZE / 2;
+const top = mid(pins.map((p) => p.y)) - SIZE / 2;
+const n = 2 ** zoom;
+const tiles: { x: number; y: number }[] = [];
+for (let x = Math.floor(left / TILE); x <= Math.floor((left + SIZE) / TILE); x++) {
+  for (let y = Math.max(0, Math.floor(top / TILE)); y <= Math.min(n - 1, Math.floor((top + SIZE) / TILE)); y++) tiles.push({ x, y });
+}
+const pct = (px: number) => `${(px / SIZE) * 100}%`;
+---
+
+<div role="region" aria-label={label} class="relative aspect-square w-full max-w-3xl overflow-hidden rounded-3xl border border-line bg-sand" data-map>
+  {
+    tiles.map(({ x, y }) => (
+      <img
+        src={`https://tile.openstreetmap.org/${zoom}/${((x % n) + n) % n}/${y}.png`}
+        alt=""
+        loading="lazy"
+        class="absolute max-w-none"
+        style={{ left: pct(x * TILE - left), top: pct(y * TILE - top), width: pct(TILE), height: pct(TILE) }}
+      />
+    ))
+  }
+  <ul>
+    {
+      pins.map((p) => (
+        <li>
+          <a
+            href={path(locale, city, VENUE[locale], p.v.slugs[locale])}
+            aria-label={p.v.name}
+            title={p.v.name}
+            data-pin
+            class="absolute flex size-11 -translate-1/2 items-center justify-center"
+            style={{ left: pct(p.x - left), top: pct(p.y - top) }}
+          >
+            <span class="size-5 rounded-full border-3 border-white bg-clay shadow" />
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  <a href="https://www.openstreetmap.org/copyright" class="absolute right-1 bottom-1 rounded bg-white/80 px-1 text-[0.6875rem] text-ink">© OpenStreetMap</a>
+</div>

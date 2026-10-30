@@ -64,6 +64,8 @@ export const venues = sqliteTable(
 export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
 export type ListingMode = (typeof LISTING_MODES)[number];
 export const HOW_TO_BOOK = ["walk_in", "external", "unknown"] as const;
+export const SETTINGS = ["indoor", "outdoor"] as const;
+export type Setting = (typeof SETTINGS)[number];
 
 export const activities = sqliteTable(
   "activities",
@@ -89,6 +91,8 @@ export const activities = sqliteTable(
     venueId: text().references(() => venues.id),
     listingMode: text({ enum: LISTING_MODES }).notNull().default("hidden"),
     howToBook: text({ enum: HOW_TO_BOOK }).notNull().default("unknown"),
+    free: integer({ mode: "boolean" }).notNull().default(false),
+    setting: text({ enum: SETTINGS }),
     bookUrl: text(),
     priceNoteEn: text(),
     priceNoteMs: text(),

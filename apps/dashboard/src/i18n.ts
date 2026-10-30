@@ -280,6 +280,10 @@ const en = {
   activityPage: "Activity page",
   descriptionEn: "Description (English)",
   descriptionMs: "Description (BM)",
+  free: "Free to visit",
+  setting: "Indoor or outdoor",
+  settingUnset: "Not set",
+  settings: { indoor: "Indoor", outdoor: "Outdoor" },
   gaps: {
     venue: "a Venue",
     mapPin: "a map pin on its Venue",
@@ -593,6 +597,10 @@ const ms: Dict = {
   activityPage: "Halaman aktiviti",
   descriptionEn: "Penerangan (Inggeris)",
   descriptionMs: "Penerangan (BM)",
+  free: "Percuma untuk dikunjungi",
+  setting: "Dalam atau luar bangunan",
+  settingUnset: "Belum ditetapkan",
+  settings: { indoor: "Dalam bangunan", outdoor: "Luar bangunan" },
   gaps: {
     venue: "Tempat",
     mapPin: "pin peta pada Tempatnya",

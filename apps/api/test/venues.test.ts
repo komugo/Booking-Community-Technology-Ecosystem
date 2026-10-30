@@ -68,7 +68,7 @@ describe("Venues", () => {
     expect((await own.json("PUT", `/ops/venues/${id}`, body)).status).toBe(403);
 
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: id, photos: [unsplash()] };
+    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: id, free: false, setting: null, photos: [unsplash()] };
     expect((await own.json("PUT", url, copy)).body).toEqual({ code: "forbidden", field: "venueId" });
     expect((await staff.json("PUT", url, copy)).status).toBe(204);
     expect((await own.json("PUT", url, { ...copy, descriptionEn: "Ride the jungle trails" })).status).toBe(204);
@@ -129,7 +129,7 @@ describe("Publish bar", () => {
     const venueId = await publishable(w);
     const staff = await member("staff");
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    expect((await staff.json("PUT", url, { descriptionEn: "x", descriptionMs: "x", venueId, photos: [] })).body).toEqual({
+    expect((await staff.json("PUT", url, { descriptionEn: "x", descriptionMs: "x", venueId, free: false, setting: null, photos: [] })).body).toEqual({
       code: "publish_bar",
       params: { missing: "photo" },
     });
@@ -143,7 +143,7 @@ describe("Publish bar", () => {
     await db.insert(photos).values({ ...unsplash(), activityId: w.activityId });
     const own = await member("operator", w.operatorId);
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: null, photos: [unsplash()] };
+    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: null, free: false, setting: null, photos: [unsplash()] };
     expect((await own.json("PUT", url, copy)).status).toBe(204);
     expect((await own.json("PUT", url, { ...copy, photos: [] })).body).toEqual({ code: "publish_bar", params: { missing: "photo" } });
   });
