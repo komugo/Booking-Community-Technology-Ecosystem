@@ -111,6 +111,7 @@ export type RefundRow = {
   customer: { name: string | null; email: string | null; phone: string | null };
 };
 export type ListingMode = "bookable" | "info" | "hidden";
+export type Setting = "indoor" | "outdoor";
 export type Gap = "venue" | "mapPin" | "descriptionEn" | "descriptionMs" | "photo";
 export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
 export type Photo = {
@@ -174,6 +175,8 @@ export type Setup = {
     descriptionEn: string;
     descriptionMs: string;
     venueId: string | null;
+    free: boolean;
+    setting: Setting | null;
     photos: Photo[];
   })[];
 };

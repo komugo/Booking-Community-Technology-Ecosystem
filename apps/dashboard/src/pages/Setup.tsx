@@ -7,7 +7,7 @@ import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
 import { rm, sen } from "../money";
 import { PhotosEditor } from "../photos";
-import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup, Venues } from "../types";
+import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setting, Setup, Venues } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
 const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
@@ -378,6 +378,8 @@ function CopyEditor({ op, activity, staff, onSaved }: { op: string; activity: Se
     descriptionEn: activity.descriptionEn,
     descriptionMs: activity.descriptionMs,
     venueId: activity.venueId,
+    free: activity.free,
+    setting: activity.setting,
     photos: activity.photos,
   });
   const { busy, error, submit, err } = useSubmit(t);
@@ -403,6 +405,25 @@ function CopyEditor({ op, activity, staff, onSaved }: { op: string; activity: Se
         </Field>
       ))}
       <PhotosEditor photos={v.photos} onChange={(fn) => setV((x) => ({ ...x, photos: fn(x.photos) }))} error={err("photos")} />
+      <Toggle label={t.free} checked={v.free} onChange={(free) => setV({ ...v, free })} />
+      <Field label={t.setting} error={err("setting")}>
+        {(id, note) => (
+          <select
+            id={id}
+            className="input"
+            value={v.setting ?? ""}
+            aria-describedby={note}
+            onChange={(e) => setV({ ...v, setting: (e.target.value || null) as Setting | null })}
+          >
+            <option value="">{t.settingUnset}</option>
+            {(["indoor", "outdoor"] as const).map((s) => (
+              <option key={s} value={s}>
+                {t.settings[s]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
       <SaveBar busy={busy} error={error} onSave={save} />
     </div>
   );

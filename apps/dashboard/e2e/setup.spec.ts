@@ -118,11 +118,16 @@ test("staff pin a Venue and fill the Activity page before it leaves Hidden", asy
   await sheet.getByLabel("Photographer", { exact: true }).fill("Someone");
   await sheet.getByLabel("Photographer's Unsplash link").fill("https://unsplash.com/@someone");
   await sheet.getByLabel("Photo's Unsplash page").fill("https://unsplash.com/photos/abc");
+  await sheet.getByText("Free to visit").click();
+  await sheet.getByLabel("Indoor or outdoor").selectOption("outdoor");
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), page.getByLabel("Listing mode").selectOption("info")]);
   await page.reload();
   await expect(page.getByLabel("Listing mode")).toHaveValue("info");
+  await page.getByRole("button", { name: "Edit page" }).click();
+  await expect(sheet.getByRole("switch", { name: "Free to visit" })).toBeChecked();
+  await expect(sheet.getByLabel("Indoor or outdoor")).toHaveValue("outdoor");
 });
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");

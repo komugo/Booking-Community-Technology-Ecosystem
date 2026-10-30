@@ -1,3 +1,4 @@
+import { project, TILE, unproject } from "@komugo/types/map";
 import { WEEKDAYS } from "@komugo/types/rules";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "wouter";
@@ -227,21 +228,8 @@ function HoursEditor({ hours, onChange, error }: { hours: OpeningHours[]; onChan
   );
 }
 
-const TILE = 256;
 const HEIGHT = 256;
 const PUTRAJAYA = { lat: 2.9264, lng: 101.6964 };
-
-const project = (lat: number, lng: number, z: number) => {
-  const size = TILE * 2 ** z;
-  const r = (lat * Math.PI) / 180;
-  return { x: ((lng + 180) / 360) * size, y: ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * size };
-};
-
-const unproject = (x: number, y: number, z: number) => {
-  const size = TILE * 2 ** z;
-  const n = Math.PI - (2 * Math.PI * y) / size;
-  return { lat: (180 / Math.PI) * Math.atan(Math.sinh(n)), lng: (x / size) * 360 - 180 };
-};
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
 
