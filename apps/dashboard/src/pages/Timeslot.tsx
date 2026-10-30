@@ -146,7 +146,7 @@ export default function TimeslotPage() {
               </ul>
             )}
           </section>
-          {(slot.endsAt ?? slot.startsAt) > Date.now() && (
+          {slot.startsAt > Date.now() && (
             <button
               type="button"
               className="btn btn-danger mt-8 w-full sm:w-auto"

@@ -67,7 +67,7 @@ export default function Today() {
       ) : (
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {data.timeslots.map((slot) => (
-            <SlotCard key={slot.id} op={op} slot={slot} checkable={date === now} onCheckIn={(ticket) => setConfirm({ ticket, slot })} />
+            <SlotCard key={slot.id} op={op} slot={slot} checkable={date === now || (date < now && Date.now() < (slot.endsAt ?? 0))} onCheckIn={(ticket) => setConfirm({ ticket, slot })} />
           ))}
         </div>
       )}
@@ -183,7 +183,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
           href={`/o/${op}/timeslots/${slot.id}`}
           className="flex min-h-12 items-center justify-center border-t border-line text-sm font-semibold text-clay hover:bg-sand/50"
         >
-          {(slot.endsAt ?? slot.startsAt) > Date.now() ? (slot.endsAt === null ? t.closeTimeslot : t.closeDate) : t.participants}
+          {slot.startsAt > Date.now() ? (slot.endsAt === null ? t.closeTimeslot : t.closeDate) : t.participants}
         </Link>
       )}
     </article>

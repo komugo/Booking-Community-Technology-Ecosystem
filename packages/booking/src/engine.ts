@@ -944,7 +944,7 @@ export function closeTimeslot(sql: SqlStorage, now: number, timeslotId: string, 
   const slot = loadSlot(sql, timeslotId);
   if (!slot) throw new BookingError("invalid_state");
   if (slot.closed_at === null) {
-    if (until(slot) <= now) throw new BookingError("invalid_state");
+    if (slot.starts_at <= now) throw new BookingError("invalid_state");
     sql.exec("UPDATE timeslots SET closed_at = ?, closed_reason = ? WHERE id = ?", now, reason, timeslotId);
     sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT id FROM tickets WHERE timeslot_id = ?)", timeslotId);
     for (const h of sql
@@ -995,7 +995,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResult {
   const c = code.trim().toLowerCase();
   const select = `SELECT t.id, t.status, t.customer_id, t.participant_id, t.booking_id, t.timeslot_id, t.checked_in_at,
-      s.option_id, s.starts_at, s.closed_at
+      s.option_id, s.starts_at, s.ends_at, s.closed_at
     FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id`;
   type Row = {
     id: string;
@@ -1007,6 +1007,7 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
     checked_in_at: number | null;
     option_id: string;
     starts_at: number;
+    ends_at: number | null;
     closed_at: number | null;
   };
   let rows: Row[] = UUID.test(c)
@@ -1015,8 +1016,9 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
       ? sql.exec<Row>(`${select} WHERE t.id > ?1 || '-' AND t.id < ?1 || '.'`, c).toArray()
       : [];
   if (rows.length === 0) return { outcome: "not_found", ticket: null };
-  const today = klDayStart(now);
-  if (rows.length > 1) rows = rows.filter((r) => r.status === "issued" && klDayStart(r.starts_at) === today);
+  // A date open past midnight stays checkable until it closes.
+  const onDay = (r: Row) => klDayStart(r.starts_at) <= now && now < Math.max(klDayStart(r.starts_at) + DAY, r.ends_at ?? 0);
+  if (rows.length > 1) rows = rows.filter((r) => r.status === "issued" && onDay(r));
   if (rows.length !== 1) return { outcome: "ambiguous", ticket: null };
   const t = rows[0];
   const ticket = (checkedInAt: number | null) => ({
@@ -1034,7 +1036,7 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
       ? "cancelled"
       : t.closed_at !== null
         ? "closed"
-        : klDayStart(t.starts_at) !== today
+        : !onDay(t)
           ? "not_today"
           : t.checked_in_at !== null
             ? "already"
@@ -1449,7 +1451,9 @@ function ticketsFromHold(sql: SqlStorage, now: number, hold: Hold, owner: Group,
 }
 
 // A Hold that replaced the paid one for the same people, Timeslot and amount takes the payment.
+// A per-court Hold has no people to match, so another court Hold of the Customer is never taken for it.
 function successor(sql: SqlStorage, hold: Hold, participantIds: string[], amountSen: number) {
+  if (participantIds.length === 0) return undefined;
   const want = [...participantIds].sort().join();
   return sql
     .exec<Hold>(

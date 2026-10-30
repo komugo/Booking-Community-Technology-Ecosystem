@@ -68,6 +68,21 @@ test("a paid Hold that expired meanwhile still gets a free court", async () => {
   if (r.status === "paid") expect((await w.b.bookingView(r.bookingId)).tickets[0].court).toBe("Court 1");
 });
 
+test("a paid court Hold that expired gets its own court, not the Customer's other court Hold", async () => {
+  const w = await courtWorld(3);
+  const customerId = await customer();
+  const a = await w.hold(customerId, w.ts, []);
+  const b = await w.hold(customerId, w.ts, []);
+  await w.expireHold(a.holdId);
+  const ra = await w.pay(a);
+  const rb = await w.pay(b);
+  expect(ra).toMatchObject({ status: "paid" });
+  expect(rb).toMatchObject({ status: "paid" });
+  if (ra.status !== "paid" || rb.status !== "paid") return;
+  const courts = [(await w.b.bookingView(ra.bookingId)).tickets[0].court, (await w.b.bookingView(rb.bookingId)).tickets[0].court];
+  expect(new Set(courts).size).toBe(2);
+});
+
 test("check-in works on a per-court Ticket", async () => {
   const w = await courtWorld(1);
   const customerId = await customer();

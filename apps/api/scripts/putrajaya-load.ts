@@ -138,7 +138,7 @@ export function insertSql(p: Plan): string[] {
   const c = p.city;
   return [
     ...(c ? [insert("cities", { id: c.id, slug_en: c.slugEn, slug_ms: c.slugMs, name_en: c.nameEn, name_ms: c.nameMs, intro_en: c.introEn, intro_ms: c.introMs })] : []),
-    ...p.operators.map((o) => insert("operators", { id: o.id, name: o.name })),
+    ...p.operators.map((o) => insert("operators", { id: o.id, name: o.name, unknown: o.unknown ? 1 : 0 })),
     ...p.venues.map((v) =>
       insert("venues", {
         id: v.id,

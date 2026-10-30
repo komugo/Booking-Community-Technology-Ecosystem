@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { activities, venues } from "@komugo/db";
+import { activities, operators, venues } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import csv from "../../../data/putrajaya-master-list.csv?raw";
@@ -87,6 +87,8 @@ describe("import", () => {
     const rows = await db.select().from(activities);
     expect(rows).toHaveLength(data.activities.length);
     expect(rows.every((a) => a.listingMode === "hidden" && !a.published)).toBe(true);
+    const unknown = (await db.select().from(operators).where(eq(operators.unknown, true))).map((o) => o.id).sort();
+    expect(unknown).toEqual(data.operators.filter((o) => o.unknown).map((o) => o.id).sort());
 
     const pancarona = "ven_taman_pancarona";
     await db.update(venues).set({ phone: "03-1111 2222", lat: 2.9, lng: 101.7 }).where(eq(venues.id, pancarona));

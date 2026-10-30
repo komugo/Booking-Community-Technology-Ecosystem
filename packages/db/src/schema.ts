@@ -17,6 +17,7 @@ export const operators = sqliteTable("operators", {
   name: text().notNull(),
   signedUp: integer({ mode: "boolean" }).notNull().default(false),
   commissionBps: integer(),
+  unknown: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 const hub = () => ({

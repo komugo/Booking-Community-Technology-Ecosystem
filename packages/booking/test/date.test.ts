@@ -110,6 +110,20 @@ test("a Date ticket checks in only on its date, once", async () => {
   expect((await w.b.checkIn({ requestId: rid(), code })).outcome).toBe("already");
 });
 
+test("a date open past midnight checks in until it closes", async () => {
+  const w = await dateWorld();
+  const c = await customer();
+  const { ticketIds } = await w.book(c, w.tomorrow, [await w.participant(c)]);
+  await w.sql("UPDATE timeslots SET starts_at = ?, ends_at = ? WHERE id = ?", kl(`${dayAfter(-1)}T18:00`), Date.now() + HOUR, w.tomorrow);
+  expect((await w.b.checkIn({ requestId: rid(), code: ticketIds[0].slice(0, 8) })).outcome).toBe("checked_in");
+});
+
+test("a date can't be closed once it has opened", async () => {
+  const w = await dateWorld();
+  await w.sql("UPDATE timeslots SET starts_at = ?, ends_at = ? WHERE id = ?", Date.now() - HOUR, Date.now() + HOUR, w.tomorrow);
+  await expect(w.b.closeTimeslot(w.tomorrow, "weather")).rejects.toMatchObject({ code: "invalid_state" });
+});
+
 test("closing a date lists its Tickets, and they reschedule to another date", async () => {
   const w = await dateWorld();
   const c = await customer();

@@ -25,6 +25,15 @@ describe("Listing mode", () => {
     expect(await mode(w, "bookable")).toEqual({ status: 200, body: { listingMode: "bookable" } });
   });
 
+  test("an Activity whose Operator is unknown stays Hidden", async () => {
+    const w = await world({ listingMode: "hidden" });
+    await publishable(w);
+    await db.update(operators).set({ unknown: true }).where(eq(operators.id, w.operatorId));
+    expect(await mode(w, "info")).toEqual({ status: 409, body: { code: "operator_unknown", field: "listingMode" } });
+    expect(await mode(w, "bookable")).toEqual({ status: 409, body: { code: "operator_unknown", field: "listingMode" } });
+    expect(await mode(w, "hidden")).toEqual({ status: 200, body: { listingMode: "hidden" } });
+  });
+
   test("an Activity with future Tickets cannot leave Bookable", async () => {
     const w = await world();
     await booked(w);

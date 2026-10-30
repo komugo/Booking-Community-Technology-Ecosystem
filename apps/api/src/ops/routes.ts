@@ -185,11 +185,12 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
   const [row] = await db
-    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps })
+    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps, unknown: operators.unknown })
     .from(activities)
     .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
   if (!row) return fail(c, 404, { code: "not_found" });
+  if (mode !== "hidden" && row.unknown) return fail(c, 409, { code: "operator_unknown", field: "listingMode" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
   if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
   if (row.listingMode === "hidden" && mode !== "hidden") {
