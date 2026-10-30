@@ -203,7 +203,7 @@ export const t = {
       paid: "Paid",
       errorTitle: "There's a problem",
       errors: {
-        no_availability: "Sorry, there aren't enough spots left at this time. Pick another time.",
+        no_availability: "Sorry, there aren't enough spots left. Pick another time or date.",
         below_min_participants: (p: Params) => `This option is for groups of ${p.min ?? 2} or more.`,
         above_max_per_booking: (p: Params) => `This option takes up to ${p.max ?? 10} people per booking.`,
         not_bookable: "This time can't be booked anymore.",
@@ -546,7 +546,7 @@ export const t = {
       paid: "Dibayar",
       errorTitle: "Ada masalah",
       errors: {
-        no_availability: "Maaf, tempat tidak mencukupi pada masa ini. Pilih masa lain.",
+        no_availability: "Maaf, tempat tidak mencukupi. Pilih masa atau tarikh lain.",
         below_min_participants: (p: Params) => `Pilihan ini untuk kumpulan ${p.min ?? 2} orang atau lebih.`,
         above_max_per_booking: (p: Params) => `Pilihan ini untuk maksimum ${p.max ?? 10} orang setiap tempahan.`,
         not_bookable: "Masa ini tidak boleh ditempah lagi.",

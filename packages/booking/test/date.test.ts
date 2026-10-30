@@ -69,6 +69,23 @@ test("the Daily limit counts Holds, and lowering it below what's sold stops sale
   expect((await w.b.timeslots({ ids: [w.tomorrow] }))[0].tickets.map((t) => t.id)).toContain(ticketIds[0]);
 });
 
+test("a Date ticket Hold and a Timeslot Hold for the same Participant on that date don't release each other", async () => {
+  const w = await dateWorld();
+  await w.resource();
+  await w.resource({ name: "Kilat" });
+  const rideId = await w.option();
+  const [a, b] = [await customer(), await customer()];
+  const [p, q] = [await w.participant(a), await w.participant(b)];
+  const holds = [
+    await w.hold(a, await w.slot(rideId, kl(`${dayAfter(1)}T08:30`)), [p]),
+    await w.hold(a, w.tomorrow, [p]),
+    await w.hold(b, w.tomorrow, [q]),
+    await w.hold(b, await w.slot(rideId, kl(`${dayAfter(1)}T08:00`)), [q]),
+  ];
+  const active = await w.sql("SELECT id FROM holds WHERE status = 'active'");
+  expect(active.map((h) => h.id).sort()).toEqual(holds.map((h) => h.holdId).sort());
+});
+
 test("same-day Date tickets sell until the Booking cutoff before closing time", async () => {
   const w = await dateWorld();
   await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 24, bookingCutoffMinutes: 60 });

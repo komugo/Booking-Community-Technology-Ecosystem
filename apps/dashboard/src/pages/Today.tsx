@@ -1,3 +1,4 @@
+import { UNLIMITED_SPOTS } from "@komugo/types/rules";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { scan, useQueue } from "../checkins";
@@ -115,7 +116,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
         ) : (
           <p className="num shrink-0 text-right text-sm">
             <span className="font-display text-3xl font-extrabold">{tickets.length}</span> <span className="font-semibold">{t.booked}</span>
-            <span className="block text-muted">{t.left(slot.spots)}</span>
+            <span className="block text-muted">{slot.spots >= UNLIMITED_SPOTS ? t.noLimit : t.left(slot.spots)}</span>
           </p>
         )}
       </header>

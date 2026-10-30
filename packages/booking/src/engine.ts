@@ -1291,14 +1291,16 @@ function supersede(
   i: { customerId: string; replaces: string | null; timeslotId: string; participantIds: string[] },
 ) {
   const slot = loadSlot(sql, i.timeslotId);
-  const end = slot ? slot.starts_at + loadOption(sql, slot.option_id).duration_minutes * MIN : 0;
+  const option = slot ? loadOption(sql, slot.option_id) : null;
+  const end = slot && option ? slot.starts_at + option.duration_minutes * MIN : 0;
   const prior = sql
     .exec<{ id: string; starts_at: number }>(
       `SELECT h.id, t.starts_at FROM holds h
        JOIN timeslots t ON t.id = h.timeslot_id
        JOIN options o ON o.id = t.option_id
        WHERE h.status = 'active' AND h.customer_id = ?1 AND (h.id = ?2 OR (
-         t.starts_at < ?5 AND t.starts_at + o.duration_minutes * ${MIN} > ?4 AND EXISTS (
+         (t.id = ?6 OR (NOT ?7 AND o.ticket_type = 'timeslot' AND t.starts_at < ?5 AND t.starts_at + o.duration_minutes * ${MIN} > ?4))
+         AND EXISTS (
            SELECT 1 FROM hold_participants hp
            WHERE hp.hold_id = h.id AND hp.participant_id IN (SELECT value FROM json_each(?3)))))`,
       i.customerId,
@@ -1306,6 +1308,8 @@ function supersede(
       ids(i.participantIds),
       slot?.starts_at ?? 0,
       end,
+      i.timeslotId,
+      Number(option?.ticket_type === "date"),
     )
     .toArray();
   for (const h of prior) {
