@@ -37,6 +37,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       activityNameMs: activities.nameMs,
       cutoffMinutes: projActivities.bookingCutoffMinutes,
       freeCancelHours: projActivities.freeCancelHours,
+      requiresWaiver: projActivities.requiresWaiver,
     })
     .from(projOptions)
     .innerJoin(activities, eq(activities.id, projOptions.activityId))
@@ -45,6 +46,8 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     .where(and(eq(projOptions.id, optionId), eq(projOptions.active, true)));
   if (!row || !sells(row.listingMode, row.commissionBps)) return notFound();
   const o = row.option;
+  const court = o.bookingUnit === "court";
+  if (court && row.requiresWaiver) return notFound();
   const now = Date.now();
   const [options, addOns, slots, prices] = await db.batch([
     db
@@ -75,7 +78,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
   const siblings = options.map((x) => ({ ...x, fromPriceSen: optionFrom(x, prices) }));
 
   const min = o.minParticipants ?? 1;
-  const max = o.maxPerBooking ?? 10;
+  const max = court ? 1 : (o.maxPerBooking ?? 10);
   let errors: ApiError[] = codeFrom(url);
   const q = (k: string) => Math.max(0, Math.floor(Number(url.searchParams.get(k)) || 0));
   const quantity = Math.min(max, Math.max(min, q("quantity")));
@@ -98,7 +101,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     if (!values.timeslotId) {
       errors = [{ code: "not_bookable", field: "time" }];
     } else {
-      const res = await api<{ id: string }>(request, "POST", "/checkouts", {
+      const res = await api<{ id: string; next: "who" | "contact" | "pay" }>(request, "POST", "/checkouts", {
         optionId: o.id,
         timeslotId: values.timeslotId,
         quantity: values.quantity,
@@ -107,7 +110,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
           .map(([id, qty]) => ({ id, qty })),
         locale: l,
       });
-      if (res.data) return see(step(l, res.data.id, "who"), res.cookies);
+      if (res.data) return see(step(l, res.data.id, res.data.next), res.cookies);
       errors = errorsOf(res.error);
       cookies = res.cookies;
     }
@@ -153,6 +156,7 @@ export async function whoStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
   if (co.state === "booked" || co.state === "refund_due" || co.state === "redeemed") return see(step(l, co.id, "pay"));
+  if (co.option.bookingUnit === "court") return see(co.signedIn ? path(l, "book", co.option.id) : step(l, co.id, "contact"));
   let errors: ApiError[] = codeFrom(url);
   let values: Record<string, string> = {};
   if (request.method === "POST") {
@@ -180,7 +184,7 @@ export async function whoStep({ request, params, url }: Ctx, l: Locale) {
 export async function contactStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
-  if (co.signedIn) return see(step(l, co.id, co.participants.length ? "pay" : "who"));
+  if (co.signedIn) return see(step(l, co.id, co.participants.length || co.option.bookingUnit === "court" ? "pay" : "who"));
   let errors: ApiError[] = codeFrom(url);
   let values = { name: co.contact.name ?? "", email: co.contact.email ?? "", phone: co.contact.phone ?? "" };
   let editing = !co.contact.email || url.searchParams.has("change");

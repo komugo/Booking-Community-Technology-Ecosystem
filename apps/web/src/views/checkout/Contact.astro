@@ -14,7 +14,7 @@ const input = "mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3 te
 const btn = "inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest";
 ---
 
-<Checkout locale={l} title={c.contactTitle} step={3} back={path(l, "checkout", co.id, "who")} problems={p}>
+<Checkout locale={l} title={c.contactTitle} step={3} back={co.option.bookingUnit === "court" ? path(l, "book", co.option.id) : path(l, "checkout", co.id, "who")} problems={p}>
   {
     editing ? (
       <form method="post" action={here} class="mt-6 space-y-5" novalidate>

@@ -89,13 +89,16 @@ export async function sendBookedEmail(env: Env, checkoutId: string) {
     ? `${site(env, l)}/bookings/${c.bookingId}?k=${await bookingLink(env, c.bookingId)}`
     : `${site(env, l)}/packs/${c.packId}?k=${await groupLink(env, "pack", c.packId!)}`;
   const { what, when } = summary(d, l);
-  const people = c.bookingId
-    ? l === "ms"
-      ? [`${c.quantity} orang · ${rm(c.amountSen ?? 0)}`]
-      : [`${c.quantity} people · ${rm(c.amountSen ?? 0)}`]
-    : l === "ms"
-      ? [`${c.quantity} orang`]
-      : [`${c.quantity} people`];
+  const people =
+    d.option.bookingUnit === "court"
+      ? [l === "ms" ? `1 gelanggang · ${rm(c.amountSen ?? 0)}` : `1 court · ${rm(c.amountSen ?? 0)}`]
+      : c.bookingId
+        ? l === "ms"
+          ? [`${c.quantity} orang · ${rm(c.amountSen ?? 0)}`]
+          : [`${c.quantity} people · ${rm(c.amountSen ?? 0)}`]
+        : l === "ms"
+          ? [`${c.quantity} orang`]
+          : [`${c.quantity} people`];
   const lines =
     l === "ms"
       ? ["Tempahan anda disahkan!", what, when, ...people, "Tunjukkan tiket anda di kaunter semasa tiba."]
@@ -364,7 +367,7 @@ export async function sendRefundDueEmail(env: Env, r: RefundRow) {
   if (!d) return;
   const { what } = summary(d, l);
   const when = klDateTime(tickets[0].startsAt, l);
-  const names = people.map((p) => p.name).join(", ");
+  const names = people.map((p) => p.name).join(", ") || (l === "ms" ? "tempahan gelanggang anda" : "your court booking");
   const amount = rm(r.amountSen);
   const closed = r.reason === "closure";
   const lines =

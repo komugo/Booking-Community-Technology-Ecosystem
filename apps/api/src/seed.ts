@@ -260,6 +260,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         minParticipants: null,
         maxPerBooking: null,
         requiredCert: null,
+        bookingUnit: "person",
         active: true,
         ...o,
         activityId: a.id,

@@ -30,7 +30,9 @@ export class BookingError extends Error {
 export type Result<T> = { ok: true; value: T } | { ok: false; error: BookingErrorCode };
 export type PaymentRefundReason = "duplicate" | "amount_mismatch" | "unavailable" | "unknown_hold";
 export type RefundReason = PaymentRefundReason | "cancel" | "closure";
-export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane";
+export const RESOURCE_KINDS = ["horse", "instructor", "belayer", "auto_belay_lane", "court"] as const;
+export type ResourceKind = (typeof RESOURCE_KINDS)[number];
+export type BookingUnit = "person" | "court";
 export type ParticipantFacts = {
   id: string;
   customerId: string;
@@ -59,6 +61,7 @@ export type OptionInput = {
   requiredCert: string | null;
   minParticipants: number | null;
   maxPerBooking: number | null;
+  bookingUnit: BookingUnit;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -66,6 +69,7 @@ export type AddOnPick = { id: string; qty: number };
 export type ViewTicket = {
   id: string;
   participantId: string;
+  court: string | null;
   status: string;
   optionId: string;
   timeslotId: string;
@@ -154,6 +158,7 @@ export type CheckInResult = {
   outcome: CheckInOutcome;
   ticket: null | {
     id: string;
+    customerId: string;
     participantId: string;
     bookingId: string | null;
     timeslotId: string;
@@ -215,6 +220,7 @@ type Option = {
   required_cert: string | null;
   min_participants: number | null;
   max_per_booking: number | null;
+  booking_unit: BookingUnit;
   active: number;
   booking_cutoff_minutes: number;
   requires_waiver: number;
@@ -249,7 +255,7 @@ function loadOption(sql: SqlStorage, id: string) {
   return sql
     .exec<Option>(
       `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
-         min_participants, max_per_booking, active,
+         min_participants, max_per_booking, booking_unit, active,
          (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes,
          (SELECT requires_waiver FROM activities WHERE id = options.activity_id) AS requires_waiver
        FROM options WHERE id = ?`,
@@ -269,6 +275,21 @@ export function slotsPriceSen(sql: SqlStorage, slotIds: string[]) {
     )
     .one().sen;
 }
+
+// A per-court Ticket has no Participant: the Hold that made it stands in for the group as its participant_id.
+const party = (holdId: string, customerId: string): ParticipantFacts => ({
+  id: holdId,
+  customerId,
+  birthDate: "",
+  weightKg: null,
+  certs: [],
+  waiverSigned: true,
+});
+
+const isCourt = (sql: SqlStorage, timeslotId: string) =>
+  !!first(
+    sql.exec("SELECT 1 FROM timeslots t JOIN options o ON o.id = t.option_id WHERE t.id = ? AND o.booking_unit = 'court'", timeslotId),
+  );
 
 const loadNeeds = (sql: SqlStorage, optionId: string) =>
   sql.exec<Need>("SELECT kind, quantity FROM option_resources WHERE option_id = ? ORDER BY kind", optionId).toArray();
@@ -679,20 +700,32 @@ function hasLiveAllocations(sql: SqlStorage, now: number, by: "option" | "resour
 
 export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   const existing = first(
-    sql.exec<{ activity_id: string; duration_minutes: number; active: number }>(
-      "SELECT activity_id, duration_minutes, active FROM options WHERE id = ?",
+    sql.exec<{ activity_id: string; duration_minutes: number; booking_unit: BookingUnit; active: number }>(
+      "SELECT activity_id, duration_minutes, booking_unit, active FROM options WHERE id = ?",
       o.id,
     ),
   );
-  if (existing && existing.activity_id !== o.activityId) throw new BookingError("invalid_state");
+  if (existing && (existing.activity_id !== o.activityId || existing.booking_unit !== o.bookingUnit)) throw new BookingError("invalid_state");
+  const court = o.bookingUnit === "court";
+  // A per-court Option takes one court for one 1-hour Timeslot, with no Requirements or party-size rules.
+  if (
+    o.needs.some((n) => !RESOURCE_KINDS.includes(n.kind) || (n.kind === "court") !== court) ||
+    (court &&
+      (o.needs.length !== 1 ||
+        o.needs[0].quantity !== 1 ||
+        o.durationMinutes !== 60 ||
+        [o.minAge, o.maxAge, o.maxWeightKg, o.requiredCert, o.minParticipants, o.maxPerBooking].some((x) => x !== null)))
+  ) {
+    throw new BookingError("invalid_state");
+  }
   if (existing && o.durationMinutes > existing.duration_minutes && hasLiveAllocations(sql, now, "option", o.id)) {
     throw new BookingError("invalid_state");
   }
   if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", o.activityId))) throw new BookingError("invalid_state");
   sql.exec(
     `INSERT INTO options (id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age,
-       max_weight_kg, required_cert, min_participants, max_per_booking, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       max_weight_kg, required_cert, min_participants, max_per_booking, booking_unit, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name_en = excluded.name_en, name_ms = excluded.name_ms,
        price_sen = excluded.price_sen, duration_minutes = excluded.duration_minutes, min_age = excluded.min_age,
        max_age = excluded.max_age, max_weight_kg = excluded.max_weight_kg, required_cert = excluded.required_cert,
@@ -709,6 +742,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     o.requiredCert,
     o.minParticipants,
     o.maxPerBooking,
+    o.bookingUnit,
     o.active ? 1 : 0,
   );
   sql.exec("DELETE FROM option_resources WHERE option_id = ?", o.id);
@@ -741,7 +775,7 @@ export function upsertResource(sql: SqlStorage, now: number, r: ResourceInput) {
   const existing = first(
     sql.exec<{ kind: string; rest_minutes: number }>("SELECT kind, rest_minutes FROM resources WHERE id = ?", r.id),
   );
-  if (existing && existing.kind !== r.kind) throw new BookingError("invalid_state");
+  if (!RESOURCE_KINDS.includes(r.kind) || (existing && existing.kind !== r.kind)) throw new BookingError("invalid_state");
   if (existing && r.restMinutes > existing.rest_minutes && hasLiveAllocations(sql, now, "resource", r.id)) {
     throw new BookingError("invalid_state");
   }
@@ -837,12 +871,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // code is a Ticket id (the QR) or its first 8 hex chars (typed by hand).
 export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResult {
   const c = code.trim().toLowerCase();
-  const select = `SELECT t.id, t.status, t.participant_id, t.booking_id, t.timeslot_id, t.checked_in_at,
+  const select = `SELECT t.id, t.status, t.customer_id, t.participant_id, t.booking_id, t.timeslot_id, t.checked_in_at,
       s.option_id, s.starts_at, s.closed_at
     FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id`;
   type Row = {
     id: string;
     status: string;
+    customer_id: string;
     participant_id: string;
     booking_id: string | null;
     timeslot_id: string;
@@ -863,6 +898,7 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
   const t = rows[0];
   const ticket = (checkedInAt: number | null) => ({
     id: t.id,
+    customerId: t.customer_id,
     participantId: t.participant_id,
     bookingId: t.booking_id,
     timeslotId: t.timeslot_id,
@@ -938,6 +974,7 @@ export function setup(sql: SqlStorage): Setup {
         required_cert: string | null;
         min_participants: number | null;
         max_per_booking: number | null;
+        booking_unit: BookingUnit;
         active: number;
       }>("SELECT * FROM options ORDER BY rowid")
       .toArray()
@@ -954,6 +991,7 @@ export function setup(sql: SqlStorage): Setup {
         requiredCert: o.required_cert,
         minParticipants: o.min_participants,
         maxPerBooking: o.max_per_booking,
+        bookingUnit: o.booking_unit,
         active: o.active === 1,
         needs: needs.get(o.id) ?? [],
       })),
@@ -1175,9 +1213,13 @@ export function createHold(
     addOns: AddOnPick[];
   },
 ) {
-  const n = i.participants.length;
+  const holdId = crypto.randomUUID();
+  const court = isCourt(sql, i.timeslotId);
+  if (court && i.participants.length) throw new BookingError("invalid_participant");
+  const who = court ? [party(holdId, i.customerId)] : i.participants;
+  const n = who.length;
   const released = supersede(sql, now, { ...i, participantIds: i.participants.map((p) => p.id) });
-  const { slot, option, picks } = allocate(sql, now, i.timeslotId, i.participants, i.customerId);
+  const { slot, option, picks } = allocate(sql, now, i.timeslotId, who, i.customerId);
   if (n < (option.min_participants ?? 1)) throw new BookingError("below_min_participants");
   const max = option.max_per_booking ?? DEFAULT_MAX_PER_BOOKING;
   if (n > max) throw new BookingError("invalid_participant");
@@ -1194,8 +1236,9 @@ export function createHold(
     )
     .one();
   if (active >= MAX_ACTIVE_HOLDS || people + n > max) throw new BookingError("too_many_holds");
+  // There is no group Waiver yet, so a per-court Option sells only where its Activity doesn't ask for one.
+  if (option.requires_waiver && court) throw new BookingError("not_bookable");
   if (option.requires_waiver && i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
-  const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
   const priceSen = slotsPriceSen(sql, [slot.id]);
   const amountSen = priceSen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
@@ -1244,10 +1287,11 @@ function bookingOutcome(sql: SqlStorage, bookingId: string): ConfirmResult {
 
 // The Hold's Allocations move to the new Tickets, so nothing is re-allocated.
 function ticketsFromHold(sql: SqlStorage, now: number, hold: Hold, owner: Group, priceSen: number) {
-  const participantIds = sql
+  const people = sql
     .exec<{ participant_id: string }>("SELECT participant_id FROM hold_participants WHERE hold_id = ? ORDER BY rowid", hold.id)
     .toArray()
     .map((p) => p.participant_id);
+  const participantIds = people.length ? people : [hold.id];
   const ticketOf = insertTickets(
     sql,
     now,
@@ -1322,16 +1366,18 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
       releaseHold(sql, hold.id, "released");
       markWindow(sql, now, slot.starts_at);
     }
+    const facts = people.length
+      ? people.map((p) => ({
+          id: p.participant_id,
+          customerId: hold.customer_id,
+          birthDate: p.birth_date,
+          weightKg: p.weight_kg,
+          certs: JSON.parse(p.certs) as string[],
+          waiverSigned: true,
+        }))
+      : [party(hold.id, hold.customer_id)];
     let picks: Pick[];
     try {
-      const facts = people.map((p) => ({
-        id: p.participant_id,
-        customerId: hold.customer_id,
-        birthDate: p.birth_date,
-        weightKg: p.weight_kg,
-        certs: JSON.parse(p.certs) as string[],
-        waiverSigned: true,
-      }));
       picks = allocate(sql, now, slot.id, facts, hold.customer_id).picks;
     } catch (e) {
       if (e instanceof BookingError) return refund("unavailable");
@@ -1342,7 +1388,7 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
         sql,
         now,
         { customerId: hold.customer_id, bookingId, packId: null, timeslotId: hold.timeslot_id, priceSen: hold.price_sen },
-        participantIds,
+        facts.map((p) => p.id),
       ));
   }
   const updated = sql.exec("UPDATE holds SET status = 'confirmed' WHERE id = ? AND status <> 'confirmed' RETURNING id", confirmed);
@@ -1417,7 +1463,7 @@ export function upsertPackOffer(sql: SqlStorage, o: PackOfferInput) {
   const optionIds = [...new Set(o.optionIds)];
   const own = new Set(
     sql
-      .exec<{ id: string }>("SELECT id FROM options WHERE activity_id = ?", o.activityId)
+      .exec<{ id: string }>("SELECT id FROM options WHERE activity_id = ? AND booking_unit = 'person'", o.activityId)
       .toArray()
       .map((x) => x.id),
   );
@@ -1728,12 +1774,13 @@ export function rescheduleTickets(
   const rows = groupTickets(sql, i.customerId, i.group, i.ticketIds);
   const current = rows[0];
   const target = loadSlot(sql, i.timeslotId);
+  const people = isCourt(sql, current.timeslot_id) ? rows.map((t) => party(t.participant_id, i.customerId)) : i.participants;
   if (
     rows.some((t) => t.timeslot_id !== current.timeslot_id) ||
     !target ||
     target.id === current.timeslot_id ||
     target.option_id !== current.option_id ||
-    sorted(i.participants.map((p) => p.id)) !== sorted(rows.map((t) => t.participant_id))
+    sorted(people.map((p) => p.id)) !== sorted(rows.map((t) => t.participant_id))
   ) {
     throw new BookingError("invalid_state");
   }
@@ -1753,7 +1800,7 @@ export function rescheduleTickets(
     choose(sql, now, i.group, current.timeslot_id, "reschedule");
   }
   sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT value FROM json_each(?))", ids(i.ticketIds));
-  const { picks } = allocate(sql, now, target.id, i.participants, i.customerId, i.ticketIds);
+  const { picks } = allocate(sql, now, target.id, people, i.customerId, i.ticketIds);
   sql.exec("UPDATE tickets SET timeslot_id = ? WHERE id IN (SELECT value FROM json_each(?))", target.id, ids(i.ticketIds));
   insertAllocations(sql, picks, new Map(rows.map((t) => [t.participant_id, t.id])));
   mark(sql, "ticket", i.ticketIds);
@@ -1775,8 +1822,10 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
       closed_at: number | null;
       price_sen: number;
       refund_id: string | null;
+      court: string | null;
     }>(
-      `SELECT t.id, t.participant_id, t.status, s.option_id, t.timeslot_id, s.starts_at, s.closed_at, t.price_sen, t.refund_id
+      `SELECT t.id, t.participant_id, t.status, s.option_id, t.timeslot_id, s.starts_at, s.closed_at, t.price_sen, t.refund_id,
+         (SELECT r.name FROM allocations a JOIN resources r ON r.id = a.resource_id WHERE a.ticket_id = t.id AND r.kind = 'court') AS court
        FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id
        WHERE t.${o.col} = ? ORDER BY ${o.col === "pack_id" ? "s.starts_at, " : ""}t.rowid`,
       o.id,
@@ -1785,6 +1834,7 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
     .map((t) => ({
       id: t.id,
       participantId: t.participant_id,
+      court: t.court,
       status: t.status,
       optionId: t.option_id,
       timeslotId: t.timeslot_id,

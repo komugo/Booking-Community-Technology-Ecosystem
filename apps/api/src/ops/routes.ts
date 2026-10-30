@@ -1,4 +1,4 @@
-import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
+import { BookingError, RESOURCE_KINDS, type BookingUnit, type ClosureReason, type ResourceKind } from "@komugo/booking";
 import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, venues, type Db, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
@@ -11,7 +11,6 @@ import { enrichCheckIn, enrichTimeslots } from "./enrich";
 import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
 import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, type PhotoInput } from "./venues";
 
-const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
 const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 export const routes = new Hono<Ops>();
@@ -197,7 +196,9 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
 
 function optionInput(body: Body) {
   const needs = body.needs as { kind?: unknown; quantity?: unknown }[];
+  const bookingUnit = (body.bookingUnit ?? "person") as BookingUnit;
   const errors = invalid([
+    [bookingUnit === "person" || bookingUnit === "court", "bookingUnit"],
     [name(body.nameEn), "nameEn"],
     [name(body.nameMs), "nameMs"],
     [int(body.priceSen, 0, 10_000_000), "priceSen"],
@@ -214,7 +215,7 @@ function optionInput(body: Body) {
     ],
     [bool(body.active), "active"],
     [
-      list(body.needs, 4, (n) => KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
+      list(body.needs, 5, (n) => RESOURCE_KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
         new Set(needs.map((n) => n.kind)).size === needs.length,
       "needs",
     ],
@@ -233,6 +234,7 @@ function optionInput(body: Body) {
       requiredCert: (body.requiredCert as string | null)?.trim() ?? null,
       minParticipants: body.minParticipants as number | null,
       maxPerBooking: body.maxPerBooking as number | null,
+      bookingUnit,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),
@@ -261,7 +263,7 @@ function resourceInput(body: Body) {
   const horse = body.kind === "horse";
   return {
     errors: invalid([
-      [KINDS.includes(body.kind as ResourceKind), "kind"],
+      [RESOURCE_KINDS.includes(body.kind as ResourceKind), "kind"],
       [name(body.name), "name"],
       [bool(body.active), "active"],
       [horse ? intOrNull(body.maxSessionsPerDay, 1, 50) : body.maxSessionsPerDay === null, "maxSessionsPerDay"],

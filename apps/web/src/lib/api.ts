@@ -21,6 +21,7 @@ export type Checkout = {
     requiredCert: string | null;
     minParticipants: number | null;
     maxPerBooking: number | null;
+    bookingUnit: "person" | "court";
     asksWeight: boolean;
   };
   activity: Named & {
@@ -56,6 +57,7 @@ export type GroupTicket = {
   id: string;
   participantId: string;
   participantName: string;
+  court: string | null;
   status: "issued" | "cancelled" | "forfeited";
   optionId: string;
   timeslotId: string;

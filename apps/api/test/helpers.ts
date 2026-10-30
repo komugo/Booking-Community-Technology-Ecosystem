@@ -141,6 +141,7 @@ export async function world(
     requiredCert: null,
     minParticipants: null,
     maxPerBooking: null,
+    bookingUnit: "person",
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,

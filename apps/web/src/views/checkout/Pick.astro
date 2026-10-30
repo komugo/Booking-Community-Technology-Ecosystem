@@ -13,6 +13,7 @@ const s = t[l];
 const c = s.checkout;
 const here = path(l, "book", o.id);
 const name = l === "ms" ? o.nameMs : o.nameEn;
+const court = o.bookingUnit === "court";
 const picked = times.find((x) => x.id === values.timeslotId);
 const priceSen = picked?.priceSen ?? o.priceSen;
 const total = priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
@@ -85,13 +86,23 @@ const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
     </fieldset>
 
     <section aria-labelledby="people-label">
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <h2 id="people-label" class="text-xl font-bold">{c.people}</h2>
-          <p class="text-sm text-muted"><span data-each>{rm(priceSen)}</span> {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
-        </div>
-        <Stepper id="quantity" name="quantity" label={c.people} value={values.quantity} min={min} max={max} fewer={c.fewer(c.people)} more={c.more(c.people)} />
-      </div>
+      {
+        court ? (
+          <div>
+            <input type="hidden" name="quantity" value="1" />
+            <h2 id="people-label" class="text-xl font-bold">{c.oneCourt}</h2>
+            <p class="text-sm text-muted"><span data-each>{rm(priceSen)}</span> {c.perCourt}</p>
+          </div>
+        ) : (
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h2 id="people-label" class="text-xl font-bold">{c.people}</h2>
+              <p class="text-sm text-muted"><span data-each>{rm(priceSen)}</span> {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
+            </div>
+            <Stepper id="quantity" name="quantity" label={c.people} value={values.quantity} min={min} max={max} fewer={c.fewer(c.people)} more={c.more(c.people)} />
+          </div>
+        )
+      }
       <FieldError p={p} id="quantity" />
       <p data-low hidden={!picked || picked.spots > 3} class="mt-2 text-sm font-medium text-clay">{c.onlyLeft(picked?.spots ?? 0)}</p>
     </section>

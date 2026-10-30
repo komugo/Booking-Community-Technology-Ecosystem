@@ -7,12 +7,14 @@ import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
 import { rm, sen } from "../money";
 import { PhotosEditor } from "../photos";
-import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup, Venues } from "../types";
+import type { AddOn, BookingUnit, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup, Venues } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
 const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
 type Tab = (typeof TABS)[number];
-const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
+const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane", "court"];
+const PERSON_KINDS = KINDS.filter((k) => k !== "court");
+const UNITS: BookingUnit[] = ["person", "court"];
 const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
 const str = (n: number | null) => (n === null ? "" : String(n));
@@ -459,11 +461,13 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
     requiredCert: item?.requiredCert ?? "",
     minParticipants: item?.minParticipants ?? 1,
     maxPerBooking: item?.maxPerBooking ?? 10,
+    bookingUnit: item?.bookingUnit ?? ("person" as BookingUnit),
     active: item?.active ?? true,
-    needs: Object.fromEntries(KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
+    needs: Object.fromEntries(PERSON_KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
   });
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
   const { busy, error, submit, err } = useSubmit(t);
+  const court = v.bookingUnit === "court";
 
   const save = async () => {
     const body = {
@@ -471,15 +475,29 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
       nameEn: v.nameEn,
       nameMs: v.nameMs,
       priceSen: sen(v.price),
-      durationMinutes: num(v.duration),
-      minAge: num(v.minAge),
-      maxAge: num(v.maxAge),
-      maxWeightKg: num(v.maxWeightKg),
-      requiredCert: v.requiredCert.trim() || null,
-      minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
-      maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
+      bookingUnit: v.bookingUnit,
       active: v.active,
-      needs: KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
+      ...(court
+        ? {
+            durationMinutes: 60,
+            minAge: null,
+            maxAge: null,
+            maxWeightKg: null,
+            requiredCert: null,
+            minParticipants: null,
+            maxPerBooking: null,
+            needs: [{ kind: "court", quantity: 1 }],
+          }
+        : {
+            durationMinutes: num(v.duration),
+            minAge: num(v.minAge),
+            maxAge: num(v.maxAge),
+            maxWeightKg: num(v.maxWeightKg),
+            requiredCert: v.requiredCert.trim() || null,
+            minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
+            maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
+            needs: PERSON_KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
+          }),
     };
     if (await submit(() => api(item ? "PUT" : "POST", `/operators/${op}/options${item ? `/${item.id}` : ""}`, body), t.lengthenBlocked)) onSaved();
   };
@@ -492,41 +510,63 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
           <Input label={t.nameEn} value={v.nameEn} onChange={(nameEn) => set({ nameEn })} error={err("nameEn")} />
           <Input label={t.nameMs} value={v.nameMs} onChange={(nameMs) => set({ nameMs })} error={err("nameMs")} />
         </div>
+        <Field label={t.bookingUnit} hint={court ? t.courtHint : undefined}>
+          {(id, note) => (
+            <select
+              id={id}
+              className="input"
+              value={v.bookingUnit}
+              disabled={!!item}
+              aria-describedby={note}
+              onChange={(e) => set({ bookingUnit: e.target.value as BookingUnit })}
+            >
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {t.bookingUnits[u]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
         <div className="grid grid-cols-2 gap-4">
           <Input label={t.priceRm} value={v.price} onChange={(price) => set({ price })} error={err("priceSen")} numeric />
-          <Input label={t.duration} value={v.duration} onChange={(duration) => set({ duration })} error={err("durationMinutes")} numeric />
+          {!court && <Input label={t.duration} value={v.duration} onChange={(duration) => set({ duration })} error={err("durationMinutes")} numeric />}
         </div>
       </div>
-      <Group title={t.requirements}>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label={t.minAge} value={v.minAge} onChange={(minAge) => set({ minAge })} error={err("minAge")} hint={t.optional} numeric />
-          <Input label={t.maxAge} value={v.maxAge} onChange={(maxAge) => set({ maxAge })} error={err("maxAge")} hint={t.optional} numeric />
-          <Input
-            label={t.maxWeight}
-            value={v.maxWeightKg}
-            onChange={(maxWeightKg) => set({ maxWeightKg })}
-            error={err("maxWeightKg")}
-            hint={t.optional}
-            numeric
-          />
-          <Input
-            label={t.cert}
-            value={v.requiredCert}
-            onChange={(requiredCert) => set({ requiredCert })}
-            error={err("requiredCert")}
-            hint={t.optional}
-          />
-        </div>
-        <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
-        <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
-        {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
-      </Group>
-      <Group title={t.resourceNeeds}>
-        {KINDS.map((k) => (
-          <Stepper key={k} label={t.kinds[k]} value={v.needs[k]} min={0} max={10} onChange={(n) => set({ needs: { ...v.needs, [k]: n } })} />
-        ))}
-        {err("needs") && <p className="text-sm font-semibold text-clay">{err("needs")}</p>}
-      </Group>
+      {!court && (
+        <>
+          <Group title={t.requirements}>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label={t.minAge} value={v.minAge} onChange={(minAge) => set({ minAge })} error={err("minAge")} hint={t.optional} numeric />
+              <Input label={t.maxAge} value={v.maxAge} onChange={(maxAge) => set({ maxAge })} error={err("maxAge")} hint={t.optional} numeric />
+              <Input
+                label={t.maxWeight}
+                value={v.maxWeightKg}
+                onChange={(maxWeightKg) => set({ maxWeightKg })}
+                error={err("maxWeightKg")}
+                hint={t.optional}
+                numeric
+              />
+              <Input
+                label={t.cert}
+                value={v.requiredCert}
+                onChange={(requiredCert) => set({ requiredCert })}
+                error={err("requiredCert")}
+                hint={t.optional}
+              />
+            </div>
+            <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
+            <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
+            {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
+          </Group>
+          <Group title={t.resourceNeeds}>
+            {PERSON_KINDS.map((k) => (
+              <Stepper key={k} label={t.kinds[k]} value={v.needs[k]} min={0} max={10} onChange={(n) => set({ needs: { ...v.needs, [k]: n } })} />
+            ))}
+            {err("needs") && <p className="text-sm font-semibold text-clay">{err("needs")}</p>}
+          </Group>
+        </>
+      )}
       <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
       <SaveBar busy={busy} error={error} onSave={save} />
     </div>
@@ -655,7 +695,7 @@ function PackOfferEditor({ op, setup, item, onSaved }: { op: string; setup: Setu
   });
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
   const { busy, error, submit, err } = useSubmit(t);
-  const options = setup.options.filter((o) => o.activityId === v.activityId);
+  const options = setup.options.filter((o) => o.activityId === v.activityId && o.bookingUnit === "person");
 
   const save = async () => {
     const body = {

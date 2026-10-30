@@ -37,6 +37,8 @@ export async function ownedCheckout(c: Ctx, id: string) {
 
 const busy = async (c: Ctx, s: Session) => limited(c.env.RL_CHECKOUT, s.idHash);
 const done = (co: Checkout) => !!(co.bookingId || co.refundReason || co.packId);
+// Only a per-court Checkout starts with an empty participant list: its group has no Participants, so no Who step.
+export const perCourt = (co: Checkout) => co.participantIds?.length === 0;
 
 async function saved(db: Db, customerId: string, operatorId: string) {
   return db
@@ -311,6 +313,7 @@ checkout.post("/", async (c) => {
     picks.map((a) => a.id),
   );
   const now = Date.now();
+  const court = d?.option.bookingUnit === "court";
   if (
     !d ||
     !d.slot ||
@@ -318,6 +321,7 @@ checkout.post("/", async (c) => {
     !d.option.active ||
     d.slot.closedAt !== null ||
     d.slot.startsAt - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
+    (court && d.requiresWaiver !== false) ||
     ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")
   ) {
     return fail(c, 409, { code: "not_bookable" });
@@ -327,7 +331,7 @@ checkout.post("/", async (c) => {
   if (!Number.isInteger(quantity) || quantity < min) {
     return fail(c, 400, { code: "below_min_participants", field: "quantity", params: { min } });
   }
-  const max = d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING;
+  const max = court ? 1 : (d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING);
   if (quantity > max) return fail(c, 400, { code: "above_max_per_booking", field: "quantity", params: { max } });
   if (quantity > d.slot.spots) return fail(c, 409, { code: "no_availability", params: { spots: d.slot.spots } });
   const addOnOf = new Map(d.addOns.map((a) => [a.id, a]));
@@ -352,11 +356,15 @@ checkout.post("/", async (c) => {
     timeslotId: d.slot.id,
     quantity,
     addOns: picks,
+    participantIds: court ? [] : null,
     locale: body.locale === "ms" ? "ms" : "en",
     createdAt: now,
     updatedAt: now,
   });
-  return c.json({ id }, 201);
+  if (!court) return c.json({ id, next: "who" as const }, 201);
+  if (!session.customerId) return c.json({ id, next: "contact" as const }, 201);
+  const code = await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), id);
+  return code ? fail(c, 409, { code }) : c.json({ id, next: "pay" as const }, 201);
 });
 
 checkout.get("/:id", async (c) => {
@@ -418,6 +426,7 @@ checkout.get("/:id", async (c) => {
       requiredCert: d.option.requiredCert,
       minParticipants: d.option.minParticipants,
       maxPerBooking: d.option.maxPerBooking,
+      bookingUnit: d.option.bookingUnit,
       asksWeight: d.option.asksWeight,
     },
     activity: { ...d.activity, city: d.city, category: d.category },
@@ -454,7 +463,7 @@ checkout.put("/:id/who", async (c) => {
   if (!owned) return fail(c, 404, { code: "not_found" });
   const { checkout: co, session } = owned;
   if (await busy(c, session)) return fail(c, 429, { code: "rate_limited" });
-  if (done(co)) return fail(c, 409, { code: "invalid_state" });
+  if (done(co) || perCourt(co)) return fail(c, 409, { code: "invalid_state" });
   const body = await c.req.json<{ participants?: unknown }>();
   const inputs = Array.isArray(body.participants) ? (body.participants as WhoInput[]) : [];
   if (inputs.length !== co.quantity) return fail(c, 400, { code: "invalid_participant", field: "participants" });

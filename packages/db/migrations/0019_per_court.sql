@@ -1,0 +1,1 @@
+ALTER TABLE `proj_options` ADD `booking_unit` text DEFAULT 'person' NOT NULL;

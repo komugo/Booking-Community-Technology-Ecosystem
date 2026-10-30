@@ -212,6 +212,7 @@ export const projOptions = sqliteTable(
     requiredCert: text(),
     minParticipants: integer(),
     maxPerBooking: integer(),
+    bookingUnit: text({ enum: ["person", "court"] }).notNull().default("person"),
     active: integer({ mode: "boolean" }).notNull(),
     asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),

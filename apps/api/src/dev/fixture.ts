@@ -23,6 +23,7 @@ export async function fixture(
     extraSlots?: unknown;
     close?: unknown;
     info?: unknown;
+    court?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -71,6 +72,7 @@ export async function fixture(
     requiredCert: null,
     minParticipants: null,
     maxPerBooking: null,
+    bookingUnit: "person",
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });
@@ -184,6 +186,32 @@ export async function fixture(
     venueSlug = slugs.en;
     await db.update(activities).set({ venueId: venue.id, listingMode: "info" }).where(eq(activities.id, activityId));
   }
+  // A per-court Option with two courts and one free hour tomorrow; per-court sells only without a waiver.
+  const courtOptionId = `opt_${rid}_court`;
+  if (o.court === true) {
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    for (const n of ["A", "B"]) {
+      await b.upsertResource({ id: `res_${rid}_court${n}`, kind: "court", name: `Court ${n}`, active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null });
+    }
+    await b.upsertOption({
+      id: courtOptionId,
+      activityId,
+      nameEn: "Court hire",
+      nameMs: "Sewa gelanggang",
+      priceSen: 2000,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "court",
+      active: true,
+      needs: [{ kind: "court", quantity: 1 }],
+    });
+    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR] });
+  }
   return {
     operatorId,
     cityId: city.id,
@@ -201,5 +229,6 @@ export async function fixture(
     email,
     ...(staffEmail ? { staffEmail } : {}),
     ...(o.packOffer === true || viaPack ? { offerId } : {}),
+    ...(o.court === true ? { courtOptionId } : {}),
   };
 }
