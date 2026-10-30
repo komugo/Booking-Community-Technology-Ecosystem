@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
-import { later, rid, rideWorld } from "./helpers";
+import { HOUR, kl, later, rid, rideWorld } from "./helpers";
 
 async function booked(o: { people?: number; horse?: { maxSessionsPerDay?: number } } = {}) {
   const w = await rideWorld(o.horse ?? {});
@@ -82,8 +82,9 @@ test("Resources are re-allocated: Requirements on the new date and Welfare Rules
   });
 
   const h = await booked({ horse: { maxSessionsPerDay: 1 } });
-  const dayA = await h.slot(h.optionId, later(120));
-  const dayB = await h.slot(h.optionId, later(122));
+  const morning = kl(`${klDate(later(120))}T09:00`);
+  const dayA = await h.slot(h.optionId, morning);
+  const dayB = await h.slot(h.optionId, morning + 2 * HOUR);
   await h.book(h.customerId, dayA, [await h.participant(h.customerId)]);
   await expect(h.move(dayB)).rejects.toMatchObject({ code: "no_availability" });
 });
