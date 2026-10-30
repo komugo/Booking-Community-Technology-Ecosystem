@@ -215,6 +215,13 @@ export const migrations: string[][] = [
     `ALTER TABLE option_resources_new RENAME TO option_resources`,
     `ALTER TABLE options ADD COLUMN booking_unit TEXT NOT NULL DEFAULT 'person' CHECK (booking_unit IN ('person','court'))`,
   ],
+  // A Date ticket's Timeslot spans that date's opening hours, kept here from D1 as the Activity's, else its Venue's.
+  [
+    `ALTER TABLE activities ADD COLUMN hours TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(hours))`,
+    `ALTER TABLE options ADD COLUMN ticket_type TEXT NOT NULL DEFAULT 'timeslot' CHECK (ticket_type IN ('timeslot','date'))`,
+    `ALTER TABLE options ADD COLUMN daily_limit INTEGER CHECK (daily_limit > 0)`,
+    `ALTER TABLE timeslots ADD COLUMN ends_at INTEGER`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

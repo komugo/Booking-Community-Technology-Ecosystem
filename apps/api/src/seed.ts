@@ -261,6 +261,8 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         maxPerBooking: null,
         requiredCert: null,
         bookingUnit: "person",
+        ticketType: "timeslot",
+        dailyLimit: null,
         active: true,
         ...o,
         activityId: a.id,

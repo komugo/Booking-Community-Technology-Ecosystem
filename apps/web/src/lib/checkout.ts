@@ -1,5 +1,5 @@
 import { activities, operators, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
-import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
 import { db, sells } from "./db";
 import { codeFrom, problems } from "./form";
@@ -61,12 +61,18 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       .where(and(eq(projAddOns.activityId, o.activityId), eq(projAddOns.active, true)))
       .orderBy(asc(projAddOns.priceSen)),
     db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots, priceSen: projTimeslots.priceSen })
+      .select({
+        id: projTimeslots.id,
+        startsAt: projTimeslots.startsAt,
+        endsAt: projTimeslots.endsAt,
+        spots: projTimeslots.spots,
+        priceSen: projTimeslots.priceSen,
+      })
       .from(projTimeslots)
       .where(
         and(
           eq(projTimeslots.optionId, o.id),
-          gt(projTimeslots.startsAt, now + row.cutoffMinutes * 60_000),
+          gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + row.cutoffMinutes * 60_000),
           lt(projTimeslots.startsAt, now + 60 * DAY),
           isNull(projTimeslots.closedAt),
           gt(projTimeslots.spots, 0),

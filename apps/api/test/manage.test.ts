@@ -75,7 +75,7 @@ describe("cancel and reschedule", () => {
     const next = await slotAt(w, at);
     await slotAt(w, SLOT_AT + DAY_MS);
     const { body } = await owner.json("GET", `${base}/slots?t=${t}`);
-    expect(body).toEqual({ ticketIds: [t], slots: [{ id: next, startsAt: at, spots: 3 }] });
+    expect(body).toEqual({ ticketIds: [t], slots: [{ id: next, startsAt: at, endsAt: null, spots: 3 }] });
     const r = await owner.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: next });
     expect(r).toEqual({ status: 200, body: { timeslotId: next, startsAt: at } });
   });

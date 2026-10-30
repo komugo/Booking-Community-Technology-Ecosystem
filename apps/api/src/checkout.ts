@@ -320,7 +320,7 @@ checkout.post("/", async (c) => {
     d.slot.optionId !== d.option.id ||
     !d.option.active ||
     d.slot.closedAt !== null ||
-    d.slot.startsAt - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
+    (d.slot.endsAt ?? d.slot.startsAt) - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
     (court && d.requiresWaiver !== false) ||
     ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")
   ) {
@@ -413,6 +413,7 @@ checkout.get("/:id", async (c) => {
     locale: co.locale,
     quantity: co.quantity,
     startsAt: d.slot?.startsAt ?? null,
+    endsAt: d.slot?.endsAt ?? null,
     timeslotId: co.timeslotId,
     option: {
       id: d.option.id,
@@ -427,6 +428,7 @@ checkout.get("/:id", async (c) => {
       minParticipants: d.option.minParticipants,
       maxPerBooking: d.option.maxPerBooking,
       bookingUnit: d.option.bookingUnit,
+      ticketType: d.option.ticketType,
       asksWeight: d.option.asksWeight,
     },
     activity: { ...d.activity, city: d.city, category: d.category },

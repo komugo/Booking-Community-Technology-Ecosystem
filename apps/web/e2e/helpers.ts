@@ -21,6 +21,7 @@ export type Fixture = {
   venueSlug?: string;
   offerId?: string;
   courtOptionId?: string;
+  dateOptionId?: string;
 };
 
 export async function fixture(
@@ -36,6 +37,8 @@ export async function fixture(
     close?: boolean;
     info?: boolean;
     court?: boolean;
+    dateTicket?: boolean;
+    dailyLimit?: number;
   } = {},
 ): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });

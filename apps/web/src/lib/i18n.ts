@@ -58,6 +58,7 @@ export const t = {
     about: "About",
     goodToKnow: "Good to know",
     requirements: "Requirements",
+    anyTime: "Any time that day",
     hours: "Opening hours",
     closed: "Closed",
     today: "Today",
@@ -122,6 +123,9 @@ export const t = {
       oneCourt: "1 court for 1 hour",
       perCourt: "per court",
       court: "Court",
+      pickDateTitle: "Choose a date",
+      validHours: "Valid during opening hours",
+      noDateTickets: "Not open or sold out on this day",
       estimated: "Estimated total",
       total: "Total",
       continue: "Continue",
@@ -397,6 +401,7 @@ export const t = {
     about: "Tentang",
     goodToKnow: "Perlu tahu",
     requirements: "Syarat",
+    anyTime: "Bila-bila masa pada hari itu",
     hours: "Waktu operasi",
     closed: "Tutup",
     today: "Hari ini",
@@ -461,6 +466,9 @@ export const t = {
       oneCourt: "1 gelanggang untuk 1 jam",
       perCourt: "setiap gelanggang",
       court: "Gelanggang",
+      pickDateTitle: "Pilih tarikh",
+      validHours: "Sah sepanjang waktu operasi",
+      noDateTickets: "Tutup atau habis dijual pada hari ini",
       estimated: "Anggaran jumlah",
       total: "Jumlah",
       continue: "Teruskan",
@@ -749,3 +757,6 @@ export const klWeekday = (l: Locale, ms: number) => fmt(l, { weekday: "short" })
 export const klDayMonth = (l: Locale, ms: number) => fmt(l, { day: "numeric", month: "short" }).format(ms);
 export const klDayYear = (l: Locale, ms: number) => fmt(l, { day: "numeric", month: "short", year: "numeric" }).format(ms);
 export const klDeadline = (l: Locale, ms: number) => `${klDay(l, ms)}, ${klTime(l, ms)}`;
+// A Date ticket is valid during its date's opening hours rather than from a start time.
+export const klHours = (l: Locale, x: { startsAt: number; endsAt: number | null }) =>
+  x.endsAt === null ? klTime(l, x.startsAt) : `${klTime(l, x.startsAt)}–${klTime(l, x.endsAt)}`;

@@ -58,12 +58,13 @@ me.get("/", async (c) => {
         k: await groupLink(c.env, kind, id),
         timeslotId: t.timeslotId,
         startsAt: t.startsAt,
+        endsAt: t.endsAt,
         closed: t.closedAt !== null,
         option: { nameEn: o?.nameEn ?? "", nameMs: o?.nameMs ?? "" },
         activity: o?.activity ?? { nameEn: "", nameMs: "" },
         participants: ts.map((x) => person.get(x.participantId) ?? customer?.name ?? ""),
         statuses: ts.map((x) => x.status),
-        section: issued && t.closedAt !== null && !choice ? "awaiting" : issued && t.closedAt === null && t.startsAt > now ? "upcoming" : "past",
+        section: issued && t.closedAt !== null && !choice ? "awaiting" : issued && t.closedAt === null && (t.endsAt ?? t.startsAt) > now ? "upcoming" : "past",
       };
     }),
   );

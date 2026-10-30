@@ -18,6 +18,9 @@ export const participantKey = (name: string, birthDate: string) => `${name.trim(
 
 export type Weekday = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 export const WEEKDAYS: Weekday[] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+// The spots a Date ticket Timeslot reports when its Option has no Daily limit.
+export const UNLIMITED_SPOTS = 999;
 export const CLOSED_DAY = /^(Mo|Tu|We|Th|Fr|Sa|Su)(#[1-5])?$/;
 export const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 

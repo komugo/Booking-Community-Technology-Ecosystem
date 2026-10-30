@@ -142,7 +142,7 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
         eq(projOptions.active, true),
         isNull(projTimeslots.closedAt),
         gt(projTimeslots.spots, 0),
-        gt(projTimeslots.startsAt, sql`${now} + ${projActivities.bookingCutoffMinutes} * 60000`),
+        gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, sql`${now} + ${projActivities.bookingCutoffMinutes} * 60000`),
       ),
     );
   const interested = await db

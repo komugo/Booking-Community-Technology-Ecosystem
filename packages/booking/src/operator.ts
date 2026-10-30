@@ -1,3 +1,4 @@
+import type { OpeningHours } from "@komugo/types";
 import { DurableObject } from "cloudflare:workers";
 import * as engine from "./engine";
 import {
@@ -33,6 +34,10 @@ export class OperatorBooking extends DurableObject<Env> {
 
   upsertActivity(op: string, a: ActivityInput) {
     return this.#mutate(op, null, (sql, now) => engine.upsertActivity(sql, now, a));
+  }
+
+  setHours(op: string, list: { activityId: string; hours: OpeningHours[] }[]) {
+    return this.#mutate(op, null, (sql, now) => engine.setHours(sql, now, list));
   }
 
   upsertOption(op: string, o: OptionInput) {

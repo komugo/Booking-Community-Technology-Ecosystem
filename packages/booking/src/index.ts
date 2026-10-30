@@ -21,5 +21,6 @@ export {
   type ResourceInput,
   type ResourceKind,
   type ScheduleInput,
+  type TicketType,
   type TimeslotRow,
 } from "./engine";

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { scan, useQueue } from "../checkins";
 import { addDays, today, useDay } from "../day";
-import { day, named, time, useT } from "../i18n";
+import { day, hours, named, time, useT } from "../i18n";
 import type { Ticket, Timeslot } from "../types";
 import { Icon, Sheet, WaiverChip } from "../ui";
 
@@ -104,7 +104,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
       <header className="flex items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <h2 id={`ts-${slot.id}`} className="num text-3xl font-extrabold">
-            {time(slot.startsAt, l)} <span className="font-sans text-lg font-semibold tracking-normal">{named(slot.option, l)}</span>
+            {hours(slot, l)} <span className="font-sans text-lg font-semibold tracking-normal">{named(slot.option, l)}</span>
           </h2>
           {resources.length > 0 && <p className="mt-1.5 text-sm text-muted">{resources.join(" · ")}</p>}
         </div>
@@ -182,7 +182,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
           href={`/o/${op}/timeslots/${slot.id}`}
           className="flex min-h-12 items-center justify-center border-t border-line text-sm font-semibold text-clay hover:bg-sand/50"
         >
-          {slot.startsAt > Date.now() ? t.closeTimeslot : t.participants}
+          {(slot.endsAt ?? slot.startsAt) > Date.now() ? (slot.endsAt === null ? t.closeTimeslot : t.closeDate) : t.participants}
         </Link>
       )}
     </article>

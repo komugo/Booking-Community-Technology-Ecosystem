@@ -1,5 +1,5 @@
 import { createDb, operators, participants, waivers } from "@komugo/db";
-import { WAIVER } from "@komugo/types";
+import { WAIVER, type OpeningHours } from "@komugo/types";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   BookingError,
@@ -70,6 +70,7 @@ export function booking(env: Env, operatorId: string) {
 
   return {
     upsertActivity: (a: ActivityInput) => call((s) => s.upsertActivity(op, a)),
+    setHours: (list: { activityId: string; hours: OpeningHours[] }[]) => call((s) => s.setHours(op, list)),
     upsertOption: (o: OptionInput) => call((s) => s.upsertOption(op, o)),
     upsertAddOn: (a: AddOnInput) => call((s) => s.upsertAddOn(op, a)),
     upsertResource: (r: ResourceInput) => call((s) => s.upsertResource(op, r)),

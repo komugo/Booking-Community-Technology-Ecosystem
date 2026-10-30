@@ -160,7 +160,7 @@ export function manage(kind: Kind) {
       .where(eq(projOptions.id, tickets[0].optionId));
     const last = "expiresAt" in v && !closed ? Math.min(v.expiresAt + 1, now + 60 * DAY) : now + 60 * DAY;
     const slots = await db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, endsAt: projTimeslots.endsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
       .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
       .where(
@@ -171,7 +171,7 @@ export function manage(kind: Kind) {
             : undefined,
           isNull(projTimeslots.closedAt),
           gte(projTimeslots.spots, tickets.length),
-          gt(projTimeslots.startsAt, now + (cutoff?.minutes ?? 0) * MIN),
+          gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + (cutoff?.minutes ?? 0) * MIN),
           lt(projTimeslots.startsAt, last),
           ne(projTimeslots.id, tickets[0].timeslotId),
         ),

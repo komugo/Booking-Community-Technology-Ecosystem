@@ -1,10 +1,25 @@
+import { booking } from "@komugo/booking";
 import { activities, cities, createDb, photos, venueSlugs, venues as venueTable, type OpeningHours } from "@komugo/db";
 import { HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, asc, count, eq, isNotNull, ne } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { fail, type Ctx } from "../lib";
 import { requireMember, staffOnly, type Ops } from "./auth";
 import { int, intOrNull, invalid, json, list, name, type Body } from "./input";
+
+// Date tickets are valid during the Activity's opening hours, else its Venue's; the booking engine keeps a copy.
+export async function syncHours(env: Env, activityIds: string[]) {
+  const rows = await createDb(env.DB)
+    .select({ id: activities.id, operatorId: activities.operatorId, own: activities.openingHours, venue: venueTable.openingHours })
+    .from(activities)
+    .leftJoin(venueTable, eq(venueTable.id, activities.venueId))
+    .where(inArray(activities.id, activityIds.concat("")));
+  for (const op of new Set(rows.map((r) => r.operatorId))) {
+    await booking(env, op).setHours(
+      rows.filter((r) => r.operatorId === op).map((r) => ({ activityId: r.id, hours: r.own.length ? r.own : (r.venue ?? []) })),
+    );
+  }
+}
 
 export type PhotoInput = {
   url: string;
@@ -198,6 +213,10 @@ async function save(c: Ctx, id: string | null) {
     db.delete(photos).where(eq(photos.venueId, venueId)),
     ...(list.length ? [db.insert(photos).values(photoRows({ venueId }, list))] : []),
   ]);
+  if (id) {
+    const hosted = await db.select({ id: activities.id }).from(activities).where(eq(activities.venueId, id));
+    await syncHours(c.env, hosted.map((a) => a.id));
+  }
   return c.json({ id: venueId }, id ? 200 : 201);
 }
 

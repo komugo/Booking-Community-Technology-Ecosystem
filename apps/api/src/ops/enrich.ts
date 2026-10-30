@@ -105,6 +105,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
     return {
       id: r.id,
       startsAt: r.startsAt,
+      endsAt: r.endsAt,
       closedAt: r.closedAt,
       closedReason: r.closedReason,
       horse: r.horse,
