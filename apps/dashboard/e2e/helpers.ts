@@ -8,6 +8,7 @@ export const SHOTS = process.env.SHOTS;
 
 export type Fixture = {
   operatorId: string;
+  cityId: string;
   activityId: string;
   optionId: string;
   timeslotId: string;

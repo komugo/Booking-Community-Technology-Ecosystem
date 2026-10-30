@@ -42,6 +42,9 @@ export const venues = sqliteTable(
       .references(() => cities.id),
     nameEn: text().notNull(),
     nameMs: text().notNull(),
+    // Set once at creation and never regenerated, so links survive a rename.
+    slugEn: text(),
+    slugMs: text(),
     streetAddress: text(),
     postalCode: text(),
     presint: integer(),
@@ -50,7 +53,12 @@ export const venues = sqliteTable(
     lng: real(),
     openingHours: json<OpeningHours[]>(),
   },
-  (t) => [index("venues_city").on(t.cityId), check("venues_presint", sql`${t.presint} between 1 and 20`)],
+  (t) => [
+    index("venues_city").on(t.cityId),
+    uniqueIndex("venues_city_slug_en").on(t.cityId, t.slugEn),
+    uniqueIndex("venues_city_slug_ms").on(t.cityId, t.slugMs),
+    check("venues_presint", sql`${t.presint} between 1 and 20`),
+  ],
 );
 
 export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
@@ -515,4 +523,21 @@ export const refundEmails = sqliteTable(
     emailedAt: integer().notNull(),
   },
   (t) => [primaryKey({ columns: [t.refundId, t.kind] })],
+);
+
+export const interests = sqliteTable(
+  "interests",
+  {
+    id: id(),
+    activityId: text()
+      .notNull()
+      .references(() => activities.id),
+    email: text().notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    createdAt: integer().notNull(),
+    emailedAt: integer(),
+    unsubscribedAt: integer(),
+    failedAt: integer(),
+  },
+  (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
 );

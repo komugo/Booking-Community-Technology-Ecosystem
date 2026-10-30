@@ -101,7 +101,7 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
     .innerJoin(cities, eq(cities.id, activities.cityId))
     .innerJoin(categories, eq(categories.id, activities.categoryId))
     .where(and(where, draftGate(q)))
-    .orderBy(asc(activities.nameEn));
+    .orderBy(sql`${activities.listingMode} = 'bookable' desc`, asc(activities.nameEn));
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.a.id);
   const [opts, covers, slots] = await db.batch([
@@ -256,7 +256,11 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
     priceNote: en ? a.priceNoteEn : a.priceNoteMs,
     freeCancelHours: row.freeCancelHours,
     fromPriceSen: fromPrice(opts, slots),
-    venue: venue && { name: en ? venue.nameEn : venue.nameMs, presint: venue.presint },
+    venue: venue && {
+      name: en ? venue.nameEn : venue.nameMs,
+      presint: venue.presint,
+      slugs: venue.slugEn && venue.slugMs ? { en: venue.slugEn, ms: venue.slugMs } : null,
+    },
     streetAddress: venue ? venue.streetAddress : a.streetAddress,
     postalCode: venue ? venue.postalCode : a.postalCode,
     lat: venue ? venue.lat : a.lat,
@@ -291,7 +295,44 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
   };
 }
 
-export type SitemapEntry = { city: Slugs; category?: Slugs; activity?: Slugs };
+const RANK: Record<ListingMode, number> = { bookable: 0, info: 1, hidden: 2 };
+
+export async function getVenuePage(db: Db, q: CatalogQuery & { city: string; venue: string }) {
+  const [cityRow] = await hubQuery(db, cities, q.locale, q.city);
+  if (!cityRow) return null;
+  const [v] = await db
+    .select()
+    .from(venues)
+    .where(and(eq(venues.cityId, cityRow.id), bySlug(venues, q.venue)))
+    .orderBy(localeFirst(venues, q.locale, q.venue))
+    .limit(1);
+  if (!v?.slugEn || !v.slugMs) return null;
+  const [[city], cards, gallery] = await Promise.all([
+    toHubs(db, [cityRow], q.locale),
+    listCards(db, q, eq(activities.venueId, v.id)),
+    db.select().from(photos).where(eq(photos.venueId, v.id)).orderBy(asc(photos.position)),
+  ]);
+  if (cards.length === 0) return null;
+  const en = q.locale === "en";
+  return {
+    id: v.id,
+    slugs: { en: v.slugEn, ms: v.slugMs },
+    city,
+    name: en ? v.nameEn : v.nameMs,
+    streetAddress: v.streetAddress,
+    postalCode: v.postalCode,
+    presint: v.presint,
+    phone: v.phone,
+    lat: v.lat,
+    lng: v.lng,
+    openingHours: v.openingHours,
+    photos: gallery.map((p) => toPhoto(p, q.locale)),
+    activities: cards.sort((a, b) => RANK[a.listingMode] - RANK[b.listingMode]),
+    indexable: hasListed(cards),
+  };
+}
+
+export type SitemapEntry = { city: Slugs; category?: Slugs; activity?: Slugs; venue?: Slugs };
 
 export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
   const rows = await db
@@ -299,10 +340,12 @@ export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
       a: { en: activities.slugEn, ms: activities.slugMs },
       city: { en: cities.slugEn, ms: cities.slugMs },
       category: { en: categories.slugEn, ms: categories.slugMs },
+      venue: { en: venues.slugEn, ms: venues.slugMs },
     })
     .from(activities)
     .innerJoin(cities, eq(cities.id, activities.cityId))
     .innerJoin(categories, eq(categories.id, activities.categoryId))
+    .leftJoin(venues, and(eq(venues.id, activities.venueId), eq(venues.cityId, activities.cityId)))
     .where(listed)
     .orderBy(asc(cities.slugEn), asc(categories.slugEn), asc(activities.slugEn));
   const out = new Map<string, SitemapEntry>();
@@ -310,6 +353,7 @@ export async function listSitemapEntries(db: Db): Promise<SitemapEntry[]> {
     out.set(r.city.en, { city: r.city });
     out.set(`${r.city.en}/${r.category.en}`, { city: r.city, category: r.category });
     out.set(`${r.city.en}/${r.category.en}/${r.a.en}`, { city: r.city, category: r.category, activity: r.a });
+    if (r.venue?.en && r.venue.ms) out.set(`${r.city.en}/venue/${r.venue.en}`, { city: r.city, venue: { en: r.venue.en, ms: r.venue.ms } });
   }
   return [...out.values()];
 }

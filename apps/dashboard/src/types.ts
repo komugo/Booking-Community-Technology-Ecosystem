@@ -111,6 +111,31 @@ export type RefundRow = {
   customer: { name: string | null; email: string | null; phone: string | null };
 };
 export type ListingMode = "bookable" | "info" | "hidden";
+export type Gap = "venue" | "mapPin" | "descriptionEn" | "descriptionMs" | "photo";
+export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+export type Photo = {
+  url: string;
+  width: number;
+  height: number;
+  altEn: string;
+  altMs: string;
+  creditName: string;
+  creditUrl: string;
+  sourceUrl: string;
+};
+export type Venue = Named & {
+  id: string;
+  cityId: string;
+  streetAddress: string | null;
+  postalCode: string | null;
+  presint: number | null;
+  phone: string | null;
+  lat: number | null;
+  lng: number | null;
+  openingHours: OpeningHours[];
+  photos: Photo[];
+};
+export type Venues = { venues: Venue[]; cities: (Named & { id: string })[] };
 export type PayoutRow = {
   operatorId: string;
   operatorName: string;
@@ -123,6 +148,16 @@ export type PayoutRow = {
   paidSen: number | null;
   paidAt: number | null;
 };
+export type InterestRow = {
+  activityId: string;
+  nameEn: string;
+  nameMs: string;
+  listingMode: "bookable" | "info" | "hidden";
+  operatorId: string;
+  operatorName: string;
+  count: number;
+  notified: number;
+};
 export type Setup = {
   activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: Option[];
@@ -131,6 +166,15 @@ export type Setup = {
   schedules: Schedule[];
   packOffers: PackOffer[];
   commissionBps: number | null;
-  catalogue: (Named & { id: string; slugEn: string; slugMs: string; listingMode: ListingMode })[];
+  catalogue: (Named & {
+    id: string;
+    slugEn: string;
+    slugMs: string;
+    listingMode: ListingMode;
+    descriptionEn: string;
+    descriptionMs: string;
+    venueId: string | null;
+    photos: Photo[];
+  })[];
 };
 export type Generated = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };
