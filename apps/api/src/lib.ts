@@ -63,4 +63,8 @@ export async function each<T>(rows: T[], event: string, fn: (row: T) => Promise<
 
 export const emailRef = async (email: string) => (await sha256Hex(email)).slice(0, 12);
 
+// Can take money: Bookable with a Commission set (or drafts allowed on staging).
+export const sellable = (env: Env, listingMode: string, commissionBps: number | null) =>
+  (listingMode === "bookable" && commissionBps !== null) || env.BOOK_DRAFTS === "1";
+
 export const limited = async (rl: RateLimit, key: string) => !(await rl.limit({ key })).success;

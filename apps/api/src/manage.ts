@@ -11,7 +11,7 @@ import {
   projTimeslots,
 } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
@@ -56,6 +56,14 @@ async function access(c: Ctx, kind: Kind, id: string, k: unknown) {
   };
 }
 type Access = NonNullable<Awaited<ReturnType<typeof access>>>;
+
+function refundDue(c: Ctx, a: Access, r: { id: string; amountSen: number; reason: "cancel" | "closure" }) {
+  if (!("bookingId" in a.group)) return;
+  const refund = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
+  c.executionCtx.waitUntil(
+    sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
+  );
+}
 
 const view = (a: Access): Promise<BookingView | PackView> =>
   "bookingId" in a.group ? a.b.bookingView(a.group.bookingId) : a.b.packView(a.group.packId);
@@ -157,6 +165,12 @@ export function manage(kind: Kind) {
       .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
       .where(eq(projOptions.id, tickets[0].optionId));
     const last = "expiresAt" in v && !closed ? Math.min(v.expiresAt + 1, now + 60 * DAY) : now + 60 * DAY;
+    const price = sql<number>`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`;
+    const [current] = await db
+      .select({ sen: price })
+      .from(projTimeslots)
+      .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
+      .where(eq(projTimeslots.id, tickets[0].timeslotId));
     const slots = await db
       .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
@@ -164,9 +178,7 @@ export function manage(kind: Kind) {
       .where(
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
-          kind === "booking" && !closed
-            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`, tickets[0].priceSen)
-            : undefined,
+          kind !== "booking" ? undefined : closed ? lte(price, tickets[0].priceSen) : eq(price, current.sen),
           isNull(projTimeslots.closedAt),
           gte(projTimeslots.spots, tickets.length),
           gt(projTimeslots.startsAt, now + (cutoff?.minutes ?? 0) * MIN),
@@ -206,12 +218,7 @@ export function manage(kind: Kind) {
       expectSen: Number(body.expectSen),
       expectForfeited: Array.isArray(body.expectForfeited) ? body.expectForfeited.map(String) : [],
     });
-    if (r.refund && "bookingId" in a.group) {
-      const refund = { ...r.refund, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
-      c.executionCtx.waitUntil(
-        sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
-      );
-    }
+    if (r.refund) refundDue(c, a, r.refund);
     return c.json(r);
   });
 
@@ -219,17 +226,17 @@ export function manage(kind: Kind) {
     const x = await change(c);
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
-    return c.json(
-      await a.b.rescheduleTickets({
-        requestId: x.requestId,
-        customerId: a.customerId,
-        group: a.group,
-        ticketIds: tickets.map((t) => t.id),
-        timeslotId: String(body.timeslotId ?? ""),
-        participantIds: tickets.map((t) => t.participantId),
-        onlyClosed: !a.viaSession,
-      }),
-    );
+    const r = await a.b.rescheduleTickets({
+      requestId: x.requestId,
+      customerId: a.customerId,
+      group: a.group,
+      ticketIds: tickets.map((t) => t.id),
+      timeslotId: String(body.timeslotId ?? ""),
+      participantIds: tickets.map((t) => t.participantId),
+      onlyClosed: !a.viaSession,
+    });
+    if (r.refund) refundDue(c, a, r.refund);
+    return c.json(r);
   });
 
   return app;

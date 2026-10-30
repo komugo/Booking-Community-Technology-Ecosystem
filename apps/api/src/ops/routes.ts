@@ -137,12 +137,22 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   if (!row) return fail(c, 404, { code: "not_found" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
   if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
-  const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
-  await set(mode);
-  // Written before the check so a Hold made after it is refused at pay or redeem.
-  if (row.listingMode === "bookable" && mode !== "bookable" && ((await c.var.b.hasFutureBookings(id)) || (await hasOpenBills(db, id)))) {
-    await set("bookable");
-    return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
+  await db.update(activities).set({ listingMode: mode, published: mode === "bookable" }).where(eq(activities.id, id));
+  if (row.listingMode === "bookable" && mode !== "bookable") {
+    // Written before the check so a Hold made after it is refused at pay or redeem; reverted only if no one changed it since.
+    const revert = () =>
+      db.update(activities).set({ listingMode: "bookable", published: true }).where(and(eq(activities.id, id), eq(activities.listingMode, mode)));
+    let blocked: boolean;
+    try {
+      blocked = (await c.var.b.hasFutureBookings(id)) || (await hasOpenBills(db, id));
+    } catch (e) {
+      await revert();
+      throw e;
+    }
+    if (blocked) {
+      await revert();
+      return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
+    }
   }
   return c.json({ listingMode: mode });
 });

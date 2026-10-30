@@ -5,7 +5,7 @@ import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createBill, type BillRow } from "./billplz";
 import { named } from "./details";
 import { sendPackEmail, sendRefundEmail } from "./email";
-import { DAY, fail, limited, log, logError, requireJson, type Ctx, type WaitUntil } from "./lib";
+import { DAY, fail, limited, log, logError, requireJson, sellable, type Ctx, type WaitUntil } from "./lib";
 import { groupLink } from "./manage";
 import { readSession } from "./session";
 
@@ -28,7 +28,7 @@ packs.post("/", requireJson, async (c) => {
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
     .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(eq(projPackOffers.id, offerId));
-  if (!row || !row.offer.active || ((row.activity.listingMode !== "bookable" || row.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")) {
+  if (!row || !row.offer.active || !sellable(c.env, row.activity.listingMode, row.commissionBps)) {
     return fail(c, 409, { code: "not_bookable" });
   }
   const customerId = session.customerId;
