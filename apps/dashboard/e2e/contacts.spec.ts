@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { API, fixture, newContext, noAxeViolations, shot, signIn } from "./helpers";
+import { afterReload, fixture, newContext, noAxeViolations, shot, signIn, whatsappTo } from "./helpers";
 
 test("staff add an Operator contact, who gets the Welcome in their language, then edit and remove it", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
@@ -21,9 +21,8 @@ test("staff add an Operator contact, who gets the Welcome in their language, the
 
   const row = page.locator("[data-row]", { hasText: "Encik Hafiz" });
   await expect(row).toContainText(`+6${number} · Owner · BM · hafiz@example.com`);
-  await expect(row).toContainText("Welcome sent");
-  const sent = (await (await request.get(`${API}/dev/whatsapp`)).json()) as { to: string; text: string }[];
-  expect(sent.find((m) => m.to === `+6${number}`)?.text).toContain("Salam Encik Hafiz, ini Komugo.");
+  await afterReload(page, () => expect(row).toContainText("Welcome sent", { timeout: 1_000 }));
+  expect(await whatsappTo(request, `+6${number}`)).toContain("Salam Encik Hafiz, ini Komugo.");
   await noAxeViolations(page);
   await shot(page, "contacts");
 

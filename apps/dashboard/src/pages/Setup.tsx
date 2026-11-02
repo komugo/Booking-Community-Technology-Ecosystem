@@ -251,7 +251,7 @@ function Contacts({ op }: { op: string }) {
                   </span>
                 </span>
                 {c.welcome && (
-                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.welcome.status === "sent" ? "bg-lime text-forest" : "bg-sand text-clay"}`}>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${{ sent: "bg-lime text-forest", queued: "bg-sand text-ink", failed: "bg-sand text-clay" }[c.welcome.status]}`}>
                     {t.welcomeStatus[c.welcome.status]}
                   </span>
                 )}

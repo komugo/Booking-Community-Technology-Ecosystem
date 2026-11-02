@@ -11,9 +11,8 @@
     "BILLPLZ_COLLECTION_ID": "",
     "EMAIL_MODE": "resend",
     "EMAIL_FROM": "Komugo <tickets@komugo.com>",
-    "WHATSAPP_MODE": "sendontime",
-    "SENDONTIME_URL": "",
-    "SENDONTIME_DEVICE_URL": ""
+    "WHATSAPP_MODE": "wasender",
+    "WASENDER_GAP_MS": "5000"
   },
   "d1_databases": [
     {
@@ -30,6 +29,10 @@
     { "name": "RL_IP", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_CHECKOUT", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
   ],
+  "queues": {
+    "producers": [{ "binding": "WHATSAPP_QUEUE", "queue": "komugo-whatsapp" }],
+    "consumers": [{ "queue": "komugo-whatsapp", "max_batch_size": 5, "max_batch_timeout": 1, "max_retries": 7, "max_concurrency": 1 }]
+  },
   "triggers": { "crons": ["*/5 * * * *", "0 19 * * *"] },
   "env": {
     "staging": {
@@ -42,9 +45,8 @@
         "BILLPLZ_COLLECTION_ID": "",
         "EMAIL_MODE": "resend",
         "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>",
-        "WHATSAPP_MODE": "sendontime",
-        "SENDONTIME_URL": "",
-        "SENDONTIME_DEVICE_URL": ""
+        "WHATSAPP_MODE": "wasender",
+        "WASENDER_GAP_MS": "5000"
       },
       "d1_databases": [
         {
@@ -60,7 +62,11 @@
         { "name": "RL_OTP_EMAIL", "namespace_id": "2001", "simple": { "limit": 1, "period": 60 } },
         { "name": "RL_IP", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
         { "name": "RL_CHECKOUT", "namespace_id": "2003", "simple": { "limit": 30, "period": 60 } }
-      ]
+      ],
+      "queues": {
+        "producers": [{ "binding": "WHATSAPP_QUEUE", "queue": "komugo-whatsapp-staging" }],
+        "consumers": [{ "queue": "komugo-whatsapp-staging", "max_batch_size": 5, "max_batch_timeout": 1, "max_retries": 7, "max_concurrency": 1 }]
+      }
     }
   }
 }

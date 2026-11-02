@@ -26,10 +26,9 @@ function Composer({ op, draft, onSent }: { op: string; draft: string; onSent: ()
   const contactIds = list.data.contacts.map((c) => c.id).filter((id) => !skipped.includes(id));
 
   const send = async () => {
-    let res = { sent: 0, failed: 0 };
+    let res = { queued: 0 };
     if (!(await submit(async () => (res = await api("POST", `/operators/${op}/contacts/message`, { contactIds, text }))))) return;
-    if (res.failed) toast(t.messageFailed(res.failed), "error");
-    else toast(t.messageSent(res.sent));
+    toast(t.messageQueued(res.queued));
     onSent();
   };
 

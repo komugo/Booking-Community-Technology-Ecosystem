@@ -166,7 +166,7 @@ export type Contact = {
   role: ContactRole;
   locale: "ms" | "en";
   email: string | null;
-  welcome: { status: "sent" | "failed"; at: number } | null;
+  welcome: { status: "queued" | "sent" | "failed"; at: number } | null;
 };
 export type WhatsAppState = {
   connected: boolean;
