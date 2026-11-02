@@ -20,8 +20,8 @@ test("inside the window a Reschedule keeps the Ticket and moves its Allocations;
   const next = await w.slot(w.optionId, later(96));
   const requestId = rid();
   const moved = await w.move(next, undefined, undefined, requestId);
-  expect(moved).toEqual({ timeslotId: next, startsAt: later(96), refund: null });
-  expect(await w.move(next, undefined, undefined, requestId)).toEqual(moved);
+  expect(moved).toEqual({ timeslotId: next, startsAt: later(96), refund: null, replayed: false });
+  expect(await w.move(next, undefined, undefined, requestId)).toEqual({ ...moved, replayed: true });
   expect(await w.sql("SELECT id, timeslot_id, status FROM tickets")).toEqual([{ id: w.ticketIds[0], timeslot_id: next, status: "issued" }]);
   expect(await w.sql("SELECT ticket_id, block_start FROM allocations")).toEqual([{ ticket_id: w.ticketIds[0], block_start: later(96) }]);
 });
@@ -79,7 +79,7 @@ test("after a Closure a same-price Timeslot moves with no Refund", async () => {
   const w = await booked();
   const next = await w.slot(w.optionId, later(96));
   await w.b.closeTimeslot(w.ts, "weather");
-  expect(await w.move(next, undefined, undefined, rid(), true)).toEqual({ timeslotId: next, startsAt: later(96), refund: null });
+  expect(await w.move(next, undefined, undefined, rid(), true)).toEqual({ timeslotId: next, startsAt: later(96), refund: null, replayed: false });
   expect(await w.sql("SELECT id FROM refunds")).toEqual([]);
 });
 

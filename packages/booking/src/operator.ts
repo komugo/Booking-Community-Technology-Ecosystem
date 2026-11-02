@@ -236,6 +236,7 @@ export class OperatorBooking extends DurableObject<Env> {
   ): Promise<Result<T>> {
     if (!this.env.BOOKING.idFromName(op).equals(this.ctx.id)) throw new Error("wrong_operator");
     const now = Date.now();
+    let replayed = false;
     try {
       const value = tx<T>(this.ctx.storage, () => {
         const sql = this.ctx.storage.sql;
@@ -243,13 +244,16 @@ export class OperatorBooking extends DurableObject<Env> {
         engine.expireDue(sql, now);
         if (idem) {
           const prior = engine.replay(sql, idem);
-          if (prior !== undefined) return prior as NotPromise<T>;
+          if (prior !== undefined) {
+            replayed = true;
+            return prior as NotPromise<T>;
+          }
         }
         const v = fn(sql, now);
         if (idem) engine.record(sql, idem, v, now);
         return v;
       });
-      return { ok: true, value };
+      return { ok: true, value, replayed };
     } catch (e) {
       if (e instanceof BookingError) return { ok: false, error: e.code };
       throw e;

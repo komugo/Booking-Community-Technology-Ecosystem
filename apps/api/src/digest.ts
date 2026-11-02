@@ -1,13 +1,14 @@
 import { booking, BookingError, type ClosureReason } from "@komugo/booking";
-import { createDb, linkClosures, operatorContacts, operators } from "@komugo/db";
+import { checkouts, createDb, customers, linkClosures, operatorContacts, operators, projOptions } from "@komugo/db";
 import { isClosedDay, klDate } from "@komugo/types";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { validDate } from "./checkout";
-import { klDay, named, type Locale } from "./details";
-import { b64url, DAY, each, fail, hmac, HOUR, requireJson, safeEqual, type Ctx } from "./lib";
+import { klDay, klWhen, named, type Locale } from "./details";
+import { sendAlertEmail } from "./email";
+import { b64url, DAY, each, fail, hmac, HOUR, logError, requireJson, safeEqual, type Ctx } from "./lib";
 import { REASONS, recordClosure } from "./ops/closure";
-import { enrichTimeslots } from "./ops/enrich";
+import { enrichTimeslots, ticketCode } from "./ops/enrich";
 import { message } from "./whatsapp";
 
 // 21:00 KL.
@@ -82,6 +83,62 @@ export async function sendDigests(env: Env, now: number) {
       });
     }
   });
+}
+
+const CHANGE = {
+  booked: { en: "Booked", ms: "Ditempah" },
+  cancelled: { en: "Cancelled", ms: "Dibatalkan" },
+  moved: { en: "Moved", ms: "Dipindahkan" },
+} satisfies Record<string, Record<Locale, string>>;
+
+const FROM_TO: Record<Locale, (from: string, to: string) => string> = {
+  en: (from, to) => `From ${from} to ${to}`,
+  ms: (from, to) => `Dari ${from} ke ${to}`,
+};
+
+// A Ticket booked into (to), cancelled from (from) or moved between two Timeslots; alerts go out for each day whose Digest already went out, except leaving a closed Timeslot.
+export async function bookingAlert(
+  env: Env,
+  operatorId: string,
+  a: { customerId: string; bookingId: string | null; ticketIds: string[]; from: string | null; to: string | null },
+) {
+  const now = Date.now();
+  const rows = await booking(env, operatorId).timeslots({ ids: [a.from, a.to].filter((id) => id !== null) });
+  const from = rows.find((r) => r.id === a.from);
+  const to = rows.find((r) => r.id === a.to);
+  const days = [from?.closedAt === null ? from : undefined, to].flatMap((s) => (s ? [klDate(s.startsAt)] : []));
+  const dates = [...new Set(days)].filter((d) => now >= dayStart(d) - 3 * HOUR);
+  if (!dates.length) return;
+  const db = createDb(env.DB);
+  const [contacts, [option], [buyer], [co]] = await Promise.all([
+    db
+      .select({ contact: operatorContacts, operator: operators.name })
+      .from(operatorContacts)
+      .innerJoin(operators, eq(operators.id, operatorContacts.operatorId))
+      .where(eq(operatorContacts.operatorId, operatorId)),
+    db
+      .select({ nameEn: projOptions.nameEn, nameMs: projOptions.nameMs })
+      .from(projOptions)
+      .where(eq(projOptions.id, (to ?? from)!.optionId)),
+    db.select({ name: customers.name }).from(customers).where(eq(customers.id, a.customerId)),
+    a.bookingId ? db.select({ name: checkouts.contactName }).from(checkouts).where(eq(checkouts.bookingId, a.bookingId)) : [],
+  ]);
+  const who = `• ${co?.name ?? buyer?.name ?? ""}: ${a.ticketIds.map(ticketCode).join(", ")}`;
+  for (const { contact, operator } of contacts) {
+    const l = contact.locale;
+    const opt = option ? named(option, l) : "";
+    const change =
+      from && to
+        ? [`${CHANGE.moved[l]}: ${opt}`, who, FROM_TO[l](klWhen(from, l), klWhen(to, l))]
+        : [`${CHANGE[to ? "booked" : "cancelled"][l]}: ${opt}, ${klWhen((to ?? from)!, l)}`, who];
+    for (const date of dates) {
+      const slots = { operator, date: klDay(dayStart(date), l), change: change.join("\n"), link: await listLink(env, operatorId, date, contact) };
+      await message(env, contact, "alert", slots).catch((e) => logError("alert_whatsapp_failed", { contactId: contact.id, error: String(e) }));
+      if (contact.role === "owner" && contact.email) {
+        await sendAlertEmail(env, contact.email, l, slots).catch((e) => logError("alert_email_failed", { contactId: contact.id, error: String(e) }));
+      }
+    }
+  }
 }
 
 // An Operator link names its contact, so a removed contact's links stop working.

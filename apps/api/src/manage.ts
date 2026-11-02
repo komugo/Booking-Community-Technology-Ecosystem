@@ -14,6 +14,7 @@ import {
 import { Hono } from "hono";
 import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
+import { bookingAlert } from "./digest";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
 import { groupRef } from "./ops/enrich";
@@ -73,6 +74,15 @@ function emailRefund(c: Ctx, a: Access, r: { id: string; amountSen: number; reas
   const refund = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
   c.executionCtx.waitUntil(
     sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
+  );
+}
+
+function alert(c: Ctx, a: Access, x: { ticketIds: string[]; from: string | null; to: string | null }) {
+  const bookingId = "bookingId" in a.group ? a.group.bookingId : null;
+  c.executionCtx.waitUntil(
+    bookingAlert(c.env, a.operatorId, { customerId: a.customerId, bookingId, ...x }).catch((e) =>
+      logError("booking_alert_failed", { ref: a.ref, error: String(e) }),
+    ),
   );
 }
 
@@ -209,7 +219,7 @@ export function manage(kind: Kind) {
     const x = await change(c);
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
-    const r = await a.b.cancelTickets({
+    const { replayed, ...r } = await a.b.cancelTickets({
       requestId: x.requestId,
       customerId: a.customerId,
       group: a.group,
@@ -219,6 +229,11 @@ export function manage(kind: Kind) {
       expectForfeited: Array.isArray(body.expectForfeited) ? body.expectForfeited.map(String) : [],
     });
     emailRefund(c, a, r.refund);
+    if (!replayed) {
+      for (const timeslotId of new Set(tickets.map((t) => t.timeslotId))) {
+        alert(c, a, { ticketIds: tickets.filter((t) => t.timeslotId === timeslotId).map((t) => t.id), from: timeslotId, to: null });
+      }
+    }
     return c.json(r);
   });
 
@@ -227,7 +242,7 @@ export function manage(kind: Kind) {
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
     const [o] = await createDb(c.env.DB).select({ bookingUnit: projOptions.bookingUnit }).from(projOptions).where(eq(projOptions.id, tickets[0].optionId));
-    const r = await a.b.rescheduleTickets({
+    const { replayed, ...r } = await a.b.rescheduleTickets({
       requestId: x.requestId,
       customerId: a.customerId,
       group: a.group,
@@ -237,6 +252,7 @@ export function manage(kind: Kind) {
       onlyClosed: !a.viaSession,
     });
     emailRefund(c, a, r.refund);
+    if (!replayed) alert(c, a, { ticketIds: tickets.map((t) => t.id), from: tickets[0].timeslotId, to: r.timeslotId });
     return c.json(r);
   });
 

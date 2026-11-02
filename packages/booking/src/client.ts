@@ -55,7 +55,7 @@ export function booking(env: Env, operatorId: string) {
   const stub = () => env.BOOKING.get(env.BOOKING.idFromName(op), { locationHint: "apac" });
 
   // A stub that threw may be broken, so the retry gets a fresh one.
-  async function call<T>(rpc: (s: ReturnType<typeof stub>) => Promise<Result<T>>): Promise<T> {
+  async function run<T>(rpc: (s: ReturnType<typeof stub>) => Promise<Result<T>>) {
     let r: Result<T>;
     try {
       r = await rpc(stub());
@@ -65,8 +65,14 @@ export function booking(env: Env, operatorId: string) {
       r = await rpc(stub());
     }
     if (!r.ok) throw new BookingError(r.error);
-    return r.value;
+    return r;
   }
+  const call = async <T>(rpc: (s: ReturnType<typeof stub>) => Promise<Result<T>>) => (await run(rpc)).value;
+  // A retried request returns the first response, flagged so side effects aren't repeated.
+  const mutation = async <T extends object>(rpc: (s: ReturnType<typeof stub>) => Promise<Result<T>>) => {
+    const r = await run(rpc);
+    return { ...r.value, replayed: r.replayed === true };
+  };
 
   return {
     upsertActivity: (a: ActivityInput) => call((s) => s.upsertActivity(op, a)),
@@ -104,7 +110,7 @@ export function booking(env: Env, operatorId: string) {
       onlyClosed: boolean;
       expectSen: number;
       expectForfeited: string[];
-    }) => call((s) => s.cancelTickets(op, i)),
+    }) => mutation((s) => s.cancelTickets(op, i)),
     packView: (packId: string) => call((s) => s.packView(op, packId)),
     markRefunded: (i: { refundId: string; memberId: string }) => call((s) => s.markRefunded(op, i)),
     async createHold({
@@ -136,7 +142,7 @@ export function booking(env: Env, operatorId: string) {
       onlyClosed: boolean;
     }) {
       const people = await loadFacts(env, op, participantIds);
-      return call((s) => s.rescheduleTickets(op, { ...i, participants: people }));
+      return mutation((s) => s.rescheduleTickets(op, { ...i, participants: people }));
     },
   };
 }

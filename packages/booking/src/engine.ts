@@ -28,7 +28,7 @@ export class BookingError extends Error {
   }
 }
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: BookingErrorCode };
+export type Result<T> = { ok: true; value: T; replayed?: boolean } | { ok: false; error: BookingErrorCode };
 export type PaymentRefundReason = "duplicate" | "amount_mismatch" | "unavailable" | "unknown_hold";
 export type RefundReason = PaymentRefundReason | "cancel" | "closure";
 export const RESOURCE_KINDS = ["horse", "instructor", "belayer", "auto_belay_lane", "court"] as const;

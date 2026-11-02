@@ -18,6 +18,7 @@ import { Hono } from "hono";
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { checkoutState, createBill, deleteBill } from "./billplz";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
+import { bookingAlert } from "./digest";
 import { sendBookedEmail } from "./email";
 import { fail, HOUR, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
 import { bookingLink, groupLink } from "./manage";
@@ -575,18 +576,24 @@ checkout.post("/:id/redeem", async (c) => {
   const packId = String(body.packId ?? "");
   if (await notBookable(c.env, co.activityId)) return fail(c, 409, { code: "not_bookable" });
   const holdId = co.holdId;
+  let ticketIds: string[];
   try {
-    await booking(c.env, co.operatorId).redeemPack({ requestId: `${co.id}:redeem:${holdId}`, customerId: co.customerId, packId, holdId });
+    ({ ticketIds } = await booking(c.env, co.operatorId).redeemPack({ requestId: `${co.id}:redeem:${holdId}`, customerId: co.customerId, packId, holdId }));
   } catch (e) {
     if (e instanceof BookingError) return fail(c, 409, { code: e.code });
     throw e;
   }
   const db = createDb(c.env.DB);
-  await db
+  const first = await db
     .update(checkouts)
     .set({ packId, emailedAt: null, updatedAt: Date.now() })
-    .where(and(eq(checkouts.id, co.id), isNull(checkouts.bookingId), isNull(checkouts.packId)));
+    .where(and(eq(checkouts.id, co.id), isNull(checkouts.bookingId), isNull(checkouts.packId)))
+    .returning({ id: checkouts.id });
   const waitUntil = (p: Promise<unknown>) => c.executionCtx.waitUntil(p);
+  if (first.length) {
+    const alert = { customerId: co.customerId, bookingId: null, ticketIds, from: null, to: co.timeslotId };
+    waitUntil(bookingAlert(c.env, co.operatorId, alert).catch((e) => logError("booking_alert_failed", { checkoutId: co.id, error: String(e) })));
+  }
   waitUntil(releaseBill(c.env, holdId).catch((e) => logError("bill_release_failed", { checkoutId: co.id, error: String(e) })));
   waitUntil(sendBookedEmail(c.env, co.id).catch((e) => logError("checkout_email_failed", { checkoutId: co.id, error: String(e) })));
   return c.json({ packId, k: await groupLink(c.env, "pack", packId) });
