@@ -587,7 +587,7 @@ export const whatsappMessages = sqliteTable(
       .references(() => operators.id),
     contactId: text().notNull(),
     phone: text().notNull(),
-    template: text({ enum: ["welcome", "digest", "alert", "closure"] }).notNull(),
+    template: text({ enum: ["welcome", "digest", "alert", "closure", "payout"] }).notNull(),
     text: text().notNull(),
     status: text({ enum: ["sent", "failed"] }).notNull(),
     error: text(),
