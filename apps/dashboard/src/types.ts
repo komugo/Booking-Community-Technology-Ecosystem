@@ -167,6 +167,10 @@ export type Contact = {
   email: string | null;
   welcome: { status: "sent" | "failed"; at: number } | null;
 };
+export type WhatsAppState = {
+  connected: boolean;
+  failed: { id: string; operatorId: string; operator: string; contact: string | null; phone: string; template: "welcome"; error: string | null; at: number }[];
+};
 export type InterestRow = {
   activityId: string;
   nameEn: string;

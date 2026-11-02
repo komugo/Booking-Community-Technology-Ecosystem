@@ -14,6 +14,7 @@ interface __BaseEnv_Env {
 	EMAIL_FROM: string;
 	WHATSAPP_MODE: string;
 	SENDONTIME_URL: string;
+	SENDONTIME_DEVICE_URL: string;
 	APP_SECRET: string;
 	BILLPLZ_API_KEY: string;
 	BILLPLZ_X_SIGNATURE_KEY: string;
@@ -33,7 +34,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "BILLPLZ_BASE" | "BILLPLZ_COLLECTION_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "SENDONTIME_URL" | "APP_SECRET" | "BILLPLZ_API_KEY" | "BILLPLZ_X_SIGNATURE_KEY" | "RESEND_API_KEY" | "SENDONTIME_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "BILLPLZ_BASE" | "BILLPLZ_COLLECTION_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "SENDONTIME_URL" | "SENDONTIME_DEVICE_URL" | "APP_SECRET" | "BILLPLZ_API_KEY" | "BILLPLZ_X_SIGNATURE_KEY" | "RESEND_API_KEY" | "SENDONTIME_API_KEY">> {}
 }
 declare module "*.txt" {
 	const value: string;

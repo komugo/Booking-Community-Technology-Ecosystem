@@ -12,7 +12,8 @@
     "EMAIL_MODE": "resend",
     "EMAIL_FROM": "Komugo <tickets@komugo.com>",
     "WHATSAPP_MODE": "sendontime",
-    "SENDONTIME_URL": ""
+    "SENDONTIME_URL": "",
+    "SENDONTIME_DEVICE_URL": ""
   },
   "d1_databases": [
     {
@@ -42,7 +43,8 @@
         "EMAIL_MODE": "resend",
         "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>",
         "WHATSAPP_MODE": "sendontime",
-        "SENDONTIME_URL": ""
+        "SENDONTIME_URL": "",
+        "SENDONTIME_DEVICE_URL": ""
       },
       "d1_databases": [
         {

@@ -1,4 +1,5 @@
 import { createDb, whatsappMessages } from "@komugo/db";
+import { and, eq, sql } from "drizzle-orm";
 import type { Locale } from "./details";
 import { log, logError } from "./lib";
 
@@ -26,40 +27,83 @@ type Template = keyof typeof TEMPLATES;
 
 const render = (t: Template, l: Locale, slots: Record<string, string>) => TEMPLATES[t][l].replace(/\{(\w+)\}/g, (_, k: string) => slots[k]);
 
-// TODO(#22): written before the SendOnTime account and number exist; check the endpoint and payload against SendOnTime's API before going live.
-async function sendOnTime(env: Env, m: WhatsApp) {
-  const res = await fetch(env.SENDONTIME_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.SENDONTIME_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ to: m.to, message: m.text }),
-  });
-  if (!res.ok) throw new Error(`sendontime_${res.status}`);
-}
+type Sender = { send(m: WhatsApp): Promise<void>; connected(): Promise<boolean> };
 
-async function sendWhatsApp(env: Env, m: WhatsApp) {
-  if (env.WHATSAPP_MODE === "log") {
+// Dev and tests unplug the fake device (POST /dev/whatsapp/device) to show the failed-send banner.
+export const devDevice = { connected: true };
+
+const logSender: Sender = {
+  async send(m) {
+    if (!devDevice.connected) throw new Error("device_disconnected");
     console.log(JSON.stringify({ event: "dev_whatsapp", to: m.to, text: m.text }));
     devOutbox.unshift({ ...m, at: Date.now() });
     devOutbox.length = Math.min(devOutbox.length, 50);
-    return;
+  },
+  connected: async () => devDevice.connected,
+};
+
+// TODO(#22): written before the SendOnTime account and number exist; check both endpoints and payloads against SendOnTime's API before going live.
+// Until SENDONTIME_DEVICE_URL is set the device counts as linked, so only failed sends reach the banner.
+const sendOnTime = (env: Env): Sender => ({
+  async send(m) {
+    const res = await fetch(env.SENDONTIME_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.SENDONTIME_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ to: m.to, message: m.text }),
+    });
+    if (!res.ok) throw new Error(`sendontime_${res.status}`);
+  },
+  async connected() {
+    if (!env.SENDONTIME_DEVICE_URL) return true;
+    try {
+      const res = await fetch(env.SENDONTIME_DEVICE_URL, { headers: { Authorization: `Bearer ${env.SENDONTIME_API_KEY}` } });
+      return res.ok && ((await res.json()) as { connected?: unknown }).connected === true;
+    } catch {
+      return false;
+    }
+  },
+});
+
+export const sender = (env: Env) => (env.WHATSAPP_MODE === "log" ? logSender : sendOnTime(env));
+
+async function attempt(env: Env, to: string, text: string) {
+  try {
+    await sender(env).send({ to, text });
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
   }
-  await sendOnTime(env, m);
 }
+
+// Only the newest message per contact and template is theirs; a removed contact's message is shown but never resent.
+export const current = sql`not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt})`;
+const live = sql`exists (select 1 from operator_contacts c where c.id = ${whatsappMessages.contactId})`;
 
 type Contact = { id: string; operatorId: string; phone: string; locale: Locale };
 
 export async function message(env: Env, to: Contact, template: Template, slots: Record<string, string>) {
   const text = render(template, to.locale, slots);
-  let error: string | null = null;
-  try {
-    await sendWhatsApp(env, { to: to.phone, text });
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
-  }
+  const error = await attempt(env, to.phone, text);
   const status = error ? ("failed" as const) : ("sent" as const);
   await createDb(env.DB)
     .insert(whatsappMessages)
     .values({ operatorId: to.operatorId, contactId: to.id, phone: to.phone, template, text, status, error, createdAt: Date.now() });
   (error ? logError : log)(`whatsapp_${status}`, { contactId: to.id, template, ...(error ? { error } : {}) });
+  return status;
+}
+
+// Resends a failed message as it was first written, to the number it went to. Claiming the row first stops two staff sending it twice.
+export async function retry(env: Env, id: string) {
+  const db = createDb(env.DB);
+  const [m] = await db
+    .update(whatsappMessages)
+    .set({ status: "sent", error: null })
+    .where(and(eq(whatsappMessages.id, id), eq(whatsappMessages.status, "failed"), current, live))
+    .returning();
+  if (!m) return null;
+  const error = await attempt(env, m.phone, m.text);
+  if (error) await db.update(whatsappMessages).set({ status: "failed", error }).where(eq(whatsappMessages.id, id));
+  const status = error ? ("failed" as const) : ("sent" as const);
+  (error ? logError : log)(`whatsapp_retry_${status}`, { messageId: id, ...(error ? { error } : {}) });
   return status;
 }

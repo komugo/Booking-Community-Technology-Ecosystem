@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, Redirect, Route, Switch, useLocation, useRoute } from "wouter";
+import { api, useApi } from "./api";
 import { openQueue } from "./checkins";
 import { CHECK_IN } from "./flags";
-import { useT } from "./i18n";
+import { day, errorText, time, useT } from "./i18n";
 import { loadMe, useMe } from "./me";
 import Holidays from "./pages/Holidays";
 import Interests from "./pages/Interests";
@@ -15,8 +16,8 @@ import SignIn from "./pages/SignIn";
 import Timeslot from "./pages/Timeslot";
 import Today from "./pages/Today";
 import Venues from "./pages/Venues";
-import type { Me } from "./types";
-import { LangPill, Logo, SignedInAs, Spinner, TabBar, Toast } from "./ui";
+import type { Me, WhatsAppState } from "./types";
+import { LangPill, Logo, SignedInAs, Spinner, TabBar, Toast, toast } from "./ui";
 
 export default function App() {
   const { t } = useT();
@@ -62,16 +63,88 @@ export default function App() {
 
 function Signed({ me }: { me: Me }) {
   return (
-    <Switch>
-      <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
-      <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
-      <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
-      <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
-      <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
-      <Route path="/holidays">{me.member.role === "staff" ? <Holidays /> : <NotFound />}</Route>
-      <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      {me.member.role === "staff" && <WhatsAppBanner />}
+      <Switch>
+        <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
+        <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
+        <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
+        <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
+        <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
+        <Route path="/holidays">{me.member.role === "staff" ? <Holidays /> : <NotFound />}</Route>
+        <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
+        <Route component={NotFound} />
+      </Switch>
+    </>
+  );
+}
+
+// Staff phone these contacts themselves until the send goes through (ADR 0006).
+function WhatsAppBanner() {
+  const { t, l } = useT();
+  const state = useApi<WhatsAppState>("/whatsapp");
+  const { reload } = state;
+  const [busy, setBusy] = useState<string>();
+
+  useEffect(() => {
+    const id = setInterval(reload, 60_000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  async function retry(id: string) {
+    setBusy(id);
+    try {
+      const s = await api<WhatsAppState>("POST", `/whatsapp/${id}/retry`, {});
+      if (s.failed.some((m) => m.id === id)) toast(t.stillNotSent, "error");
+    } catch (e) {
+      toast(errorText(e, t), "error");
+    }
+    await reload();
+    setBusy(undefined);
+  }
+
+  const s = state.data;
+  if (!s || (s.connected && s.failed.length === 0)) return null;
+  return (
+    <section role="alert" aria-label="WhatsApp" className="bg-clay px-4 py-3 text-white" data-whatsapp>
+      <div className="mx-auto max-w-5xl space-y-2">
+        {!s.connected && <p className="font-semibold">{t.whatsappDown}</p>}
+        {s.failed.length > 0 && (
+          <>
+            <p className="font-semibold">{t.whatsappFailed(s.failed.length)}</p>
+            <ul className="max-h-60 divide-y divide-white/30 overflow-y-auto">
+              {s.failed.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-3 py-2" data-failed>
+                  <span className="min-w-0 text-sm">
+                    <span className="block font-semibold">
+                      {m.operator} · {m.contact ?? t.removedContact}
+                    </span>
+                    <a href={`tel:${m.phone}`} className="num underline">
+                      {m.phone}
+                    </a>{" "}
+                    · {t.whatsappTemplates[m.template]} ·{" "}
+                    <span className="num">
+                      {day(m.at, l)} {time(m.at, l)}
+                    </span>
+                  </span>
+                  {m.contact && (
+                    <button
+                      type="button"
+                      className="btn min-h-11 shrink-0 bg-white px-4 text-clay"
+                      aria-label={t.retrySendTo(m.phone)}
+                      disabled={busy === m.id}
+                      onClick={() => retry(m.id)}
+                    >
+                      {t.retrySend}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -17,9 +17,10 @@ import { payouts } from "./ops/payouts";
 import { refunds } from "./ops/refunds";
 import { routes } from "./ops/routes";
 import { venues } from "./ops/venues";
+import { whatsapp } from "./ops/whatsapp";
 import { packs } from "./packs";
 import { seed } from "./seed";
-import { devOutbox } from "./whatsapp";
+import { devDevice, devOutbox } from "./whatsapp";
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -43,10 +44,16 @@ ops.route("/payouts", payouts);
 ops.route("/venues", venues);
 ops.route("/interests", interestCounts);
 ops.route("/holidays", holidays);
+ops.route("/whatsapp", whatsapp);
 app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));
 app.get("/dev/whatsapp", (c) => (c.env.DEV_SEED === "1" ? c.json(devOutbox) : c.notFound()));
+app.post("/dev/whatsapp/device", async (c) => {
+  if (c.env.DEV_SEED !== "1") return c.notFound();
+  devDevice.connected = (await c.req.json<{ connected?: unknown }>()).connected === true;
+  return c.json(devDevice);
+});
 
 // The seed overwrites its rows, so it never runs against a deployed D1.
 const local = (url: string) => ["localhost", "127.0.0.1"].includes(new URL(url).hostname);
