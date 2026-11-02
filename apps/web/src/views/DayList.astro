@@ -1,20 +1,24 @@
 ---
 import Checkout from "../layouts/Checkout.astro";
-import { klHours, klLongDay, klTime, t } from "../lib/i18n";
+import { klDate, klHours, klLongDay, klTime, t } from "../lib/i18n";
 import type { listStep } from "../lib/manage";
 
 type Props = Exclude<Awaited<ReturnType<typeof listStep>>, Response>;
-const { locale: l, list } = Astro.props;
-const s = t[l].todayList;
+const { locale: l, list, invalid, late } = Astro.props;
+const s = t[l].dayList;
+const reasons = (horse: boolean) => ["weather", "maintenance", "event", ...(horse ? ["horse_unfit"] : []), "other"];
 ---
 
-<Checkout locale={l} title={s.title} refresh={list ? "60" : undefined}>
+<Checkout locale={l} title={s.title}>
   {
     list ? (
       <>
         <p class="mt-2 text-lg font-semibold">{list.operator}</p>
         <p class="text-muted">{klLongDay(l, Date.parse(`${list.date}T12:00:00+08:00`))}</p>
         <p class="mt-1 text-sm text-muted">{s.live}</p>
+        <script is:inline>setInterval(() => document.querySelector("details[open]") || location.reload(), 60000);</script>
+        {late && <p role="alert" class="mt-4 rounded-2xl bg-clay/5 p-4 font-semibold text-clay">{s.started}</p>}
+        {list.date > klDate(Date.now()) && <p data-future class="mt-1 text-sm text-muted">{s.future}</p>}
         <ul class="mt-6 space-y-3">
           {list.timeslots.map((slot) => (
             <li data-slot={slot.id} class="rounded-2xl bg-sand p-4">
@@ -47,10 +51,29 @@ const s = t[l].todayList;
                 ) : (
                   <p class="mt-2 text-muted">{s.none}</p>
                 ))}
-              {slot.closeHref && (
-                <a href={slot.closeHref} class="mt-3 inline-flex min-h-11 items-center font-semibold text-clay underline underline-offset-2">
-                  {slot.date ? s.closeDate : s.close}
-                </a>
+              {slot.closable && (
+                <details class="mt-3" open={invalid === slot.id}>
+                  <summary class="inline-flex min-h-11 cursor-pointer items-center font-semibold text-clay underline underline-offset-2">
+                    {slot.date ? s.closeDate : s.close}
+                  </summary>
+                  <form method="post" class="mt-3 space-y-4">
+                    <input type="hidden" name="timeslot" value={slot.id} />
+                    <fieldset>
+                      <legend class="font-bold">{s.reason}</legend>
+                      <div class="mt-2 space-y-1">
+                        {reasons(slot.horse).map((r) => (
+                          <label class="flex min-h-11 items-center gap-3">
+                            <input type="radio" name="reason" value={r} required class="size-5 accent-clay" />
+                            {s.reasons[r]}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    {invalid === slot.id && <p role="alert" class="font-semibold text-clay">{s.invalid}</p>}
+                    <p data-customers class="rounded-2xl bg-white p-4 font-semibold">{s.customers(slot.customers)}</p>
+                    <button class="inline-flex min-h-12 items-center rounded-full bg-clay px-6 font-semibold text-white hover:bg-clay/90">{s.send}</button>
+                  </form>
+                </details>
               )}
             </li>
           ))}

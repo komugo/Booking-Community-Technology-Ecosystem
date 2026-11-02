@@ -2,7 +2,7 @@ import { booking } from "@komugo/booking";
 import { activities, categories, checkouts, cities, createDb, customers, members, operatorContacts, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { klDate, WAIVER, WEEKDAYS } from "@komugo/types";
-import { closeLink, listLink } from "../digest";
+import { listLink } from "../day-list";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
 import { groupLink } from "../manage";
 import { recordClosure } from "../ops/closure";
@@ -290,7 +290,6 @@ export async function fixture(
     ...(group.kind === "booking" ? { bookingId: group.id } : { packId: group.id }),
     k: await groupLink(env, group.kind, group.id),
     list: await listLink(env, operatorId, klDate(now), contact),
-    close: await closeLink(env, operatorId, timeslotId, contact),
     customerEmail: customer.email!,
     activityPath: `/${hub.slugEn}/${hub.slugEn}/${hub.slugEn}`,
     venueSlug,

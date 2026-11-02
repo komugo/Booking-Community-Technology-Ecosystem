@@ -2,7 +2,7 @@ import { booking, BookingError, type ConfirmResult } from "@komugo/booking";
 import { bills, checkouts, createDb } from "@komugo/db";
 import { Hono } from "hono";
 import { and, eq, isNull } from "drizzle-orm";
-import { bookingAlert } from "./digest";
+import { bookingAlert } from "./day-list";
 import { sendBookedEmail, sendRefundEmail } from "./email";
 import { fail, hmacHex, log, logError, safeEqual, type WaitUntil } from "./lib";
 import { bookingLink } from "./manage";

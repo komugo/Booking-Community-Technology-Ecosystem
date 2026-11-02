@@ -47,10 +47,10 @@ test("closing a booked Timeslot emails the customer once, even after an offline 
   await expect(page.locator(`[data-timeslot="${fx.timeslotId}"]`)).toContainText("Closed · Weather");
 });
 
-test("a Closure from a close Operator link shows the contact who made it", async ({ browser, request }) => {
+test("a Closure from the Day list shows the contact who made it", async ({ browser, request }) => {
   const fx = await fixture(request);
-  const u = new URL(fx.close);
-  const res = await request.post(`${API}/closes${u.pathname.replace(/^\/close/, "")}${u.search}`, { data: { reason: "event" } });
+  const u = new URL(fx.list);
+  const res = await request.post(`${API}/lists${u.pathname.replace(/^\/list/, "")}${u.search}`, { data: { timeslotId: fx.timeslotId, reason: "event" } });
   expect(res.status()).toBe(204);
 
   const context = await newContext(browser);

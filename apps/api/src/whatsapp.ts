@@ -12,22 +12,18 @@ const TEMPLATES = {
   welcome: {
     en: [
       "Hi {contact}, this is Komugo. We'll send {operator}'s bookings to this number. Please save this number and reply \"OK\" so our messages reach you.",
-      "Every night at 9pm we send the Digest: tomorrow's Tickets with time, court, Customer name and Ticket code. If a Ticket is booked, cancelled or moved after that, we send a Booking alert straight away.",
-      "Our messages have links to open today's list or close a time, with no sign-in.",
+      "Each time a Ticket is booked, cancelled or moved, we send a Booking alert straight away with a link to that day's Day list: its Tickets with time, court, Customer name and Ticket code.",
+      "The Day list needs no sign-in and stays up to date until the day ends. On the day itself you can close a time from it.",
     ].join("\n\n"),
     ms: [
       "Salam {contact}, ini Komugo. Kami akan menghantar tempahan {operator} ke nombor ini. Sila simpan nombor ini dan balas \"OK\" supaya mesej kami sampai kepada anda.",
-      "Setiap malam jam 9 kami hantar Digest: tiket esok dengan masa, gelanggang, nama pelanggan dan kod tiket. Jika tiket ditempah, dibatalkan atau dipindahkan selepas itu, kami terus hantar makluman tempahan.",
-      "Mesej kami ada pautan untuk buka senarai hari ini atau tutup sesuatu masa, tanpa log masuk.",
+      "Setiap kali tiket ditempah, dibatalkan atau dipindahkan, kami terus hantar makluman tempahan dengan pautan ke senarai harian hari itu: tiketnya dengan masa, gelanggang, nama pelanggan dan kod tiket.",
+      "Senarai harian tidak perlu log masuk dan sentiasa terkini sehingga hari itu tamat. Pada hari itu sendiri anda boleh menutup sesuatu masa daripadanya.",
     ].join("\n\n"),
   },
-  digest: {
-    en: "{operator}: Tickets for tomorrow, {date}\n\n{tickets}\n\nToday's list, always up to date (works until the day ends): {link}",
-    ms: "{operator}: Tiket untuk esok, {date}\n\n{tickets}\n\nSenarai hari ini, sentiasa terkini (sah sehingga hari tamat): {link}",
-  },
   alert: {
-    en: "{operator}: Booking alert for {date}\n\n{change}\n\nToday's list, always up to date: {link}",
-    ms: "{operator}: Makluman tempahan untuk {date}\n\n{change}\n\nSenarai hari ini, sentiasa terkini: {link}",
+    en: "{operator}: Booking alert for {date}\n\n{change}\n\nDay list, always up to date: {link}",
+    ms: "{operator}: Makluman tempahan untuk {date}\n\n{change}\n\nSenarai harian, sentiasa terkini: {link}",
   },
   closure: {
     en: "{operator}: Closure done\n\n{option}, {when}\nReason: {reason}\nCustomers notified: {customers}",
@@ -91,8 +87,8 @@ async function attempt(env: Env, to: string, text: string) {
   }
 }
 
-// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); each Booking alert, Closure done, Payout notice and staff message counts for a day. A removed contact's message is shown but never resent.
-export const current = sql`case when ${whatsappMessages.template} in ('alert', 'closure', 'payout', 'staff') then ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} else not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR}) end`;
+// Only the newest Welcome per contact is theirs; old Digests (their close links are gone) never; every other message counts for a day. A removed contact's message is shown but never resent.
+export const current = sql`case when ${whatsappMessages.template} = 'welcome' then not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = 'welcome' and n.created_at > ${whatsappMessages.createdAt}) when ${whatsappMessages.template} = 'digest' then 0 else ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} end`;
 const live = sql`exists (select 1 from operator_contacts c where c.id = ${whatsappMessages.contactId})`;
 
 type Contact = { id: string; operatorId: string; phone: string; locale: Locale };

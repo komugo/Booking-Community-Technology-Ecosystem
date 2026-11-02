@@ -1,5 +1,4 @@
 import { operators, whatsappMessages } from "@komugo/db";
-import { eq } from "drizzle-orm";
 import { afterEach, expect, test } from "vitest";
 import { devDevice, devOutbox } from "../src/whatsapp";
 import { client, db, member, rid } from "./helpers";
@@ -82,16 +81,13 @@ test("a failed Welcome drops off once the contact's new number gets one", async 
   expect(devOutbox.some((x) => x.to === "+60181120004")).toBe(false);
 });
 
-test("a failed Digest can be retried only until its day starts", async () => {
+test("an old failed Digest is never shown or retried: its close links are gone", async () => {
   const o = await operator();
   const added = await o.staff.json<{ contacts: { id: string }[] }>("POST", o.contacts, { name: "Nora", phone: "0181120006", role: "counter" });
   const [d] = await db
     .insert(whatsappMessages)
     .values({ operatorId: o.id, contactId: added.body.contacts[0].id, phone: "+60181120006", template: "digest", text: "Tickets for tomorrow", status: "failed", createdAt: Date.now() - 2 * 3_600_000 })
     .returning();
-  expect(mine((await o.staff.json<State>("GET", "/ops/whatsapp")).body, o.id)).toMatchObject([{ id: d.id, template: "digest" }]);
-
-  await db.update(whatsappMessages).set({ createdAt: Date.now() - 4 * 3_600_000 }).where(eq(whatsappMessages.id, d.id));
   expect(mine((await o.staff.json<State>("GET", "/ops/whatsapp")).body, o.id)).toEqual([]);
   expect((await o.staff.json("POST", `/ops/whatsapp/${d.id}/retry`, {})).status).toBe(404);
 });

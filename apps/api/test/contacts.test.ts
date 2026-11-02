@@ -67,7 +67,7 @@ test("the Welcome goes out in the contact's language and every send is logged wi
   const [bm] = sentTo("+60181110001");
   expect(bm.text).toContain("Salam Aminah, ini Komugo. Kami akan menghantar tempahan Kompleks Sukan Presint 9 ke nombor ini.");
   expect(bm.text).toContain('balas "OK"');
-  expect(bm.text).toContain("Digest");
+  expect(bm.text).toContain("senarai harian");
   const [en] = sentTo("+60181110002");
   expect(en.text).toContain("Hi Hafiz, this is Komugo. We'll send Kompleks Sukan Presint 9's bookings to this number.");
   expect(en.text).toContain('reply "OK"');
