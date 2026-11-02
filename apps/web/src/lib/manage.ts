@@ -209,3 +209,16 @@ export async function unsubscribeStep({ request, params, url }: Ctx, l: Locale) 
   if (!res.data) return notFound();
   return { locale: l, activity: l === "ms" ? res.data.activity.nameMs : res.data.activity.nameEn, unsubscribed: res.data.unsubscribed };
 }
+
+type DayList = {
+  operator: string;
+  date: string;
+  timeslots: { id: string; startsAt: number; closed: boolean; option: { nameEn: string; nameMs: string }; groups: { name: string; codes: string[] }[] }[];
+};
+
+export async function listStep({ request, params, url }: Ctx, l: Locale) {
+  const res = await api<DayList>(request, "GET", `/lists/${q(params.operatorId!)}/${q(params.date!)}?k=${q(url.searchParams.get("k") ?? "")}`);
+  if (res.status === 410) return { locale: l, list: null };
+  if (!res.data) return notFound();
+  return { locale: l, list: res.data };
+}

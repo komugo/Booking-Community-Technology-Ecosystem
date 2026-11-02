@@ -1,7 +1,7 @@
 import { createDb, whatsappMessages } from "@komugo/db";
 import { and, eq, sql } from "drizzle-orm";
 import type { Locale } from "./details";
-import { log, logError } from "./lib";
+import { HOUR, log, logError } from "./lib";
 
 type WhatsApp = { to: string; text: string };
 
@@ -20,6 +20,10 @@ const TEMPLATES = {
       "Setiap malam jam 9 kami hantar Digest: tiket esok dengan masa, gelanggang, nama pelanggan dan kod tiket. Jika tiket ditempah, dibatalkan atau dipindahkan selepas itu, kami terus hantar makluman tempahan.",
       "Mesej kami ada pautan untuk buka senarai hari ini atau tutup sesuatu masa, tanpa log masuk.",
     ].join("\n\n"),
+  },
+  digest: {
+    en: "{operator}: Tickets for tomorrow, {date}\n\n{tickets}\n\nToday's list, always up to date (works until the day ends): {link}",
+    ms: "{operator}: Tiket untuk esok, {date}\n\n{tickets}\n\nSenarai hari ini, sentiasa terkini (sah sehingga hari tamat): {link}",
   },
 } satisfies Record<string, Record<Locale, string>>;
 
@@ -75,8 +79,8 @@ async function attempt(env: Env, to: string, text: string) {
   }
 }
 
-// Only the newest message per contact and template is theirs; a removed contact's message is shown but never resent.
-export const current = sql`not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt})`;
+// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); a removed contact's message is shown but never resent.
+export const current = sql`not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR})`;
 const live = sql`exists (select 1 from operator_contacts c where c.id = ${whatsappMessages.contactId})`;
 
 type Contact = { id: string; operatorId: string; phone: string; locale: Locale };

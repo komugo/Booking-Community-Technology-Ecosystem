@@ -169,7 +169,7 @@ export type Contact = {
 };
 export type WhatsAppState = {
   connected: boolean;
-  failed: { id: string; operatorId: string; operator: string; contact: string | null; phone: string; template: "welcome"; error: string | null; at: number }[];
+  failed: { id: string; operatorId: string; operator: string; contact: string | null; phone: string; template: "welcome" | "digest"; error: string | null; at: number }[];
 };
 export type InterestRow = {
   activityId: string;

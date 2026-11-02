@@ -266,6 +266,13 @@ export const t = {
       send: "Unsubscribe",
       done: (a: string) => `You're unsubscribed. We won't email you about ${a}.`,
     },
+    todayList: {
+      title: "Today's list",
+      live: "Kept up to date: refreshes every minute.",
+      closed: "Closed",
+      none: "No bookings",
+      expired: "This link has expired. Open today's list from the latest Digest.",
+    },
     signIn: {
       title: "Sign in",
       body: "See your bookings and Packs. We'll email you a 6-digit code.",
@@ -626,6 +633,13 @@ export const t = {
       body: (a: string) => `Anda meminta kami e-mel anda sekali apabila ${a} boleh ditempah dalam talian.`,
       send: "Berhenti melanggan",
       done: (a: string) => `Anda telah berhenti melanggan. Kami tidak akan e-mel anda tentang ${a}.`,
+    },
+    todayList: {
+      title: "Senarai hari ini",
+      live: "Sentiasa terkini: dimuat semula setiap minit.",
+      closed: "Ditutup",
+      none: "Tiada tempahan",
+      expired: "Pautan ini telah tamat. Buka senarai hari ini dari Digest terbaharu.",
     },
     signIn: {
       title: "Log masuk",
