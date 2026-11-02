@@ -62,6 +62,7 @@ export async function groupStep({ request, params, url }: Ctx, l: Locale, kind: 
     booked,
     cancelled: url.searchParams.get("cancelled"),
     moved: Number(url.searchParams.get("moved")) || null,
+    refunded: Number(url.searchParams.get("refunded")) || 0,
   };
 }
 
@@ -109,8 +110,13 @@ export async function rescheduleStep({ request, params, url }: Ctx, l: Locale, k
     date = get("date");
     picked = get("timeslotId");
     requestId = get("requestId");
-    const res = await api<{ startsAt: number }>(request, "POST", `/${plural(kind)}/${q(g.id)}/reschedule`, { requestId, t, timeslotId: picked, k: g.k });
-    if (res.data) return see(`${groupHref(l, g)}&moved=${res.data.startsAt}`);
+    const res = await api<{ startsAt: number; refund: { amountSen: number } | null }>(request, "POST", `/${plural(kind)}/${q(g.id)}/reschedule`, {
+      requestId,
+      t,
+      timeslotId: picked,
+      k: g.k,
+    });
+    if (res.data) return see(`${groupHref(l, g)}&moved=${res.data.startsAt}&refunded=${res.data.refund?.amountSen ?? 0}`);
     if (res.status === 401) return see(signInAt(l, url.pathname + url.search));
     errors = errorsOf(res.error);
   }

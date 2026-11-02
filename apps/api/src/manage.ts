@@ -12,7 +12,7 @@ import {
   projTimeslots,
 } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
@@ -66,6 +66,14 @@ function pick(tickets: BookingView["tickets"], t: string | undefined) {
   if (t?.startsWith("closed:")) return tickets.filter((x) => x.status === "issued" && x.closedAt !== null && x.timeslotId === t.slice(7));
   const want = new Set((t ?? "").split(",").filter(Boolean));
   return tickets.filter((x) => want.has(x.id));
+}
+
+function emailRefund(c: Ctx, a: Access, r: { id: string; amountSen: number; reason: "cancel" | "closure" } | null) {
+  if (!r || !("bookingId" in a.group)) return;
+  const refund = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
+  c.executionCtx.waitUntil(
+    sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
+  );
 }
 
 export function manage(kind: Kind) {
@@ -168,8 +176,8 @@ export function manage(kind: Kind) {
       .where(
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
-          kind === "booking" && !closed
-            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}) * ${hours}`, tickets[0].priceSen)
+          kind === "booking"
+            ? (closed ? lte : eq)(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}) * ${hours}`, tickets[0].priceSen)
             : undefined,
           isNull(projTimeslots.closedAt),
           gte(sql`coalesce(${projTimeslots.maxHours}, ${projTimeslots.spots})`, hours * tickets.length),
@@ -210,12 +218,7 @@ export function manage(kind: Kind) {
       expectSen: Number(body.expectSen),
       expectForfeited: Array.isArray(body.expectForfeited) ? body.expectForfeited.map(String) : [],
     });
-    if (r.refund && "bookingId" in a.group) {
-      const refund = { ...r.refund, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
-      c.executionCtx.waitUntil(
-        sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
-      );
-    }
+    emailRefund(c, a, r.refund);
     return c.json(r);
   });
 
@@ -224,17 +227,17 @@ export function manage(kind: Kind) {
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
     const [o] = await createDb(c.env.DB).select({ bookingUnit: projOptions.bookingUnit }).from(projOptions).where(eq(projOptions.id, tickets[0].optionId));
-    return c.json(
-      await a.b.rescheduleTickets({
-        requestId: x.requestId,
-        customerId: a.customerId,
-        group: a.group,
-        ticketIds: tickets.map((t) => t.id),
-        timeslotId: String(body.timeslotId ?? ""),
-        participantIds: o?.bookingUnit === "court" ? [] : tickets.map((t) => t.participantId),
-        onlyClosed: !a.viaSession,
-      }),
-    );
+    const r = await a.b.rescheduleTickets({
+      requestId: x.requestId,
+      customerId: a.customerId,
+      group: a.group,
+      ticketIds: tickets.map((t) => t.id),
+      timeslotId: String(body.timeslotId ?? ""),
+      participantIds: o?.bookingUnit === "court" ? [] : tickets.map((t) => t.participantId),
+      onlyClosed: !a.viaSession,
+    });
+    emailRefund(c, a, r.refund);
+    return c.json(r);
   });
 
   return app;

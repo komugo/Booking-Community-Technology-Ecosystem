@@ -359,7 +359,11 @@ export async function sendRefundDueEmail(env: Env, r: RefundRow) {
   const { email, l } = await refundTo(db, r);
   if (!email) return;
   const v = await booking(env, r.operatorId).bookingView(r.bookingId);
-  const tickets = v.tickets.filter((t) => t.refundId === r.id);
+  const refunded = v.tickets.filter((t) => t.refundId === r.id);
+  // No Ticket carries a Reschedule difference: the Tickets moved to a cheaper time after a Closure.
+  const moved = !refunded.length;
+  const issued = v.tickets.filter((t) => t.status === "issued");
+  const tickets = moved ? (issued.length ? issued : v.tickets) : refunded;
   if (!tickets.length) return;
   const [d, people] = await Promise.all([
     optionDetails(db, v.optionId, tickets[0].timeslotId, []),
@@ -371,13 +375,18 @@ export async function sendRefundDueEmail(env: Env, r: RefundRow) {
   const names = people.map((p) => p.name).join(", ") || (l === "ms" ? "tempahan gelanggang anda" : "your court booking");
   const amount = rm(r.amountSen);
   const closed = r.reason === "closure";
+  const back = l === "ms" ? `${amount} akan dikembalikan ke akaun yang anda gunakan untuk membayar dalam 7 hari bekerja.` : `${amount} goes back to the account you paid with within 7 working days.`;
   const lines =
     l === "ms"
       ? [
-          `Kami telah membatalkan ${names} untuk ${what} (${when})${closed ? ` kerana ${d.operatorName} menutup sesi itu` : ""}. ${amount} akan dikembalikan ke akaun yang anda gunakan untuk membayar dalam 7 hari bekerja.`,
+          moved
+            ? `Kami telah memindahkan ${names} untuk ${what} ke ${when}, pada harga lebih rendah. Perbezaan ${back}`
+            : `Kami telah membatalkan ${names} untuk ${what} (${when})${closed ? ` kerana ${d.operatorName} menutup sesi itu` : ""}. ${back}`,
         ]
       : [
-          `We cancelled ${names} for ${what} (${when})${closed ? ` because ${d.operatorName} closed the session` : ""}. ${amount} goes back to the account you paid with within 7 working days.`,
+          moved
+            ? `We moved ${names} for ${what} to ${when}, at a lower price. The difference of ${back}`
+            : `We cancelled ${names} for ${what} (${when})${closed ? ` because ${d.operatorName} closed the session` : ""}. ${back}`,
         ];
   await sendEmail(env, {
     to: email,

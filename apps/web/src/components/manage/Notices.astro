@@ -11,13 +11,14 @@ interface Props {
   closures: { timeslotId: string; reason: string; choice: "refund" | "reschedule" | null; startsAt: number; endsAt: number | null; optionId: string; issued: number; refundSen: number }[];
   cancelled: string | null;
   moved: number | null;
+  refunded: number;
 }
-const { locale: l, g, closures, cancelled, moved } = Astro.props;
+const { locale: l, g, closures, cancelled, moved, refunded } = Astro.props;
 const m = t[l].manage;
 const optionName = (id: string) => named(g.kind === "pack" ? (g.options.find((o) => o.id === id) ?? g.option) : g.option, l);
 const done =
   moved !== null
-    ? m.doneMoved(klDeadline(l, moved))
+    ? m.doneMoved(klDeadline(l, moved), refunded > 0 ? rm(refunded) : null)
     : cancelled === null
       ? null
       : cancelled === "r"

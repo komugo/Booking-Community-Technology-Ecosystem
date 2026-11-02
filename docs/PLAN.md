@@ -111,7 +111,7 @@ Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ti
 - Deploy note: Operators backfilled as signed up sell nothing until staff set their Commission; the daily 03:00 KL cron wakes every Operator so its Packs re-project into Payouts, so mark the first Payouts only after it has run
 - [ ] Check the Billplz collection has e-wallets (TnG, GrabPay, Boost), not only FPX/card
 - Eng risks: confirm nothing live in remote D1/DO before editing migrations in place, else additive only; `kind`/`closed_reason` CHECKs need one table rebuild (validate in code after), never one per value; `participant_id` NOT NULL on tickets/allocations/proj_tickets; `tickets.timeslot_id` single column vs back-to-back hours; `spots()` = 0 with no Resources; seed `onConflictDoUpdate` overwrites, block `/dev/seed` outside local; `listing_mode` backfill from `published`; venues backfilled from activities address/geo/hours; slug uniqueness across EN and MS
-- [ ] Reschedule with tiered prices: Customer same total only; after Closure same-or-cheaper with difference refunded (Klook customer-promises)
+- [x] Reschedule with tiered prices: Customer same total only; after Closure same-or-cheaper with difference refunded (Klook customer-promises)
 - Deferred: several courts or times in one checkout, pay-the-difference bill for pricier post-Closure targets, inconvenience compensation for operator cancels within 24h, Packs on per-court/Date ticket Options (if needed later: Operator RM wallet, Playtomic-style), promo codes, split pay, contact edit on a Booking, per-date price overrides
 
 ## Deferred
