@@ -36,8 +36,8 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#mutate(op, null, (sql, now) => engine.upsertActivity(sql, now, a));
   }
 
-  setHours(op: string, list: { activityId: string; hours: OpeningHours[] }[]) {
-    return this.#mutate(op, null, (sql, now) => engine.setHours(sql, now, list));
+  setHours(op: string, list: { activityId: string; hours: OpeningHours[] }[], holidays: string[]) {
+    return this.#mutate(op, null, (sql, now) => engine.setHours(sql, now, list, holidays));
   }
 
   upsertOption(op: string, o: OptionInput) {

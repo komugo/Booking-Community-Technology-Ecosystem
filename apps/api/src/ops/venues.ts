@@ -1,5 +1,5 @@
 import { booking } from "@komugo/booking";
-import { activities, cities, createDb, photos, venueSlugs, venues as venueTable, type OpeningHours } from "@komugo/db";
+import { activities, cities, createDb, operators, photos, publicHolidays, venueSlugs, venues as venueTable, type OpeningHours } from "@komugo/db";
 import { HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, asc, count, eq, inArray, isNotNull, ne } from "drizzle-orm";
@@ -8,15 +8,29 @@ import { requireMember, staffOnly, type Ops } from "./auth";
 import { int, intOrNull, invalid, json, list, name, type Body } from "./input";
 
 // Date tickets are valid during the Activity's opening hours, else its Venue's; the booking engine keeps a copy.
+// Public holidays travel with them, for the weekend price, to Operators who opt in.
 export async function syncHours(env: Env, activityIds: string[]) {
-  const rows = await createDb(env.DB)
-    .select({ id: activities.id, operatorId: activities.operatorId, own: activities.openingHours, venue: venueTable.openingHours })
-    .from(activities)
-    .leftJoin(venueTable, eq(venueTable.id, activities.venueId))
-    .where(inArray(activities.id, activityIds.concat("")));
+  const db = createDb(env.DB);
+  const [rows, holidays] = await Promise.all([
+    db
+      .select({
+        id: activities.id,
+        operatorId: activities.operatorId,
+        own: activities.openingHours,
+        venue: venueTable.openingHours,
+        holidaysAsWeekend: operators.holidaysAsWeekend,
+      })
+      .from(activities)
+      .innerJoin(operators, eq(operators.id, activities.operatorId))
+      .leftJoin(venueTable, eq(venueTable.id, activities.venueId))
+      .where(inArray(activities.id, activityIds.concat(""))),
+    db.select({ date: publicHolidays.date }).from(publicHolidays),
+  ]);
   for (const op of new Set(rows.map((r) => r.operatorId))) {
+    const own = rows.filter((r) => r.operatorId === op);
     await booking(env, op).setHours(
-      rows.filter((r) => r.operatorId === op).map((r) => ({ activityId: r.id, hours: r.own.length ? r.own : (r.venue ?? []) })),
+      own.map((r) => ({ activityId: r.id, hours: r.own.length ? r.own : (r.venue ?? []) })),
+      own[0].holidaysAsWeekend ? holidays.map((h) => h.date) : [],
     );
   }
 }

@@ -71,6 +71,7 @@ export default function SetupPage() {
 
       <div role="tabpanel" aria-label={labels[tab]} className="mt-5">
         {tab === "activity" && me.member.role === "staff" && <CommissionCard op={op} setup={s} onSaved={setup.reload} />}
+        {tab === "activity" && me.member.role === "staff" && <HolidaysCard op={op} setup={s} onSaved={setup.reload} />}
         {tab === "activity" &&
           s.catalogue.map((a) => <ActivityCard key={a.id} op={op} setup={s} id={a.id} staff={me.member.role === "staff"} onSaved={setup.reload} />)}
         {tab !== "activity" && (
@@ -135,7 +136,12 @@ function List({
       ? setup.options.map((o) => ({
           item: o,
           title: named(o, l),
-          detail: [rm(o.priceSen), `${o.durationMinutes} ${t.min}`, ...o.needs.map((n) => `${n.quantity}× ${t.kinds[n.kind]}`)].join(" · "),
+          detail: [
+            rm(o.priceSen),
+            ...(o.weekendPriceSen === null ? [] : [`${t.weekend} ${rm(o.weekendPriceSen)}`]),
+            `${o.durationMinutes} ${t.min}`,
+            ...o.needs.map((n) => `${n.quantity}× ${t.kinds[n.kind]}`),
+          ].join(" · "),
         }))
       : kind === "add-ons"
         ? setup.addOns.map((a) => ({ item: a, title: named(a, l), detail: rm(a.priceSen) }))
@@ -207,6 +213,23 @@ function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSa
       <button type="button" className="btn btn-primary w-full sm:w-auto" disabled={busy} onClick={save}>
         {t.save}
       </button>
+    </section>
+  );
+}
+
+function HolidaysCard({ op, setup, onSaved }: { op: string; setup: Setup; onSaved: () => void }) {
+  const { t } = useT();
+  const { error, submit } = useSubmit(t);
+  const save = async (holidaysAsWeekend: boolean) => {
+    if (await submit(() => api("PUT", `/operators/${op}/holidays-as-weekend`, { holidaysAsWeekend }))) {
+      toast(t.saved);
+      onSaved();
+    }
+  };
+  return (
+    <section className="card mb-4 p-4" aria-label={t.holidaysAsWeekend}>
+      <Toggle label={t.holidaysAsWeekend} checked={setup.holidaysAsWeekend} onChange={save} />
+      <p className="text-sm text-muted">{error?.text ?? t.holidaysAsWeekendHint}</p>
     </section>
   );
 }
@@ -498,6 +521,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
     bookingUnit: item?.bookingUnit ?? ("person" as BookingUnit),
     ticketType: item?.ticketType ?? ("timeslot" as TicketType),
     dailyLimit: str(item?.dailyLimit ?? null),
+    weekendPrice: item?.weekendPriceSen == null ? "" : String(item.weekendPriceSen / 100),
     active: item?.active ?? true,
     needs: Object.fromEntries(PERSON_KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
   });
@@ -515,6 +539,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
       bookingUnit: v.bookingUnit,
       ticketType: v.ticketType,
       dailyLimit: dated ? num(v.dailyLimit) : null,
+      weekendPriceSen: dated ? sen(v.weekendPrice) : null,
       active: v.active,
       ...(court
         ? {
@@ -593,6 +618,16 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
             <Input label={t.dailyLimit} value={v.dailyLimit} onChange={(dailyLimit) => set({ dailyLimit })} error={err("dailyLimit")} hint={t.dailyLimitHint} numeric />
           ) : (
             !court && <Input label={t.duration} value={v.duration} onChange={(duration) => set({ duration })} error={err("durationMinutes")} numeric />
+          )}
+          {dated && (
+            <Input
+              label={t.weekendPriceRm}
+              value={v.weekendPrice}
+              onChange={(weekendPrice) => set({ weekendPrice })}
+              error={err("weekendPriceSen")}
+              hint={t.weekendPriceHint}
+              numeric
+            />
           )}
         </div>
       </div>

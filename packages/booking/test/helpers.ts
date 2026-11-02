@@ -73,6 +73,7 @@ export async function operator(freeCancelHours = 24) {
         bookingUnit: "person",
         ticketType: "timeslot",
         dailyLimit: null,
+        weekendPriceSen: null,
         active: true,
         needs: needs.map(([kind, quantity]) => ({ kind, quantity })),
         ...o,
@@ -199,6 +200,12 @@ export async function operator(freeCancelHours = 24) {
 }
 
 const KIND_CHECK = "CHECK (kind IN ('horse','instructor','belayer','auto_belay_lane'))";
+
+export const UNDO_V17 = [
+  "ALTER TABLE options DROP COLUMN weekend_price_sen",
+  "ALTER TABLE timeslots DROP COLUMN price_sen",
+  "DROP TABLE holidays",
+];
 
 export const UNDO_V16 = [
   "ALTER TABLE holds DROP COLUMN hours",

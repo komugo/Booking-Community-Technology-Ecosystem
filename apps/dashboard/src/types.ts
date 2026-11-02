@@ -72,6 +72,7 @@ export type Option = Named & {
   bookingUnit: BookingUnit;
   ticketType: TicketType;
   dailyLimit: number | null;
+  weekendPriceSen: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -155,6 +156,7 @@ export type PayoutRow = {
   paidSen: number | null;
   paidAt: number | null;
 };
+export type Holiday = { date: string; name: string };
 export type InterestRow = {
   activityId: string;
   nameEn: string;
@@ -180,6 +182,7 @@ export type Setup = {
   schedules: Schedule[];
   packOffers: PackOffer[];
   commissionBps: number | null;
+  holidaysAsWeekend: boolean;
   catalogue: (Named & {
     id: string;
     slugEn: string;

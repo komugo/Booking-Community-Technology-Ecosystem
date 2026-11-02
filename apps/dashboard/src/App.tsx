@@ -4,6 +4,7 @@ import { openQueue } from "./checkins";
 import { CHECK_IN } from "./flags";
 import { useT } from "./i18n";
 import { loadMe, useMe } from "./me";
+import Holidays from "./pages/Holidays";
 import Interests from "./pages/Interests";
 import Payouts from "./pages/Payouts";
 import Scan from "./pages/Scan";
@@ -67,6 +68,7 @@ function Signed({ me }: { me: Me }) {
       <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
       <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
       <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
+      <Route path="/holidays">{me.member.role === "staff" ? <Holidays /> : <NotFound />}</Route>
       <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
       <Route component={NotFound} />
     </Switch>
@@ -160,6 +162,7 @@ function StaffLinks() {
           ["/payouts", t.payouts],
           ["/venues", t.venues],
           ["/interests", t.interests],
+          ["/holidays", t.holidays],
         ] as const
       ).map(([href, label]) => (
         <Link key={href} href={href} className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-leaf hover:bg-sand">

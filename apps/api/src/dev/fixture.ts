@@ -26,6 +26,7 @@ export async function fixture(
     court?: unknown;
     dateTicket?: unknown;
     dailyLimit?: unknown;
+    weekendPriceSen?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -77,6 +78,7 @@ export async function fixture(
     bookingUnit: "person",
     ticketType: "timeslot",
     dailyLimit: null,
+    weekendPriceSen: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });
@@ -213,6 +215,7 @@ export async function fixture(
       bookingUnit: "court",
       ticketType: "timeslot",
       dailyLimit: null,
+      weekendPriceSen: null,
       active: true,
       needs: [{ kind: "court", quantity: 1 }],
     });
@@ -224,7 +227,7 @@ export async function fixture(
     const hours = [{ days: WEEKDAYS, opens: "06:00", closes: "23:30" }];
     await db.update(activities).set({ openingHours: hours }).where(eq(activities.id, activityId));
     await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
-    await b.setHours([{ activityId, hours }]);
+    await b.setHours([{ activityId, hours }], []);
     await b.upsertOption({
       id: dateOptionId,
       activityId,
@@ -241,6 +244,7 @@ export async function fixture(
       bookingUnit: "person",
       ticketType: "date",
       dailyLimit: Number.isInteger(o.dailyLimit) ? (o.dailyLimit as number) : null,
+      weekendPriceSen: Number.isInteger(o.weekendPriceSen) ? (o.weekendPriceSen as number) : null,
       active: true,
       needs: [],
     });

@@ -1,5 +1,5 @@
 import { venues } from "@komugo/db";
-import { klDate, WEEKDAYS } from "@komugo/types";
+import { klDate, klWeekday, WEEKDAYS } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { devInbox } from "../src/email";
@@ -98,4 +98,39 @@ test("closing a date emails each Customer to choose a Refund or a move to anothe
   const [mail] = devInbox.filter((e) => e.to === email && e.subject.startsWith("Tarikh ditutup"));
   expect(mail.text).toMatch(/7:00.*–.*10:00/);
   expect(mail.text).toContain("tukar ke tarikh lain secara percuma, atau dapatkan bayaran balik penuh");
+});
+
+test("staff keep the Public holiday list; an opted-in Operator's Date ticket prices a holiday at its Weekend price", async () => {
+  const g = await gym();
+  expect((await g.m.json("POST", `${g.base}/options`, { ...DATE, activityId: g.activityId, ticketType: "timeslot", weekendPriceSen: 2500 })).body).toMatchObject({
+    field: "weekendPriceSen",
+  });
+  expect((await g.m.json("PUT", `${g.base}/options/${g.dateOptionId}`, { ...DATE, activityId: g.activityId, weekendPriceSen: 2500 })).status).toBe(200);
+  let day = klDate(Date.now() + 2 * DAY_MS);
+  for (let n = 3; ["Sa", "Su"].includes(klWeekday(day)); n++) day = klDate(Date.now() + n * DAY_MS);
+  const price = async () => {
+    await g.flush();
+    const [s] = await d1<{ price_sen: number | null }>("SELECT price_sen FROM proj_timeslots WHERE option_id = ? AND starts_at = ?", g.dateOptionId, kl(`${day}T07:00`));
+    return s.price_sen;
+  };
+  expect(await price()).toBeNull();
+
+  const own = await member("operator", g.operatorId);
+  expect((await own.json("POST", "/ops/holidays", { date: day, name: "Hari Wilayah" })).status).toBe(403);
+  expect((await g.m.json("POST", "/ops/holidays", { date: "2026-02-30", name: "x" })).body).toMatchObject({ field: "date" });
+  const added = await g.m.json<{ holidays: { date: string; name: string }[] }>("POST", "/ops/holidays", { date: day, name: "Hari Wilayah" });
+  expect(added.status).toBe(201);
+  expect(added.body.holidays).toContainEqual({ date: day, name: "Hari Wilayah" });
+  expect(await price()).toBeNull();
+
+  expect((await own.json("PUT", `${g.base}/holidays-as-weekend`, { holidaysAsWeekend: true })).status).toBe(403);
+  expect((await g.m.json("PUT", `${g.base}/holidays-as-weekend`, { holidaysAsWeekend: "yes" })).body).toMatchObject({ field: "holidaysAsWeekend" });
+  expect((await g.m.json("PUT", `${g.base}/holidays-as-weekend`, { holidaysAsWeekend: true })).body).toEqual({ holidaysAsWeekend: true });
+  expect((await own.json("GET", `${g.base}/setup`)).body.holidaysAsWeekend).toBe(true);
+  expect(await price()).toBe(2500);
+
+  const removed = await g.m.json<{ holidays: { date: string }[] }>("POST", `/ops/holidays/${day}/remove`, {});
+  expect(removed.status).toBe(200);
+  expect(removed.body.holidays.map((h) => h.date)).not.toContain(day);
+  expect(await price()).toBeNull();
 });

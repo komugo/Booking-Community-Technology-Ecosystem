@@ -60,7 +60,8 @@ const SELECTS: Record<Entity, { table: string; pk: string; query: string }> = {
   timeslot: {
     table: "proj_timeslots",
     pk: "id",
-    query: `SELECT id, option_id, starts_at, ends_at, closed_at, (SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id) AS price_sen
+    query: `SELECT id, option_id, starts_at, ends_at, closed_at,
+      coalesce((SELECT price_sen FROM schedules WHERE id = timeslots.schedule_id), timeslots.price_sen) AS price_sen
       FROM timeslots WHERE id = ?`,
   },
   ticket: {

@@ -233,6 +233,12 @@ export const migrations: string[][] = [
      WHERE o.booking_unit = 'court' AND t.closed_at IS NULL AND t.starts_at > unixepoch() * 1000
      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
   ],
+  // A Date ticket's Timeslot on a weekend date, or a Public holiday the Operator opts in to, carries its Option's weekend price.
+  [
+    `ALTER TABLE options ADD COLUMN weekend_price_sen INTEGER CHECK (weekend_price_sen >= 0)`,
+    `ALTER TABLE timeslots ADD COLUMN price_sen INTEGER`,
+    `CREATE TABLE holidays (date TEXT PRIMARY KEY) STRICT`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

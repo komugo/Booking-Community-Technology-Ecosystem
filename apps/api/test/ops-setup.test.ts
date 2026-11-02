@@ -36,7 +36,7 @@ describe("ops Setup", () => {
 
     const { body } = await m.json("GET", `${base}/setup`);
     expect(body.resources).toContainEqual({ ...horse, id: r.body.id, name: "Bayu II", maxSessionsPerDay: 5 });
-    expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson", bookingUnit: "person", ticketType: "timeslot", dailyLimit: null });
+    expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson", bookingUnit: "person", ticketType: "timeslot", dailyLimit: null, weekendPriceSen: null });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 3 }]);
     expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", listingMode: "bookable" })]);

@@ -2,7 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { klDate, WEEKDAYS } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate } from "../src/migrations";
-import { customer, DAY, kl, OLD_KIND_TABLES, operator, rid, UNDO_V14, UNDO_V15, UNDO_V16 } from "./helpers";
+import { customer, DAY, kl, OLD_KIND_TABLES, operator, rid, UNDO_V14, UNDO_V15, UNDO_V16, UNDO_V17 } from "./helpers";
 
 const d1 = (q: string, ...p: unknown[]) =>
   env.DB.prepare(q)
@@ -144,7 +144,7 @@ test("the Resource kind migration keeps Resources, Option needs and Allocations 
   await w.book(customerId, ts, [await w.participant(customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V16, ...UNDO_V15, ...UNDO_V14, ...OLD_KIND_TABLES]) sql.exec(q);
+    for (const q of [...UNDO_V17, ...UNDO_V16, ...UNDO_V15, ...UNDO_V14, ...OLD_KIND_TABLES]) sql.exec(q);
     expect(() => sql.exec("INSERT INTO resources (id, kind, name) VALUES ('x', 'court', 'Court')")).toThrow();
     sql.exec("UPDATE meta SET schema_version = 13");
     migrate(s.storage);
@@ -277,7 +277,7 @@ test("the court hours migration re-projects open per-court Timeslots so their ma
   await d1("UPDATE proj_timeslots SET max_hours = NULL WHERE id = ?", w.ts);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of UNDO_V16) sql.exec(q);
+    for (const q of [...UNDO_V17, ...UNDO_V16]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 15");
     migrate(s.storage);
   });

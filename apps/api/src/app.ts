@@ -10,6 +10,7 @@ import { interests } from "./interests";
 import { manage } from "./manage";
 import { me } from "./me";
 import { forOperator, ops, requireMember } from "./ops/auth";
+import { holidays } from "./ops/holidays";
 import { interestCounts } from "./ops/interests";
 import { payouts } from "./ops/payouts";
 import { refunds } from "./ops/refunds";
@@ -38,6 +39,7 @@ ops.route("/refunds", refunds);
 ops.route("/payouts", payouts);
 ops.route("/venues", venues);
 ops.route("/interests", interestCounts);
+ops.route("/holidays", holidays);
 app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));

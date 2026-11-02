@@ -1,8 +1,8 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import { klDate, klWeekday, WEEKDAYS, type OpeningHours } from "@komugo/types";
+import { klDate, klWeekday, WEEKDAYS, type OpeningHours, type Weekday } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate } from "../src/migrations";
-import { customer, HOUR, kl, operator, rid, UNDO_V15, UNDO_V16 } from "./helpers";
+import { customer, HOUR, kl, operator, rid, UNDO_V15, UNDO_V16, UNDO_V17 } from "./helpers";
 
 const d1 = (q: string, ...p: unknown[]) =>
   env.DB.prepare(q)
@@ -12,11 +12,14 @@ const d1 = (q: string, ...p: unknown[]) =>
 
 const ALL_WEEK: OpeningHours[] = [{ days: WEEKDAYS, opens: "08:00", closes: "22:00" }];
 const dayAfter = (n: number) => klDate(Date.now() + n * 24 * HOUR);
+const nextOn = (days: Weekday[]) => {
+  for (let n = 2; ; n++) if (days.includes(klWeekday(dayAfter(n)))) return dayAfter(n);
+};
 
 async function dateWorld(dailyLimit: number | null = null, hours = ALL_WEEK) {
   const w = await operator();
   await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 24, requiresWaiver: false });
-  await w.b.setHours([{ activityId: w.activityId, hours }]);
+  await w.b.setHours([{ activityId: w.activityId, hours }], []);
   const optionId = await w.option({ ticketType: "date", dailyLimit, nameEn: "Day pass", nameMs: "Pas harian", priceSen: 1500 }, []);
   const on = async (date: string) =>
     (await w.sql("SELECT id FROM timeslots WHERE option_id = ? AND starts_at = ?", optionId, kl(`${date}T08:00`)))[0]?.id as string;
@@ -142,13 +145,46 @@ test("changing the hours moves open dates in place; a booked date that loses its
   await w.book(c, w.tomorrow, [await w.participant(c)]);
   const other = await w.on(dayAfter(3));
   const shut = [klWeekday(dayAfter(1)), klWeekday(dayAfter(3))];
-  await w.b.setHours([{ activityId: w.activityId, hours: [{ days: WEEKDAYS.filter((d) => !shut.includes(d)), opens: "07:00", closes: "21:00" }] }]);
+  await w.b.setHours([{ activityId: w.activityId, hours: [{ days: WEEKDAYS.filter((d) => !shut.includes(d)), opens: "07:00", closes: "21:00" }] }], []);
   const [kept, closed] = await w.sql("SELECT id, closed_reason FROM timeslots WHERE id IN (?, ?) ORDER BY starts_at", w.tomorrow, other);
   expect(kept).toEqual({ id: w.tomorrow, closed_reason: null });
   expect(closed).toEqual({ id: other, closed_reason: "schedule" });
   const moved = await w.sql("SELECT starts_at, ends_at FROM timeslots WHERE option_id = ? AND starts_at >= ? LIMIT 1", w.optionId, kl(`${dayAfter(5)}T00:00`));
   expect(Number(moved[0].ends_at) - Number(moved[0].starts_at)).toBe(14 * HOUR);
   expect(new Date(Number(moved[0].starts_at) + 8 * HOUR).toISOString().slice(11, 16)).toBe("07:00");
+});
+
+test("a Date ticket on a Saturday or Sunday takes the Weekend price; other dates keep the Option's price", async () => {
+  const w = await dateWorld();
+  await w.editOption(w.optionId, { weekendPriceSen: 2500 });
+  const [sat, sun, wed] = [await w.on(nextOn(["Sa"])), await w.on(nextOn(["Su"])), await w.on(nextOn(["We"]))];
+  const priced = async (slot: string) => {
+    const c = await customer();
+    return (await w.hold(c, slot, [await w.participant(c)])).amountSen;
+  };
+  expect([await priced(sat), await priced(sun), await priced(wed)]).toEqual([2500, 2500, 1500]);
+  await w.flush();
+  const projected = async (id: string) => (await d1("SELECT price_sen FROM proj_timeslots WHERE id = ?", id))[0];
+  expect([await projected(sat), await projected(wed)]).toEqual([{ price_sen: 2500 }, { price_sen: null }]);
+});
+
+test("a Public holiday the Operator opts in to takes the Weekend price, and never reprices a sold Ticket", async () => {
+  const w = await dateWorld();
+  const day = nextOn(["Mo", "Tu", "We", "Th", "Fr"]);
+  const slot = await w.on(day);
+  const a = await customer();
+  const sold = await w.book(a, slot, [await w.participant(a)]);
+  const price = async () => {
+    const c = await customer();
+    return (await w.hold(c, slot, [await w.participant(c)])).amountSen;
+  };
+  await w.editOption(w.optionId, { weekendPriceSen: 2500 });
+  expect(await price()).toBe(1500);
+  await w.b.setHours([], [day]);
+  expect(await price()).toBe(2500);
+  await w.b.setHours([], []);
+  expect(await price()).toBe(1500);
+  expect((await w.b.bookingView(sold.bookingId)).tickets[0].priceSen).toBe(1500);
 });
 
 test("a Date ticket Option is per person with no Resources, keeps its Ticket type, and isn't Pack-eligible", async () => {
@@ -158,6 +194,7 @@ test("a Date ticket Option is per person with no Resources, keeps its Ticket typ
   }
   await expect(w.option({ ticketType: "date", bookingUnit: "court" }, [])).rejects.toMatchObject({ code: "invalid_state" });
   await expect(w.option({ dailyLimit: 5 })).rejects.toMatchObject({ code: "invalid_state" });
+  await expect(w.option({ weekendPriceSen: 2000 })).rejects.toMatchObject({ code: "invalid_state" });
   await expect(w.offer({ optionIds: [w.optionId] })).rejects.toMatchObject({ code: "invalid_state" });
   await expect(w.b.createTimeslots({ optionId: w.optionId, startsAt: [Date.now() + 48 * HOUR] })).rejects.toMatchObject({ code: "invalid_state" });
 });
@@ -167,7 +204,7 @@ test("the Date ticket migration keeps Options as Timeslot tickets with no Daily 
   const optionId = await w.option();
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V16, ...UNDO_V15]) sql.exec(q);
+    for (const q of [...UNDO_V17, ...UNDO_V16, ...UNDO_V15]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 14");
     migrate(s.storage);
     expect(sql.exec("SELECT id, ticket_type, daily_limit FROM options").toArray()).toEqual([{ id: optionId, ticket_type: "timeslot", daily_limit: null }]);

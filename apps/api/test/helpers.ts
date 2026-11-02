@@ -144,6 +144,7 @@ export async function world(
     bookingUnit: "person",
     ticketType: "timeslot",
     dailyLimit: null,
+    weekendPriceSen: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,

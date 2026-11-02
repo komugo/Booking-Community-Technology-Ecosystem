@@ -77,7 +77,7 @@ async function toHubs(db: Db, rows: HubRow[], l: Locale): Promise<Hub[]> {
   });
 }
 
-// Lowest price of each Option's open future Timeslots (a Schedule's price, else the Option's).
+// Lowest price of each Option's open future Timeslots (a Schedule's or Weekend price, else the Option's).
 export const slotPrices = (db: Db, activityIds: string[]) =>
   db
     .select({ optionId: projTimeslots.optionId, priceSen: sql<number>`min(coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}))` })

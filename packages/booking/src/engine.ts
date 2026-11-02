@@ -67,6 +67,7 @@ export type OptionInput = {
   bookingUnit: BookingUnit;
   ticketType: TicketType;
   dailyLimit: number | null;
+  weekendPriceSen: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -289,11 +290,12 @@ function loadOption(sql: SqlStorage, id: string) {
     .one();
 }
 
-// A Timeslot takes its Schedule's price, else its Option's; a booking over several Timeslots sums each one.
+// A Timeslot takes its Schedule's price, else its own (a Date ticket's weekend price), else its Option's;
+// a booking over several Timeslots sums each one.
 export function slotsPriceSen(sql: SqlStorage, slotIds: string[]) {
   return sql
     .exec<{ sen: number }>(
-      `SELECT coalesce(sum(coalesce(sc.price_sen, o.price_sen)), 0) AS sen FROM timeslots t
+      `SELECT coalesce(sum(coalesce(sc.price_sen, t.price_sen, o.price_sen)), 0) AS sen FROM timeslots t
        JOIN options o ON o.id = t.option_id LEFT JOIN schedules sc ON sc.id = t.schedule_id
        WHERE t.id IN (SELECT value FROM json_each(?))`,
       ids(slotIds),
@@ -322,7 +324,7 @@ function backToBack(sql: SqlStorage, slot: Slot, hours: number) {
   if (hours === 1) return [slot];
   const run: (Slot & { price_sen: number })[] = [];
   for (const s of sql.exec<Slot & { price_sen: number }>(
-    `SELECT t.id, t.option_id, t.starts_at, t.ends_at, t.closed_at, coalesce(sc.price_sen, o.price_sen) AS price_sen
+    `SELECT t.id, t.option_id, t.starts_at, t.ends_at, t.closed_at, coalesce(sc.price_sen, t.price_sen, o.price_sen) AS price_sen
      FROM timeslots t JOIN options o ON o.id = t.option_id LEFT JOIN schedules sc ON sc.id = t.schedule_id
      WHERE t.option_id = ? AND t.starts_at >= ? AND t.starts_at < ? ORDER BY t.starts_at`,
     slot.option_id,
@@ -692,7 +694,14 @@ export function upsertActivity(sql: SqlStorage, now: number, a: ActivityInput) {
 }
 
 // Opening hours (the Activity's, else its Venue's) are kept in D1; only Date tickets need them here.
-export function setHours(sql: SqlStorage, now: number, list: { activityId: string; hours: OpeningHours[] }[]) {
+export function setHours(sql: SqlStorage, now: number, list: { activityId: string; hours: OpeningHours[] }[], holidays: string[]) {
+  const had = sql.exec<{ date: string }>("SELECT date FROM holidays ORDER BY date").toArray().map((h) => h.date);
+  const want = [...new Set(holidays)].sort();
+  if (want.join() !== had.join()) {
+    sql.exec("DELETE FROM holidays");
+    for (const d of want) sql.exec("INSERT INTO holidays (date) VALUES (?)", d);
+    priceDates(sql, now);
+  }
   for (const h of list) {
     const changed = first(
       sql.exec("UPDATE activities SET hours = ?1 WHERE id = ?2 AND hours <> ?1 RETURNING id", JSON.stringify(h.hours), h.activityId),
@@ -821,7 +830,30 @@ export function generate(sql: SqlStorage, now: number, activityId: string | null
   }
   mark(sql, "timeslot", [...created, ...removed]);
   markCourtHours(sql, now, [...created, ...removed]);
+  priceDates(sql, now);
   return { created: created.length, removed: removed.length, kept };
+}
+
+// An open Date ticket on a Saturday, Sunday or Public holiday (kept here only if the Operator opts in) takes the
+// weekend price. Sold Tickets and Holds keep the price they were sold at.
+function priceDates(sql: SqlStorage, now: number) {
+  const holidays = new Set(sql.exec<{ date: string }>("SELECT date FROM holidays").toArray().map((h) => h.date));
+  const repriced: string[] = [];
+  for (const s of sql
+    .exec<{ id: string; starts_at: number; price_sen: number | null; weekend_price_sen: number | null }>(
+      `SELECT t.id, t.starts_at, t.price_sen, o.weekend_price_sen FROM timeslots t
+       JOIN options o ON o.id = t.option_id WHERE o.ticket_type = 'date' AND t.closed_at IS NULL AND t.ends_at > ?`,
+      now,
+    )
+    .toArray()) {
+    const d = klDate(s.starts_at);
+    const weekend = ["Sa", "Su"].includes(klWeekday(d)) || holidays.has(d);
+    const price = weekend ? s.weekend_price_sen : null;
+    if (price === s.price_sen) continue;
+    sql.exec("UPDATE timeslots SET price_sen = ? WHERE id = ?", price, s.id);
+    repriced.push(s.id);
+  }
+  mark(sql, "timeslot", repriced);
 }
 
 // One Timeslot per open date per active Date ticket Option, moved in place when the hours change.
@@ -925,8 +957,10 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   }
   const court = o.bookingUnit === "court";
   const dated = o.ticketType === "date";
-  // A Date ticket is per person and needs no Resources; only it has a Daily limit.
-  if ((dated && (court || o.needs.length > 0)) || (!dated && o.dailyLimit !== null)) throw new BookingError("invalid_state");
+  // A Date ticket is per person and needs no Resources; only it has a Daily limit and a Weekend price.
+  if ((dated && (court || o.needs.length > 0)) || (!dated && (o.dailyLimit !== null || o.weekendPriceSen !== null))) {
+    throw new BookingError("invalid_state");
+  }
   // A per-court Option takes one court for one 1-hour Timeslot, with no Requirements or party-size rules.
   if (
     o.needs.some((n) => !RESOURCE_KINDS.includes(n.kind) || (n.kind === "court") !== court) ||
@@ -944,13 +978,14 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", o.activityId))) throw new BookingError("invalid_state");
   sql.exec(
     `INSERT INTO options (id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age,
-       max_weight_kg, required_cert, min_participants, max_per_booking, booking_unit, ticket_type, daily_limit, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       max_weight_kg, required_cert, min_participants, max_per_booking, booking_unit, ticket_type, daily_limit,
+       weekend_price_sen, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name_en = excluded.name_en, name_ms = excluded.name_ms,
        price_sen = excluded.price_sen, duration_minutes = excluded.duration_minutes, min_age = excluded.min_age,
        max_age = excluded.max_age, max_weight_kg = excluded.max_weight_kg, required_cert = excluded.required_cert,
        min_participants = excluded.min_participants, max_per_booking = excluded.max_per_booking,
-       daily_limit = excluded.daily_limit, active = excluded.active`,
+       daily_limit = excluded.daily_limit, weekend_price_sen = excluded.weekend_price_sen, active = excluded.active`,
     o.id,
     o.activityId,
     o.nameEn,
@@ -966,6 +1001,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     o.bookingUnit,
     o.ticketType,
     o.dailyLimit,
+    o.weekendPriceSen,
     o.active ? 1 : 0,
   );
   sql.exec("DELETE FROM option_resources WHERE option_id = ?", o.id);
@@ -973,6 +1009,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     sql.exec("INSERT INTO option_resources (option_id, kind, quantity) VALUES (?, ?, ?)", o.id, n.kind, n.quantity);
   }
   mark(sql, "option", [o.id]);
+  priceDates(sql, now);
   mark(sql, "timeslot", openFutureSlots(sql, now, o.id));
   return (dated && !existing) || (existing && existing.active !== (o.active ? 1 : 0)) ? generate(sql, now, o.activityId) : null;
 }
@@ -1209,6 +1246,7 @@ export function setup(sql: SqlStorage): Setup {
         booking_unit: BookingUnit;
         ticket_type: TicketType;
         daily_limit: number | null;
+        weekend_price_sen: number | null;
         active: number;
       }>("SELECT * FROM options ORDER BY rowid")
       .toArray()
@@ -1228,6 +1266,7 @@ export function setup(sql: SqlStorage): Setup {
         bookingUnit: o.booking_unit,
         ticketType: o.ticket_type,
         dailyLimit: o.daily_limit,
+        weekendPriceSen: o.weekend_price_sen,
         active: o.active === 1,
         needs: needs.get(o.id) ?? [],
       })),

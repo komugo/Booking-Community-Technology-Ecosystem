@@ -18,6 +18,7 @@ export const operators = sqliteTable("operators", {
   signedUp: integer({ mode: "boolean" }).notNull().default(false),
   commissionBps: integer(),
   unknown: integer({ mode: "boolean" }).notNull().default(false),
+  holidaysAsWeekend: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 const hub = () => ({
@@ -551,3 +552,9 @@ export const interests = sqliteTable(
   },
   (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
 );
+
+// Komugo's staff-kept Malaysian and Putrajaya Public holidays (KL dates).
+export const publicHolidays = sqliteTable("public_holidays", {
+  date: text().primaryKey(),
+  name: text().notNull(),
+});

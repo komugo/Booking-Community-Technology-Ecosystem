@@ -49,3 +49,19 @@ for (const locale of ["en", "ms"] as const) {
     await context.close();
   });
 }
+
+test("a Date ticket costs its Weekend price on Saturdays and Sundays", async ({ browser, request }) => {
+  const f = await fixture(request, { dateTicket: true, weekendPriceSen: 2500 });
+  const { context, page } = await open(browser);
+  const date = (n: number) => new Date(Date.now() + 8 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+  const days = [2, 3, 4, 5, 6, 7, 8].map(date);
+  const weekday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
+  const priced = async (d: string) => {
+    await page.goto(`/book/${f.dateOptionId}?date=${d}`);
+    return page.locator("label:has(input[name=timeslotId])");
+  };
+  await expect(await priced(days.find((d) => weekday(d) === 6)!)).toContainText("RM25");
+  await expect(await priced(days.find((d) => weekday(d) === 0)!)).toContainText("RM25");
+  await expect(await priced(days.find((d) => weekday(d) === 3)!)).toContainText("RM15");
+  await context.close();
+});

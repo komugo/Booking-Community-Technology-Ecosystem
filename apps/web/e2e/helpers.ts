@@ -39,6 +39,7 @@ export async function fixture(
     court?: boolean;
     dateTicket?: boolean;
     dailyLimit?: number;
+    weekendPriceSen?: number;
   } = {},
 ): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });

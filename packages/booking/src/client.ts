@@ -70,7 +70,7 @@ export function booking(env: Env, operatorId: string) {
 
   return {
     upsertActivity: (a: ActivityInput) => call((s) => s.upsertActivity(op, a)),
-    setHours: (list: { activityId: string; hours: OpeningHours[] }[]) => call((s) => s.setHours(op, list)),
+    setHours: (list: { activityId: string; hours: OpeningHours[] }[], holidays: string[]) => call((s) => s.setHours(op, list, holidays)),
     upsertOption: (o: OptionInput) => call((s) => s.upsertOption(op, o)),
     upsertAddOn: (a: AddOnInput) => call((s) => s.upsertAddOn(op, a)),
     upsertResource: (r: ResourceInput) => call((s) => s.upsertResource(op, r)),

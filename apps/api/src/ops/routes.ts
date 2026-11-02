@@ -29,17 +29,20 @@ async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   return !!row;
 }
 
-async function commissionBps(env: Env, operatorId: string) {
-  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
-  return o.bps;
+async function operatorTerms(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB)
+    .select({ commissionBps: operators.commissionBps, holidaysAsWeekend: operators.holidaysAsWeekend })
+    .from(operators)
+    .where(eq(operators.id, operatorId));
+  return o;
 }
 
 routes.get("/setup", async (c) => {
   const op = c.req.param("operatorId")!;
   const db = createDb(c.env.DB);
-  const [setup, commission, [catalogue, gallery]] = await Promise.all([
+  const [setup, terms, [catalogue, gallery]] = await Promise.all([
     c.var.b.setup(),
-    commissionBps(c.env, op),
+    operatorTerms(c.env, op),
     db.batch([
       db
         .select({
@@ -67,7 +70,7 @@ routes.get("/setup", async (c) => {
   ]);
   return c.json({
     ...setup,
-    commissionBps: commission,
+    ...terms,
     catalogue: catalogue.map((a) => ({ ...a, photos: gallery.filter((p) => p.photo.activityId === a.id).map((p) => photoView(p.photo)) })),
   });
 });
@@ -81,6 +84,17 @@ routes.put("/commission", staffOnly, async (c) => {
     .set({ commissionBps: body.commissionBps, signedUp: true })
     .where(eq(operators.id, c.req.param("operatorId")!));
   return c.json({ commissionBps: body.commissionBps });
+});
+
+routes.put("/holidays-as-weekend", staffOnly, async (c) => {
+  const body = await json(c);
+  if (!bool(body.holidaysAsWeekend)) return fail(c, 400, { code: "invalid_field", field: "holidaysAsWeekend" });
+  const op = c.req.param("operatorId")!;
+  const db = createDb(c.env.DB);
+  await db.update(operators).set({ holidaysAsWeekend: body.holidaysAsWeekend as boolean }).where(eq(operators.id, op));
+  const owned = await db.select({ id: activities.id }).from(activities).where(eq(activities.operatorId, op));
+  await syncHours(c.env, owned.map((a) => a.id));
+  return c.json({ holidaysAsWeekend: body.holidaysAsWeekend });
 });
 
 routes.put("/activities/:id", staffOnly, async (c) => {
@@ -217,6 +231,7 @@ function optionInput(body: Body) {
     [bookingUnit === "person" || bookingUnit === "court", "bookingUnit"],
     [ticketType === "timeslot" || (ticketType === "date" && bookingUnit === "person"), "ticketType"],
     [ticketType === "date" ? intOrNull(body.dailyLimit ?? null, 1, 100_000) : (body.dailyLimit ?? null) === null, "dailyLimit"],
+    [ticketType === "date" ? intOrNull(body.weekendPriceSen ?? null, 0, 10_000_000) : (body.weekendPriceSen ?? null) === null, "weekendPriceSen"],
     [name(body.nameEn), "nameEn"],
     [name(body.nameMs), "nameMs"],
     [int(body.priceSen, 0, 10_000_000), "priceSen"],
@@ -255,6 +270,7 @@ function optionInput(body: Body) {
       bookingUnit,
       ticketType,
       dailyLimit: (body.dailyLimit ?? null) as number | null,
+      weekendPriceSen: (body.weekendPriceSen ?? null) as number | null,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),
