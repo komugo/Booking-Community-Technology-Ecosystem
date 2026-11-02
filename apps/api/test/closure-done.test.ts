@@ -1,11 +1,12 @@
 import { env } from "cloudflare:test";
 import { operatorContacts, whatsappMessages } from "@komugo/db";
+import { klDate } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { klWhen } from "../src/details";
-import { closeLink } from "../src/digest";
+import { listLink } from "../src/day-list";
 import { devOutbox } from "../src/whatsapp";
-import { booked, client, db, member, world, type World } from "./helpers";
+import { booked, client, db, HOUR, member, world, type World } from "./helpers";
 
 const phone = () => `+6018${String(Math.floor(Math.random() * 1e7)).padStart(7, "0")}`;
 
@@ -42,14 +43,16 @@ test("a staff Closure sends Closure done once to every contact in their language
   expect(sent(to.owner)).toHaveLength(1);
 });
 
-test("a close link Closure sends Closure done to every contact, also with no Customers", async () => {
+test("a Day list Closure sends Closure done to every contact, also with no Customers", async () => {
   const w = await world();
   const to = await contacts(w);
-  const u = new URL(await closeLink(env, w.operatorId, w.timeslotId, to.counter));
-  const path = `/closes${u.pathname.replace(/^\/close/, "")}${u.search}`;
+  const today = klDate(Date.now());
+  await w.doSql("UPDATE timeslots SET starts_at = ? WHERE id = ?", Math.min(Date.now() + HOUR, Date.parse(`${today}T23:59:00+08:00`)), w.timeslotId);
+  const u = new URL(await listLink(env, w.operatorId, today, to.counter));
+  const path = `/lists${u.pathname.replace(/^\/list/, "")}${u.search}`;
   const cl = client();
-  expect((await cl.json("POST", path, { reason: "maintenance" })).status).toBe(204);
-  expect(await cl.json("POST", path, { reason: "maintenance" })).toEqual({ status: 409, body: { code: "already_closed" } });
+  expect((await cl.json("POST", path, { timeslotId: w.timeslotId, reason: "maintenance" })).status).toBe(204);
+  expect(await cl.json("POST", path, { timeslotId: w.timeslotId, reason: "maintenance" })).toEqual({ status: 409, body: { code: "already_closed" } });
 
   expect(sent(to.counter)).toHaveLength(1);
   expect(sent(to.counter)[0]).toMatch(/Reason: Maintenance\nCustomers notified: 0$/);

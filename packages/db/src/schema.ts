@@ -577,7 +577,7 @@ export const operatorContacts = sqliteTable(
   (t) => [uniqueIndex("operator_contacts_phone").on(t.operatorId, t.phone)],
 );
 
-// Every WhatsApp message sent, kept after its contact is removed.
+// Every WhatsApp message, queued until the queue sends it or it fails, kept after its contact is removed.
 export const whatsappMessages = sqliteTable(
   "whatsapp_messages",
   {
@@ -589,7 +589,7 @@ export const whatsappMessages = sqliteTable(
     phone: text().notNull(),
     template: text({ enum: ["welcome", "digest", "alert", "closure", "payout", "staff"] }).notNull(),
     text: text().notNull(),
-    status: text({ enum: ["sent", "failed"] }).notNull(),
+    status: text({ enum: ["queued", "sent", "failed"] }).notNull(),
     error: text(),
     createdAt: integer().notNull(),
   },

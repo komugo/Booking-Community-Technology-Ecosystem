@@ -30,12 +30,12 @@ async function state(env: Env) {
       .orderBy(desc(whatsappMessages.createdAt))
       .limit(50),
   ]);
-  return { connected, failed };
+  return { connected: connected !== false, failed };
 }
 
 whatsapp.get("/", async (c) => c.json(await state(c.env)));
 
 whatsapp.post("/:id/retry", async (c) => {
   if (!(await retry(c.env, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
-  return c.json(await state(c.env));
+  return c.json({ queued: true });
 });

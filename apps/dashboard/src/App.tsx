@@ -94,8 +94,8 @@ function WhatsAppBanner() {
   async function retry(id: string) {
     setBusy(id);
     try {
-      const s = await api<WhatsAppState>("POST", `/whatsapp/${id}/retry`, {});
-      if (s.failed.some((m) => m.id === id)) toast(t.stillNotSent, "error");
+      await api("POST", `/whatsapp/${id}/retry`, {});
+      toast(t.retryQueued);
     } catch (e) {
       toast(errorText(e, t), "error");
     }

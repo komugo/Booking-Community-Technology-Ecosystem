@@ -2,7 +2,7 @@ import { operators, whatsappMessages } from "@komugo/db";
 import { and, eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { devOutbox } from "../src/whatsapp";
-import { client, d1, db, member, rid } from "./helpers";
+import { client, d1, db, member, rid, wasender } from "./helpers";
 
 type Contact = { id: string; name: string; phone: string; role: string; locale: string; email: string | null; welcome: { status: string } | null };
 
@@ -67,12 +67,13 @@ test("the Welcome goes out in the contact's language and every send is logged wi
   const [bm] = sentTo("+60181110001");
   expect(bm.text).toContain("Salam Aminah, ini Komugo. Kami akan menghantar tempahan Kompleks Sukan Presint 9 ke nombor ini.");
   expect(bm.text).toContain('balas "OK"');
-  expect(bm.text).toContain("Digest");
+  expect(bm.text).toContain("senarai harian");
   const [en] = sentTo("+60181110002");
   expect(en.text).toContain("Hi Hafiz, this is Komugo. We'll send Kompleks Sukan Presint 9's bookings to this number.");
   expect(en.text).toContain('reply "OK"');
 
-  const down = client({ WHATSAPP_MODE: "sendontime", SENDONTIME_URL: "" });
+  wasender.code = 400;
+  const down = client({ WHATSAPP_MODE: "wasender" });
   down.cookie = o.staff.cookie;
   const failed = await down.json<{ contacts: Contact[] }>("POST", o.base, { name: "Siti", phone: "0181110003", role: "counter" });
   expect(failed.status).toBe(201);
@@ -107,7 +108,7 @@ test("staff send a free-text message to chosen contacts, logged like all others;
   expect((await o.staff.json("POST", msg, { contactIds: [a.id, theirs.body.contacts[0].id], text })).status).toBe(404);
 
   const res = await o.staff.json("POST", msg, { contactIds: [h.id, h.id], text: ` ${text} ` });
-  expect(res.body).toEqual({ sent: 1, failed: 0 });
+  expect(res.body).toEqual({ queued: 1 });
   expect(sentTo("+60135550002").map((m) => m.text)).toContain(text);
   expect(sentTo("+60135550001").map((m) => m.text)).not.toContain(text);
   const logged = await db.select().from(whatsappMessages).where(and(eq(whatsappMessages.contactId, h.id), eq(whatsappMessages.template, "staff")));

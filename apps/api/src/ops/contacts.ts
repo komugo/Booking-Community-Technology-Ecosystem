@@ -141,7 +141,6 @@ contacts.post("/message", async (c) => {
     .from(operatorContacts)
     .where(and(eq(operatorContacts.operatorId, op), inArray(operatorContacts.id, ids)));
   if (to.length !== ids.length) return fail(c, 404, { code: "not_found" });
-  let failed = 0;
-  for (const contact of to) if ((await send(c.env, contact, "staff", text)) === "failed") failed++;
-  return c.json({ sent: to.length - failed, failed });
+  for (const contact of to) await send(c.env, contact, "staff", text);
+  return c.json({ queued: to.length });
 });

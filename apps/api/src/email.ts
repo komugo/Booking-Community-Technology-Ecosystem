@@ -76,7 +76,7 @@ export function otpEmail(to: string, code: string, l: Locale): Email {
 // The email copy of a Booking alert, for an Operator's owner contacts.
 export async function sendAlertEmail(env: Env, to: string, l: Locale, a: { operator: string; date: string; change: string; link: string }) {
   const lines = [l === "ms" ? `Makluman tempahan ${a.operator} untuk ${a.date}` : `${a.operator}: Booking alert for ${a.date}`, ...a.change.split("\n")];
-  const label = l === "ms" ? "Senarai hari ini" : "Today's list";
+  const label = l === "ms" ? "Senarai harian" : "Day list";
   await sendEmail(env, {
     to,
     subject: l === "ms" ? `Makluman tempahan: ${a.operator}, ${a.date}` : `Booking alert: ${a.operator}, ${a.date}`,

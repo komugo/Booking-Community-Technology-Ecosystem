@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { API, fixture, newContext, noAxeViolations, shot, signIn } from "./helpers";
+import { fixture, newContext, noAxeViolations, shot, signIn, whatsappOutbox } from "./helpers";
 
 test("after a staff Closure, staff edit the pre-filled draft and send it to the Operator's contacts", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
@@ -22,10 +22,9 @@ test("after a staff Closure, staff edit the pre-filled draft and send it to the 
   const note = `Ref ${fx.operatorId}`;
   await text.fill(`${await text.inputValue()}. ${note}`);
   await sheet.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("Sent to 1 contact.")).toBeVisible();
+  await expect(page.getByText("Sending to 1 contact.")).toBeVisible();
   await expect(sheet).toBeHidden();
-  const sent = (await (await request.get(`${API}/dev/whatsapp`)).json()) as { to: string; text: string }[];
-  expect(sent.find((m) => m.text.endsWith(note))?.to).toBe("+60181234567");
+  await expect.poll(async () => (await whatsappOutbox(request)).find((m) => m.text.endsWith(note))?.to).toBe("+60181234567");
 
   await page.goto(`/o/${fx.operatorId}/setup?tab=contacts`);
   await page.getByRole("button", { name: "Message contacts" }).click();

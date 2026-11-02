@@ -18,7 +18,7 @@ import { Hono } from "hono";
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { checkoutState, createBill, deleteBill } from "./billplz";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
-import { bookingAlert } from "./digest";
+import { bookingAlert } from "./day-list";
 import { sendBookedEmail } from "./email";
 import { fail, HOUR, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
 import { bookingLink, groupLink } from "./manage";

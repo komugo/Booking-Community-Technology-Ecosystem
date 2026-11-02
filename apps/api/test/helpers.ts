@@ -1,4 +1,4 @@
-import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
+import { createExecutionContext, createMessageBatch, env, getQueueResult, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { booking, type OptionInput, type PackOfferInput } from "@komugo/booking";
 import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, photos, venues, waivers, type ListingMode } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { app } from "../src/app";
 import { devInbox } from "../src/email";
+import worker from "../src/index";
+import type { Job } from "../src/whatsapp";
 
 export const db = createDb(env.DB);
 export const rid = () => crypto.randomUUID();
@@ -17,16 +19,53 @@ export const later = (hours: number) => Math.floor((Date.now() + hours * HOUR) /
 
 export const resend: { calls: { key: string | null; to: string }[]; fail: number } = { calls: [], fail: 0 };
 
+// Stands in for the Cloudflare Queue: each send runs the consumer at once, and a retried message runs again with one more attempt, ignoring its delay. Set held to keep messages queued, down to make sends throw.
+export const whatsappQueue = { held: false, down: false, pending: [] as { body: Job; attempts: number; env: Env }[], delays: [] as (number | undefined)[] };
+let draining = Promise.resolve();
+
+export function fakeQueue(e: Env) {
+  return {
+    async send(body: Job) {
+      if (whatsappQueue.down) throw new Error("queue down");
+      whatsappQueue.pending.push({ body, attempts: 1, env: e });
+      if (!whatsappQueue.held) await drain();
+    },
+  } as unknown as Queue;
+}
+
+export function drain() {
+  draining = draining.then(async () => {
+    for (let m = whatsappQueue.pending.shift(); m; m = whatsappQueue.pending.shift()) {
+      const batch = createMessageBatch<Job>("komugo-whatsapp", [{ id: rid(), timestamp: Date.now(), attempts: m.attempts, body: m.body }]);
+      const retry = vi.spyOn(batch.messages[0], "retry");
+      await worker.queue(batch, m.env);
+      if ((await getQueueResult(batch, createExecutionContext())).retryMessages.length) {
+        whatsappQueue.delays.push(retry.mock.calls[0][0]?.delaySeconds);
+        whatsappQueue.pending.push({ ...m, attempts: m.attempts + 1 });
+      }
+    }
+  });
+  return draining;
+}
+
 export async function dispatch(req: Request, e: Partial<Env> = {}) {
   const ctx = createExecutionContext();
-  const res = await app.fetch(req, { ...env, ...e }, ctx);
+  const full = { ...env, ...e };
+  full.WHATSAPP_QUEUE = fakeQueue(full);
+  const res = await app.fetch(req, full, ctx);
   await waitOnExecutionContext(ctx);
   return res;
 }
 
+// A fake WasenderAPI: each send answers with the next code in codes, then code.
+export const wasender = { sent: [] as { key: string | null; to: string; text: string }[], codes: [] as number[], code: 200, status: "connected", statusCode: 200 };
+
 export function stubOutbound() {
   resend.calls = [];
   resend.fail = 0;
+  Object.assign(wasender, { sent: [], codes: [], code: 200, status: "connected", statusCode: 200 });
+  Object.assign(whatsappQueue, { held: false, down: false, pending: [], delays: [] });
+  env.WHATSAPP_QUEUE = fakeQueue(env);
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const req = new Request(input, init);
     const url = new URL(req.url);
@@ -42,6 +81,14 @@ export function stubOutbound() {
         return new Response("down", { status: 500 });
       }
       return Response.json({ id: rid() });
+    }
+    if (url.origin === "https://www.wasenderapi.com") {
+      if (url.pathname === "/api/status") return wasender.statusCode === 200 ? Response.json({ status: wasender.status }) : new Response(null, { status: wasender.statusCode });
+      const code = wasender.codes.shift() ?? wasender.code;
+      if (code !== 200) return Response.json({ message: "nope" }, { status: code });
+      const body = (await req.json()) as { to: string; text: string };
+      wasender.sent.push({ key: req.headers.get("Authorization"), ...body });
+      return Response.json({ success: true });
     }
     throw new Error(`unexpected fetch ${req.url}`);
   });

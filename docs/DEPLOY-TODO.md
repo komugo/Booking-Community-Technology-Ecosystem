@@ -12,12 +12,18 @@ Run from `apps/api`. Add `--env staging` for staging.
 | `BILLPLZ_API_KEY` | [ ] | [ ] | Billplz sandbox (staging) / live (prod) → Settings → API key |
 | `BILLPLZ_X_SIGNATURE_KEY` | [ ] | [ ] | Billplz → Settings → X Signature key |
 | `RESEND_API_KEY` | [ ] | [ ] | Resend → API Keys |
+| `WASENDER_API_KEY` | [ ] | [ ] | WasenderAPI → the Komugo number's session → API key (#34) |
 
 ## Vars (`apps/api/wrangler.jsonc`)
 
 - [ ] `BILLPLZ_COLLECTION_ID`: staging = sandbox collection id, prod = live collection id (empty in both now)
 - [ ] Prod `EMAIL_FROM` `tickets@komugo.com` needs `komugo.com` verified in Resend (see DNS)
 - Staging sends from `onboarding@resend.dev`: delivers only to the Resend account owner's email
+- [ ] `WASENDER_GAP_MS` (5000, Account Protection's 1 message per 5 s): lower it if the WasenderAPI plan allows (#34)
+
+## Queues
+
+- [ ] `npx wrangler queues create komugo-whatsapp-staging` and `npx wrangler queues create komugo-whatsapp` before the first deploy with WhatsApp
 
 ## Staging (https://komugo-web-staging.komugo.workers.dev, https://komugo-dashboard-staging.komugo.workers.dev)
 

@@ -14,7 +14,7 @@ import {
 import { Hono } from "hono";
 import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
-import { bookingAlert } from "./digest";
+import { bookingAlert } from "./day-list";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
 import { groupRef } from "./ops/enrich";

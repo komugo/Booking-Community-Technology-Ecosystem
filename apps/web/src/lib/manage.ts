@@ -219,38 +219,29 @@ type DayList = {
     date: boolean;
     closed: boolean;
     closedBy: string | null;
-    closeK: string | null;
     option: { nameEn: string; nameMs: string };
     groups: { name: string; codes: string[]; names: string[]; court: string | null; endsAt: number | null }[];
+    horse: boolean;
+    customers: number;
+    closable: boolean;
   }[];
 };
 
 export async function listStep({ request, params, url }: Ctx, l: Locale) {
-  const c = url.searchParams.get("c") ?? "";
-  const res = await api<DayList>(request, "GET", `/lists/${q(params.operatorId!)}/${q(params.date!)}?c=${q(c)}&k=${q(url.searchParams.get("k") ?? "")}`);
-  if (res.status === 410) return { locale: l, list: null };
-  if (!res.data) return notFound();
-  const timeslots = res.data.timeslots.map((s) => ({ ...s, closeHref: s.closeK && `${path(l, "close", params.operatorId!, s.id)}?c=${q(c)}&k=${q(s.closeK)}` }));
-  return { locale: l, list: { ...res.data, timeslots } };
-}
-
-type CloseView = {
-  operator: string;
-  timeslot: { id: string; startsAt: number; date: boolean; horse: boolean; option: { nameEn: string; nameMs: string }; closedAt: number | null; closedBy: string | null };
-  customers: number;
-};
-
-export async function closeStep({ request, params, url }: Ctx, l: Locale) {
-  const at = `/closes/${q(params.operatorId!)}/${q(params.timeslotId!)}?c=${q(url.searchParams.get("c") ?? "")}&k=${q(url.searchParams.get("k") ?? "")}`;
-  let invalid = false;
+  const at = `/lists/${q(params.operatorId!)}/${q(params.date!)}?c=${q(url.searchParams.get("c") ?? "")}&k=${q(url.searchParams.get("k") ?? "")}`;
+  let invalid: string | null = null;
+  let late = false;
   if (request.method === "POST") {
-    const res = await api(request, "POST", at, { reason: (await form(request))("reason") });
-    if (res.status === 204 || res.status === 409) return see(url.pathname + url.search);
+    const f = await form(request);
+    const res = await api(request, "POST", at, { timeslotId: f("timeslot"), reason: f("reason") });
     if (res.status === 404) return notFound();
-    invalid = res.status === 400;
+    if (res.status === 204 || res.status === 409) return see(url.pathname + url.search);
+    if (res.status === 400) invalid = f("timeslot");
+    else if (res.status === 410) late = true;
+    else throw new Error(`Day list close failed: ${res.status}`);
   }
-  const res = await api<CloseView>(request, "GET", at);
-  if (res.status === 410) return { locale: l, view: null, invalid };
+  const res = await api<DayList>(request, "GET", at);
+  if (res.status === 410) return { locale: l, list: null, invalid, late };
   if (!res.data) return notFound();
-  return { locale: l, view: res.data, invalid };
+  return { locale: l, list: res.data, invalid, late };
 }

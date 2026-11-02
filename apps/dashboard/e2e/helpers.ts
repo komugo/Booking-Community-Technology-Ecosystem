@@ -18,7 +18,7 @@ export type Fixture = {
   staffEmail?: string;
   bookingId: string;
   k: string;
-  close: string;
+  list: string;
   customerEmail: string;
 };
 type Email = { to: string; subject: string; text: string };
@@ -28,6 +28,17 @@ export async function fixture(request: APIRequestContext, o: { locale?: "en" | "
   expect(res.ok()).toBe(true);
   return res.json();
 }
+
+// WhatsApp goes through the local queue, so its outcome shows after a reload or two.
+export const afterReload = (page: Page, check: () => Promise<void>) =>
+  expect(async () => {
+    await page.reload();
+    await check();
+  }).toPass({ timeout: 20_000 });
+
+export const whatsappOutbox = async (request: APIRequestContext) => (await (await request.get(`${API}/dev/whatsapp`)).json()) as { to: string; text: string }[];
+
+export const whatsappTo = async (request: APIRequestContext, to: string) => (await whatsappOutbox(request)).find((m) => m.to === to)?.text;
 
 export async function emails(request: APIRequestContext) {
   return (await (await request.get(`${API}/dev/emails`)).json()) as Email[];
