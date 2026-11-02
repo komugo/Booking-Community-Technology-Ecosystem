@@ -5,6 +5,7 @@ import { api, useApi } from "../api";
 import { Group, Input, num, SaveBar, useSubmit } from "../form";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
+import { MessageSheet } from "../message";
 import { rm, sen } from "../money";
 import { PhotosEditor } from "../photos";
 import type { AddOn, BookingUnit, Contact, ContactRole, ListingMode, Option, PackOffer, Resource, ResourceKind, Setting, Setup, TicketType, Venues } from "../types";
@@ -209,6 +210,7 @@ function Contacts({ op }: { op: string }) {
   const { t } = useT();
   const list = useApi<{ contacts: Contact[] }>(`/operators/${op}/contacts`);
   const [editing, setEditing] = useState<{ item: Contact | null } | null>(null);
+  const [messaging, setMessaging] = useState(false);
   const done = () => {
     setEditing(null);
     toast(t.saved);
@@ -219,10 +221,17 @@ function Contacts({ op }: { op: string }) {
   return (
     <>
       <p className="mb-4 text-muted">{t.contactsHint}</p>
-      <button type="button" className="btn btn-primary" onClick={() => setEditing({ item: null })}>
-        <Icon name="plus" className="size-5" />
-        {t.newContact}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primary" onClick={() => setEditing({ item: null })}>
+          <Icon name="plus" className="size-5" />
+          {t.newContact}
+        </button>
+        {list.data.contacts.length > 0 && (
+          <button type="button" className="btn btn-quiet" onClick={() => setMessaging(true)}>
+            {t.messageContacts}
+          </button>
+        )}
+      </div>
       {list.data.contacts.length === 0 ? (
         <p className="mt-4 rounded-2xl bg-sand p-4">{t.noContacts}</p>
       ) : (
@@ -254,6 +263,7 @@ function Contacts({ op }: { op: string }) {
       <Sheet open={!!editing} onClose={() => setEditing(null)} full title={editing?.item ? t.editContact : t.newContact}>
         {editing && <ContactEditor op={op} item={editing.item} onSaved={done} />}
       </Sheet>
+      <MessageSheet op={op} open={messaging} onClose={() => setMessaging(false)} />
     </>
   );
 }

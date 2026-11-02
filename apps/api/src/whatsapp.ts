@@ -91,14 +91,16 @@ async function attempt(env: Env, to: string, text: string) {
   }
 }
 
-// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); each Booking alert, Closure done and Payout notice counts for a day. A removed contact's message is shown but never resent.
-export const current = sql`case when ${whatsappMessages.template} in ('alert', 'closure', 'payout') then ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} else not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR}) end`;
+// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); each Booking alert, Closure done, Payout notice and staff message counts for a day. A removed contact's message is shown but never resent.
+export const current = sql`case when ${whatsappMessages.template} in ('alert', 'closure', 'payout', 'staff') then ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} else not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR}) end`;
 const live = sql`exists (select 1 from operator_contacts c where c.id = ${whatsappMessages.contactId})`;
 
 type Contact = { id: string; operatorId: string; phone: string; locale: Locale };
 
-export async function message(env: Env, to: Contact, template: Template, slots: Record<string, string>) {
-  const text = render(template, to.locale, slots);
+export const message = (env: Env, to: Contact, template: Template, slots: Record<string, string>) =>
+  send(env, to, template, render(template, to.locale, slots));
+
+export async function send(env: Env, to: Contact, template: Template | "staff", text: string) {
   const error = await attempt(env, to.phone, text);
   const status = error ? ("failed" as const) : ("sent" as const);
   await createDb(env.DB)

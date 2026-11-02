@@ -1,11 +1,11 @@
 import { createDb, operatorContacts, operators, whatsappMessages } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { normEmail, validEmail } from "../auth";
 import { fail } from "../lib";
-import { message } from "../whatsapp";
+import { message, send } from "../whatsapp";
 import { staffOnly, type Ops } from "./auth";
-import { invalid, json, name, type Body } from "./input";
+import { invalid, json, list as listOf, name, type Body } from "./input";
 
 export const contacts = new Hono<Ops>();
 
@@ -123,4 +123,25 @@ contacts.post("/:id/remove", async (c) => {
     .delete(operatorContacts)
     .where(and(eq(operatorContacts.id, c.req.param("id")), eq(operatorContacts.operatorId, op)));
   return c.json({ contacts: await list(c.env, op) });
+});
+
+// Replies come back to WhatsApp Web, not here (ADR 0006).
+contacts.post("/message", async (c) => {
+  const op = c.req.param("operatorId")!;
+  const body = await json(c);
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  const ids = listOf<string>(body.contactIds, 50, (x) => typeof x === "string") ? [...new Set(body.contactIds)] : [];
+  const errors = invalid([
+    [ids.length > 0, "contactIds"],
+    [text.length >= 1 && text.length <= 2000, "text"],
+  ]);
+  if (errors.length) return fail(c, 400, errors[0], errors);
+  const to = await createDb(c.env.DB)
+    .select()
+    .from(operatorContacts)
+    .where(and(eq(operatorContacts.operatorId, op), inArray(operatorContacts.id, ids)));
+  if (to.length !== ids.length) return fail(c, 404, { code: "not_found" });
+  let failed = 0;
+  for (const contact of to) if ((await send(c.env, contact, "staff", text)) === "failed") failed++;
+  return c.json({ sent: to.length - failed, failed });
 });

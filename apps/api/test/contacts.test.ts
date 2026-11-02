@@ -1,4 +1,5 @@
-import { operators } from "@komugo/db";
+import { operators, whatsappMessages } from "@komugo/db";
+import { and, eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { devOutbox } from "../src/whatsapp";
 import { client, d1, db, member, rid } from "./helpers";
@@ -88,4 +89,27 @@ test("the Welcome goes out in the contact's language and every send is logged wi
   ]);
   expect(log[0].text).toBe(bm.text);
   expect(log[2].error).toBeTruthy();
+});
+
+test("staff send a free-text message to chosen contacts, logged like all others; operator Members can't", async () => {
+  const o = await operator();
+  await o.staff.json("POST", o.base, { name: "Aminah", phone: "0135550001", role: "counter" });
+  const both = await o.staff.json<{ contacts: Contact[] }>("POST", o.base, { name: "Hafiz", phone: "0135550002", role: "counter" });
+  const [a, h] = both.body.contacts;
+  const msg = `${o.base}/message`;
+  const text = "Closed Sunset ride, Thu 6 Nov 20:00–22:00, 5 Customers asked to choose a Refund or Reschedule";
+
+  expect((await (await member("operator", o.id)).json("POST", msg, { contactIds: [a.id], text })).status).toBe(403);
+  expect((await o.staff.json("POST", msg, { contactIds: [], text })).body).toMatchObject({ field: "contactIds" });
+  expect((await o.staff.json("POST", msg, { contactIds: [a.id], text: "  " })).body).toMatchObject({ field: "text" });
+  const other = await operator();
+  const theirs = await other.staff.json<{ contacts: Contact[] }>("POST", other.base, { name: "Zul", phone: "0135550003", role: "counter" });
+  expect((await o.staff.json("POST", msg, { contactIds: [a.id, theirs.body.contacts[0].id], text })).status).toBe(404);
+
+  const res = await o.staff.json("POST", msg, { contactIds: [h.id, h.id], text: ` ${text} ` });
+  expect(res.body).toEqual({ sent: 1, failed: 0 });
+  expect(sentTo("+60135550002").map((m) => m.text)).toContain(text);
+  expect(sentTo("+60135550001").map((m) => m.text)).not.toContain(text);
+  const logged = await db.select().from(whatsappMessages).where(and(eq(whatsappMessages.contactId, h.id), eq(whatsappMessages.template, "staff")));
+  expect(logged).toMatchObject([{ operatorId: o.id, phone: "+60135550002", text, status: "sent" }]);
 });
