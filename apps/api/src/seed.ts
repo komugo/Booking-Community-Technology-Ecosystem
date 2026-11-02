@@ -9,12 +9,12 @@ import { count, inArray } from "drizzle-orm";
 type PhotoSeed = Omit<typeof photos.$inferInsert, "activityId" | "position">;
 type HubSeed = typeof cities.$inferInsert & { id: string; photo: PhotoSeed };
 type OptionSeed = Pick<OptionInput, "id" | "nameEn" | "nameMs" | "priceSen" | "durationMinutes"> &
-  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "requiredCert">> & {
+  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "maxPerBooking" | "requiredCert">> & {
     needs: Partial<Record<ResourceKind, number>>;
   };
 type ResourceSeed = Pick<ResourceInput, "id" | "kind" | "name"> &
   Partial<Pick<ResourceInput, "maxSessionsPerDay" | "restMinutes" | "maxRiderWeightKg">>;
-type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published"> & {
+type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published" | "listingMode"> & {
   id: string;
   operator: { id: string; name: string };
   category: HubSeed;
@@ -258,6 +258,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         maxAge: null,
         maxWeightKg: null,
         minParticipants: null,
+        maxPerBooking: null,
         requiredCert: null,
         active: true,
         ...o,
@@ -274,6 +275,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
       times: ["09:00", "11:00", "14:00", "16:00"],
       startsOn: klDate(Date.now()),
       endsOn: null,
+      priceSen: null,
       active: true,
     });
   }

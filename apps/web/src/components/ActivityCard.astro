@@ -31,7 +31,7 @@ const age = card.minAge !== null ? s.age(card.minAge, null) : null;
           </span>
         )
       }
-      {card.fromPriceSen !== null && !card.published && <span class="text-xs font-medium text-clay">{s.unconfirmed}</span>}
+      {card.fromPriceSen !== null && card.listingMode !== "bookable" && <span class="text-xs font-medium text-clay">{s.unconfirmed}</span>}
       {length && <span class="rounded-full border border-line px-3 py-1 text-muted">{length}</span>}
       {age && <span class="rounded-full border border-line px-3 py-1 text-muted">{age}</span>}
     </div>

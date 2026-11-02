@@ -8,22 +8,23 @@ import { duration, klDay, klTime, path, requirements, rm, t } from "../../lib/i1
 import type { pickStep } from "../../lib/checkout";
 
 type Props = Exclude<Awaited<ReturnType<typeof pickStep>>, Response>;
-const { locale: l, option: o, activityName, siblings, addOns, days, date, times, nextOpen, values, min, problems: p } = Astro.props;
+const { locale: l, option: o, activityName, freeCancelHours, siblings, addOns, days, date, times, nextOpen, values, min, max, problems: p } = Astro.props;
 const s = t[l];
 const c = s.checkout;
 const here = path(l, "book", o.id);
 const name = l === "ms" ? o.nameMs : o.nameEn;
-const total = o.priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
+const picked = times.find((x) => x.id === values.timeslotId);
+const priceSen = picked?.priceSen ?? o.priceSen;
+const total = priceSen * values.quantity + addOns.reduce((sum, a) => sum + (values.addOns[a.id] ?? 0) * a.priceSen, 0);
 const carried = new URLSearchParams({
   quantity: String(values.quantity),
   ...Object.fromEntries(Object.entries(values.addOns).filter(([, n]) => n > 0).map(([id, n]) => [`addOn.${id}`, String(n)])),
 });
 const dayLink = (d: string) => `${here}?date=${d}&${carried}`;
-const picked = times.find((x) => x.id === values.timeslotId);
 ---
 
 <Checkout locale={l} title={c.pickTitle} step={1} problems={p}>
-  <form method="post" action={here} data-pick={o.priceSen} class="mt-6 space-y-8" novalidate>
+  <form method="post" action={here} data-pick={o.priceSen} data-max={max} class="mt-6 space-y-8" novalidate>
     <input type="hidden" name="date" value={date} />
     <section class="rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]">
       <p class="text-sm text-muted">{activityName}</p>
@@ -42,7 +43,7 @@ const picked = times.find((x) => x.id === values.timeslotId);
                     x.id === o.id ? "border-forest bg-forest text-white" : "border-line bg-paper hover:border-leaf",
                   ]}
                 >
-                  {l === "ms" ? x.nameMs : x.nameEn} · {rm(x.priceSen)}
+                  {l === "ms" ? x.nameMs : x.nameEn} · {s.from} {rm(x.fromPriceSen)}
                 </a>
               </li>
             ))}
@@ -61,8 +62,9 @@ const picked = times.find((x) => x.id === values.timeslotId);
           <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {times.map((x) => (
               <label class="relative flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-2xl border border-line bg-white px-3 py-2 has-checked:border-forest has-checked:bg-forest has-checked:text-white has-focus-visible:outline-3 has-focus-visible:outline-lime">
-                <input type="radio" name="timeslotId" value={x.id} checked={x.id === values.timeslotId} data-spots={x.spots} data-low-text={c.onlyLeft(x.spots)} class="sr-only" />
+                <input type="radio" name="timeslotId" value={x.id} checked={x.id === values.timeslotId} data-spots={x.spots} data-price={x.priceSen} data-low-text={c.onlyLeft(x.spots)} class="sr-only" />
                 <span class="num font-semibold">{klTime(l, x.startsAt)}</span>
+                <span class="num text-xs">{rm(x.priceSen)}</span>
                 {x.spots <= 3 && <span class="text-xs">{c.left(x.spots)}</span>}
               </label>
             ))}
@@ -86,9 +88,9 @@ const picked = times.find((x) => x.id === values.timeslotId);
       <div class="flex items-center justify-between gap-4">
         <div>
           <h2 id="people-label" class="text-xl font-bold">{c.people}</h2>
-          <p class="text-sm text-muted">{rm(o.priceSen)} {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
+          <p class="text-sm text-muted"><span data-each>{rm(priceSen)}</span> {c.each}{min > 1 && <> · {s.group(min)}</>}</p>
         </div>
-        <Stepper id="quantity" name="quantity" label={c.people} value={values.quantity} min={min} max={10} fewer={c.fewer(c.people)} more={c.more(c.people)} />
+        <Stepper id="quantity" name="quantity" label={c.people} value={values.quantity} min={min} max={max} fewer={c.fewer(c.people)} more={c.more(c.people)} />
       </div>
       <FieldError p={p} id="quantity" />
       <p data-low hidden={!picked || picked.spots > 3} class="mt-2 text-sm font-medium text-clay">{c.onlyLeft(picked?.spots ?? 0)}</p>
@@ -126,6 +128,11 @@ const picked = times.find((x) => x.id === values.timeslotId);
         </section>
       )
     }
+
+    <section class="rounded-2xl bg-sand p-4" aria-labelledby="cancel">
+      <h2 id="cancel" class="text-lg font-bold">{s.cancellation}</h2>
+      <p class="mt-1 text-sm">{s.cancelText(freeCancelHours)}</p>
+    </section>
 
     <BottomBar locale={l} label={c.estimated} sen={total}>
       <button class="inline-flex min-h-12 shrink-0 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest disabled:opacity-50" disabled={!times.length}>

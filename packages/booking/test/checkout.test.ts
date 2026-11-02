@@ -2,7 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { waivers } from "@komugo/db";
 import { describe, expect, test } from "vitest";
 import { migrate, migrations } from "../src/migrations";
-import { customer, db, DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8 } from "./helpers";
+import { customer, db, DAY, kl, rid, rideWorld, UNDO_V6, UNDO_V8, UNDO_V9, UNDO_V10, UNDO_V11, UNDO_V13 } from "./helpers";
 
 const d1 = (query: string, ...params: unknown[]) =>
   env.DB.prepare(query)
@@ -75,6 +75,16 @@ test("fewer Participants than min_participants is below_min_participants", async
   await expect(
     w.hold(w.customerId, await w.slot(w.optionId, kl(`${DAY}T09:00`)), [await w.participant(w.customerId)]),
   ).rejects.toMatchObject({ code: "below_min_participants" });
+});
+
+test("more Participants than max_per_booking is invalid_participant", async () => {
+  const w = await rideWorld();
+  await w.resource();
+  await w.editOption(w.optionId, { maxPerBooking: 1 });
+  const people = await Promise.all([1, 2].map(() => w.participant(w.customerId)));
+  await expect(w.hold(w.customerId, await w.slot(w.optionId, kl(`${DAY}T09:00`)), people)).rejects.toMatchObject({
+    code: "invalid_participant",
+  });
 });
 
 test("a fourth active Hold is too_many_holds; replacing a Hold still works", async () => {
@@ -194,6 +204,7 @@ test("bookingView returns the Booking's Tickets, Add-ons and total", async () =>
         timeslotId: ts,
         startsAt: kl(`${DAY}T09:00`),
         closedAt: null,
+        priceSen: 10000,
         refundId: null,
         refundSen: 0,
       },
@@ -222,13 +233,30 @@ test("only a Waiver of the current version counts", async () => {
   });
 });
 
+test("an Activity that doesn't require a Waiver holds without one; a new or migrated Activity requires one", async () => {
+  const w = await rideWorld();
+  const p = await w.participant(w.customerId, { waiver: false });
+  const slot = (t: string) => w.slot(w.optionId, kl(`${DAY}T${t}`));
+  await runInDurableObject(w.stub, (_, s) => {
+    for (const q of [...UNDO_V13, ...UNDO_V11, ...UNDO_V10]) s.storage.sql.exec(q);
+    s.storage.sql.exec("UPDATE meta SET schema_version = 9");
+    migrate(s.storage);
+  });
+  await expect(w.hold(w.customerId, await slot("09:00"), [p])).rejects.toMatchObject({ code: "waiver_missing" });
+  await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 24, requiresWaiver: false });
+  await expect(w.hold(w.customerId, await slot("10:00"), [p])).resolves.toBeDefined();
+  await w.b.upsertActivity({ id: w.activityId, freeCancelHours: 12 });
+  await w.flush();
+  expect(await d1("SELECT requires_waiver FROM proj_activities WHERE id = ?", w.activityId)).toEqual([{ requires_waiver: 0 }]);
+});
+
 test("migrations 3 to 5 on a Durable Object with v2 data keep its Holds, re-project every Option and default the Booking cutoff", async () => {
   const w = await rideWorld();
   const ts = await w.slot(w.optionId, kl(`${DAY}T09:00`));
   const h = await w.hold(w.customerId, ts, [await w.participant(w.customerId)]);
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of [...UNDO_V8, ...UNDO_V6]) sql.exec(q);
+    for (const q of [...UNDO_V13, ...UNDO_V11, ...UNDO_V10, ...UNDO_V9, ...UNDO_V8, ...UNDO_V6]) sql.exec(q);
     sql.exec("DROP INDEX holds_customer_active");
     sql.exec("DROP TABLE hold_add_ons");
     sql.exec("ALTER TABLE holds DROP COLUMN amount_sen");

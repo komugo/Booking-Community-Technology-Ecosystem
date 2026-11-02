@@ -43,6 +43,15 @@ test("after the window it is window_passed, once started it is started, and anot
   });
 });
 
+test("inside the window a Timeslot at another price is price_differs; after a Closure it moves free", async () => {
+  const w = await booked();
+  const next = await w.slot(w.optionId, later(96));
+  await w.sql("UPDATE options SET price_sen = price_sen + 4000 WHERE id = ?", w.optionId);
+  await expect(w.move(next)).rejects.toMatchObject({ code: "price_differs" });
+  await w.b.closeTimeslot(w.ts, "weather");
+  expect(await w.move(next, undefined, undefined, rid(), true)).toMatchObject({ timeslotId: next });
+});
+
 test("after a Closure any future open Timeslot is free, ignoring the window and Pack expiry", async () => {
   const w = await booked();
   await w.b.closeTimeslot(w.ts, "weather");

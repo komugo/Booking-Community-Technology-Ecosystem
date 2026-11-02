@@ -2,9 +2,9 @@ import type { Weekday } from "@komugo/types/rules";
 
 export type Locale = "en" | "ms";
 export type Named = { nameEn: string; nameMs: string };
-export type Waiver = "signed" | "guardian" | "outdated" | "missing";
+export type Waiver = "signed" | "guardian" | "outdated" | "missing" | "not_required";
 export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane";
-export type ClosureReason = "weather" | "horse_unfit" | "other";
+export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type Outcome = "checked_in" | "already" | "not_today" | "closed" | "cancelled" | "not_found" | "ambiguous";
 
 export type Member = { email: string; name: string; role: "staff" | "operator" };
@@ -33,6 +33,7 @@ export type Timeslot = {
   startsAt: number;
   closedAt: number | null;
   closedReason: string | null;
+  horse: boolean;
   spots: number;
   option: Named & { id: string; durationMinutes: number };
   groups: Group[];
@@ -64,6 +65,7 @@ export type Option = Named & {
   maxWeightKg: number | null;
   requiredCert: string | null;
   minParticipants: number | null;
+  maxPerBooking: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -85,6 +87,7 @@ export type Schedule = {
   times: string[];
   startsOn: string;
   endsOn: string | null;
+  priceSen: number | null;
   active: boolean;
 };
 export type PackOffer = Named & {
@@ -107,13 +110,27 @@ export type RefundRow = {
   bookingId: string | null;
   customer: { name: string | null; email: string | null; phone: string | null };
 };
+export type ListingMode = "bookable" | "info" | "hidden";
+export type PayoutRow = {
+  operatorId: string;
+  operatorName: string;
+  month: string;
+  salesSen: number;
+  commissionSen: number;
+  refundsSen: number;
+  carriedSen: number;
+  amountSen: number;
+  paidSen: number | null;
+  paidAt: number | null;
+};
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
+  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: Option[];
   addOns: AddOn[];
   resources: Resource[];
   schedules: Schedule[];
   packOffers: PackOffer[];
-  catalogue: (Named & { id: string; slugEn: string; slugMs: string; published: boolean })[];
+  commissionBps: number | null;
+  catalogue: (Named & { id: string; slugEn: string; slugMs: string; listingMode: ListingMode })[];
 };
 export type Generated = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };

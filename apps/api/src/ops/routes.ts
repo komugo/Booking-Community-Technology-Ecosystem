@@ -1,8 +1,8 @@
 import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, createDb } from "@komugo/db";
+import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, projPackOffers, type Db, type ListingMode } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
@@ -12,7 +12,7 @@ import { enrichCheckIn, enrichTimeslots } from "./enrich";
 type Body = Record<string, unknown>;
 
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
-const REASONS: ClosureReason[] = ["weather", "horse_unfit", "other"];
+const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 const int = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
 const intOrNull = (v: unknown, min: number, max: number) => v === null || int(v, min, max);
@@ -42,9 +42,15 @@ async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   return !!row;
 }
 
+async function commissionBps(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
+  return o.bps;
+}
+
 routes.get("/setup", async (c) => {
-  const [setup, catalogue] = await Promise.all([
+  const [setup, commission, catalogue] = await Promise.all([
     c.var.b.setup(),
+    commissionBps(c.env, c.req.param("operatorId")!),
     createDb(c.env.DB)
       .select({
         id: activities.id,
@@ -52,12 +58,23 @@ routes.get("/setup", async (c) => {
         nameMs: activities.nameMs,
         slugEn: activities.slugEn,
         slugMs: activities.slugMs,
-        published: activities.published,
+        listingMode: activities.listingMode,
       })
       .from(activities)
       .where(eq(activities.operatorId, c.req.param("operatorId")!)),
   ]);
-  return c.json({ ...setup, catalogue });
+  return c.json({ ...setup, commissionBps: commission, catalogue });
+});
+
+routes.put("/commission", staffOnly, async (c) => {
+  const body = await json(c);
+  if (!int(body.commissionBps, 0, 10_000)) return fail(c, 400, { code: "invalid_field", field: "commissionBps" });
+  // Agreeing the Commission is what signs an Operator up.
+  await createDb(c.env.DB)
+    .update(operators)
+    .set({ commissionBps: body.commissionBps, signedUp: true })
+    .where(eq(operators.id, c.req.param("operatorId")!));
+  return c.json({ commissionBps: body.commissionBps });
 });
 
 routes.put("/activities/:id", async (c) => {
@@ -66,6 +83,7 @@ routes.put("/activities/:id", async (c) => {
     [int(body.freeCancelHours, 0, 720), "freeCancelHours"],
     [int(body.bookingCutoffMinutes, 0, 1440), "bookingCutoffMinutes"],
     [list<string>(body.closedDays, 14, (d) => typeof d === "string" && CLOSED_DAY.test(d)), "closedDays"],
+    [bool(body.requiresWaiver), "requiresWaiver"],
   ]);
   if (errors.length) return fail(c, 400, errors[0], errors);
   if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
@@ -74,16 +92,59 @@ routes.put("/activities/:id", async (c) => {
     freeCancelHours: body.freeCancelHours as number,
     bookingCutoffMinutes: body.bookingCutoffMinutes as number,
     closedDays: [...new Set(body.closedDays as string[])],
+    requiresWaiver: body.requiresWaiver as boolean,
   });
   return c.json({ generated });
 });
 
-routes.put("/activities/:id/published", staffOnly, async (c) => {
+// A bill not yet paid or deleted can still be paid late and make a sale.
+async function hasOpenBills(db: Db, activityId: string) {
+  const [open] = await db
+    .select({ id: bills.id })
+    .from(bills)
+    .where(
+      and(
+        isNull(bills.paidAt),
+        isNull(bills.deletedAt),
+        or(
+          inArray(bills.checkoutId, db.select({ id: checkouts.id }).from(checkouts).where(eq(checkouts.activityId, activityId))),
+          inArray(
+            bills.checkoutId,
+            db
+              .select({ id: packOrders.id })
+              .from(packOrders)
+              .innerJoin(projPackOffers, eq(projPackOffers.id, packOrders.offerId))
+              .where(eq(projPackOffers.activityId, activityId)),
+          ),
+        ),
+      ),
+    )
+    .limit(1);
+  return !!open;
+}
+
+routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const body = await json(c);
-  if (!bool(body.published)) return fail(c, 400, { code: "invalid_field", field: "published" });
-  if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
-  await createDb(c.env.DB).update(activities).set({ published: body.published }).where(eq(activities.id, c.req.param("id")));
-  return c.json({ published: body.published });
+  const mode = body.listingMode as ListingMode;
+  if (!LISTING_MODES.includes(mode)) return fail(c, 400, { code: "invalid_field", field: "listingMode" });
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const [row] = await db
+    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps })
+    .from(activities)
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
+    .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
+  if (!row) return fail(c, 404, { code: "not_found" });
+  if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
+  if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
+  const set = (m: ListingMode) => db.update(activities).set({ listingMode: m, published: m === "bookable" }).where(eq(activities.id, id));
+  await set(mode);
+  // Written before the check so a Hold made after it is refused at pay or redeem.
+  if (row.listingMode === "bookable" && mode !== "bookable" && ((await c.var.b.hasFutureBookings(id)) || (await hasOpenBills(db, id)))) {
+    await set("bookable");
+    return fail(c, 409, { code: "has_future_tickets", field: "listingMode" });
+  }
+  return c.json({ listingMode: mode });
 });
 
 function optionInput(body: Body) {
@@ -98,6 +159,11 @@ function optionInput(body: Body) {
     [intOrNull(body.maxWeightKg, 1, 300), "maxWeightKg"],
     [body.requiredCert === null || (typeof body.requiredCert === "string" && name(body.requiredCert) && body.requiredCert.length <= 50), "requiredCert"],
     [intOrNull(body.minParticipants, 1, 10), "minParticipants"],
+    [
+      intOrNull(body.maxPerBooking, 1, 50) &&
+        !(int(body.minParticipants, 1, 10) && int(body.maxPerBooking, 1, 50) && body.minParticipants > body.maxPerBooking),
+      "maxPerBooking",
+    ],
     [bool(body.active), "active"],
     [
       list(body.needs, 4, (n) => KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
@@ -118,6 +184,7 @@ function optionInput(body: Body) {
       maxWeightKg: body.maxWeightKg as number | null,
       requiredCert: (body.requiredCert as string | null)?.trim() ?? null,
       minParticipants: body.minParticipants as number | null,
+      maxPerBooking: body.maxPerBooking as number | null,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),
@@ -172,6 +239,7 @@ function scheduleInput(body: Body) {
       [list(body.times, 48, (t) => typeof t === "string" && HHMM.test(t)) && (body.times as string[]).length > 0, "times"],
       [validDate(body.startsOn), "startsOn"],
       [body.endsOn === null || (validDate(body.endsOn) && body.endsOn >= (body.startsOn as string)), "endsOn"],
+      [intOrNull(body.priceSen ?? null, 0, 10_000_000), "priceSen"],
       [bool(body.active), "active"],
     ]),
     value: () => ({
@@ -181,6 +249,7 @@ function scheduleInput(body: Body) {
       times: body.times as string[],
       startsOn: body.startsOn as string,
       endsOn: body.endsOn as string | null,
+      priceSen: (body.priceSen ?? null) as number | null,
       active: body.active as boolean,
     }),
   };
@@ -270,9 +339,11 @@ routes.get("/timeslots/:id", async (c) => {
 
 routes.post("/timeslots/:id/close", async (c) => {
   const body = await json(c);
-  if (!REASONS.includes(body.reason as ClosureReason)) return fail(c, 400, { code: "invalid_field", field: "reason" });
-  const op = c.req.param("operatorId")!;
   const id = c.req.param("id");
+  if (!REASONS.includes(body.reason as ClosureReason) || (body.reason === "horse_unfit" && !(await c.var.b.timeslots({ ids: [id] }))[0]?.horse)) {
+    return fail(c, 400, { code: "invalid_field", field: "reason" });
+  }
+  const op = c.req.param("operatorId")!;
   await recordClosure(c.env, (p) => c.executionCtx.waitUntil(p), op, id, body.reason as ClosureReason);
   const [slot] = await enrichTimeslots(c.env, op, await c.var.b.timeslots({ ids: [id] }));
   return c.json({ timeslot: slot, affected: slot.groups });

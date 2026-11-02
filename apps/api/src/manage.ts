@@ -11,7 +11,7 @@ import {
   projTimeslots,
 } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, ne } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
@@ -160,9 +160,13 @@ export function manage(kind: Kind) {
     const slots = await db
       .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
+      .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
       .where(
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
+          kind === "booking" && !closed
+            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`, tickets[0].priceSen)
+            : undefined,
           isNull(projTimeslots.closedAt),
           gte(projTimeslots.spots, tickets.length),
           gt(projTimeslots.startsAt, now + (cutoff?.minutes ?? 0) * MIN),

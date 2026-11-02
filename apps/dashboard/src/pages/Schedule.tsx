@@ -4,6 +4,7 @@ import { Link, useLocation, useParams, useSearch } from "wouter";
 import { api, useApi } from "../api";
 import { addDays, today, visible } from "../day";
 import { dateLong, day, errorText, named, time, useT, type Dict } from "../i18n";
+import { rm, sen } from "../money";
 import type { Generated, Locale, Schedule, Setup, Timeslot } from "../types";
 import { Field, Icon, Sheet, Spinner, toast, Toggle } from "../ui";
 
@@ -164,6 +165,7 @@ export default function SchedulePage() {
                       x.times.join(", "),
                       t.fromDate(dateLong(noon(x.startsOn), l)),
                       x.endsOn && t.untilDate(dateLong(noon(x.endsOn), l)),
+                      x.priceSen !== null && rm(x.priceSen),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -217,9 +219,11 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
       times: [],
       startsOn: today(),
       endsOn: null,
+      priceSen: null,
       active: true,
     },
   );
+  const [price, setPrice] = useState(v.priceSen === null ? "" : String(v.priceSen / 100));
   const [newTime, setNewTime] = useState("09:00");
   const [error, setError] = useState<{ field?: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -231,7 +235,10 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
     setBusy(true);
     setError(null);
     try {
-      const g = await api<Generated>(schedule ? "PUT" : "POST", `/operators/${op}/schedules${schedule ? `/${schedule.id}` : ""}`, v);
+      const g = await api<Generated>(schedule ? "PUT" : "POST", `/operators/${op}/schedules${schedule ? `/${schedule.id}` : ""}`, {
+        ...v,
+        priceSen: sen(price),
+      });
       onSaved(g);
     } catch (e) {
       setError({ field: (e as { field?: string }).field, text: errorText(e, t) });
@@ -377,6 +384,19 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
           )}
         </Field>
       </div>
+      <Field label={t.priceRm} hint={t.schedulePriceHint} error={err("priceSen")}>
+        {(id, note) => (
+          <input
+            id={id}
+            className="input num"
+            inputMode="decimal"
+            value={price}
+            aria-describedby={note}
+            aria-invalid={!!err("priceSen") || undefined}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+        )}
+      </Field>
       <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
       {error && !error.field && (
         <p role="alert" className="font-semibold text-clay">

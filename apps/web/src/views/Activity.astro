@@ -15,7 +15,9 @@ import type { ActivityData } from "../lib/catalog";
 
 type Props = ActivityData;
 const a = Astro.props;
-const { locale, alternates, city, category, published, bookable } = a;
+const { locale, alternates, city, category, bookable } = a;
+const confirmed = a.listingMode === "bookable";
+const info = a.listingMode === "info";
 const s = t[locale];
 const crumbs = [
   { name: s.home, path: path(locale) },
@@ -23,13 +25,23 @@ const crumbs = [
   { name: category.name, path: path(locale, city.slugs[locale], category.slugs[locale]) },
   { name: a.name, path: alternates[locale] },
 ];
-const fromSen = a.options.length ? Math.min(...a.options.map((o) => o.priceSen)) : null;
+const fromSen = info ? null : a.fromPriceSen;
 const today = a.openingHours.find((h) => h.days.includes(todayKL()));
-const todayText = today ? s.openToday(`${time(locale, today.opens)} – ${time(locale, today.closes)}`) : s.closedToday;
+const todayText = !a.openingHours.length
+  ? `${s.hours}: ${s.checkWithVenue}`
+  : today
+    ? s.openToday(`${time(locale, today.opens)} – ${time(locale, today.closes)}`)
+    : s.closedToday;
 const address = [a.streetAddress, [a.postalCode, city.name].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 const mapsQuery = a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : `${a.name}, ${address}`;
 const heroSizes = "(min-width: 1024px) 60vw, 100vw";
 const title = fromSen !== null ? s.activityTitle(a.name, category.name, rm(fromSen)) : `${a.name} | Komugo`;
+const tel = a.phone ? `tel:${a.phone.replace(/[^\d+]/g, "")}` : null;
+const infoCta = {
+  walk_in: { label: s.justTurnUp, text: s.justTurnUpText, href: null },
+  external: { label: s.bookWith(a.operatorName), text: s.bookWithText, href: a.bookUrl ?? tel },
+  unknown: { label: s.callVenue, text: s.callVenueText, href: tel },
+}[a.howToBook];
 const bookHref = bookable ? (a.options.length === 1 ? path(locale, "book", a.options[0].id) : "#options") : null;
 const lead = a.description.split("\n")[0];
 const cut = lead.slice(0, 156);
@@ -41,7 +53,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
   title={title}
   description={description}
   alternates={alternates}
-  indexable={published}
+  indexable={a.listingMode !== "hidden"}
   image={a.photos[0] ?? null}
   hero={a.photos[0] ? { photo: a.photos[0], sizes: heroSizes } : undefined}
   jsonLd={[breadcrumbLd(Astro.site, crumbs), ...activityLd(Astro.site, locale, a)]}
@@ -92,14 +104,16 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
         <h1 class="mt-4 text-5xl font-extrabold md:text-7xl">{a.name}</h1>
         {a.operatorName !== a.name && <p class="mt-4 text-muted">{a.operatorName}</p>}
         <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+          {a.venue && <li data-venue>{[a.venue.name, a.venue.presint && s.presint(a.venue.presint)].filter(Boolean).join(" · ")}</li>}
           {address && <li>{address}</li>}
           <li>{todayText}</li>
         </ul>
-        {fromSen !== null && <p class="mt-5 text-3xl"><Price locale={locale} sen={fromSen} confirmed={published} from /></p>}
+        {fromSen !== null && <p class="mt-5 text-3xl"><Price locale={locale} sen={fromSen} confirmed={confirmed} from /></p>}
+        {info && <p class="mt-5 text-xl font-semibold" data-price-note>{a.priceNote ?? `${s.price}: ${s.checkWithVenue}`}</p>}
       </header>
 
       {
-        !published && (
+        a.listingMode === "hidden" && (
           <div role="note" class="mt-8 rounded-2xl border border-clay/30 bg-clay/5 p-5">
             <p class="font-semibold text-clay">{s.draftTitle}</p>
             <p class="mt-1 text-sm text-muted">{s.draftBody}</p>
@@ -124,11 +138,11 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
       }
 
       {
-        a.options.length > 0 && (
+        !info && a.options.length > 0 && (
           <section class="mt-14" aria-labelledby="options">
             <h2 id="options" class="scroll-mt-6 text-3xl font-extrabold">{s.options}</h2>
             <ul class="mt-5 grid gap-4">
-              {a.options.map((o) => <OptionCard option={o} locale={locale} confirmed={published} bookable={bookable} />)}
+              {a.options.map((o) => <OptionCard option={o} locale={locale} confirmed={confirmed} bookable={bookable} />)}
             </ul>
           </section>
         )
@@ -155,7 +169,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
                 {a.addOns.map((x) => (
                   <tr class="border-b border-line last:border-0">
                     <th scope="row" class="py-3 text-left font-normal">{x.name}</th>
-                    <td class="py-3 text-right"><Price locale={locale} sen={x.priceSen} confirmed={published} /></td>
+                    {!info && <td class="py-3 text-right"><Price locale={locale} sen={x.priceSen} confirmed={confirmed} /></td>}
                   </tr>
                 ))}
               </tbody>
@@ -186,10 +200,10 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
           )}
           <div class="rounded-2xl bg-sand p-5">
             <h3 class="text-xl font-bold">{s.hours}</h3>
-            <div class="mt-3 text-sm"><HoursTable locale={locale} hours={a.openingHours} /></div>
+            <div class="mt-3 text-sm" data-hours>{a.openingHours.length ? <HoursTable locale={locale} hours={a.openingHours} /> : s.checkWithVenue}</div>
             {a.hoursNote && <p class="mt-3 text-sm text-muted">{a.hoursNote}</p>}
           </div>
-          {a.freeCancelHours !== null && (
+          {!info && a.freeCancelHours !== null && (
             <div class="rounded-2xl bg-sand p-5 md:col-span-2">
               <h3 class="text-xl font-bold">{s.cancellation}</h3>
               <p class="mt-2">{s.cancelText(a.freeCancelHours)}</p>
@@ -201,7 +215,7 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
       <section class="mt-14" aria-labelledby="location">
         <h2 id="location" class="text-3xl font-extrabold">{s.location}</h2>
         <div class="mt-5 rounded-2xl bg-forest p-6 text-white">
-          <p class="text-xl font-semibold">{a.name}</p>
+          <p class="text-xl font-semibold">{a.venue?.name ?? a.name}</p>
           {address && <p class="mt-1 text-white/80">{address}</p>}
           <div class="mt-5 flex flex-wrap gap-3">
             <a
@@ -232,18 +246,34 @@ const description = lead.length <= 160 ? lead : cut.slice(0, cut.lastIndexOf(" "
 
       <section id="book" class="mt-14 scroll-mt-6 rounded-2xl border-2 border-dashed border-leaf/40 p-6" aria-labelledby="book-title">
         <h2 id="book-title" class="text-3xl font-extrabold">{s.book}</h2>
-        <p class="mt-2">{bookable ? s.bookOnline : s.bookText}</p>
-        {bookHref && <a href={bookHref} class="mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.bookNow}</a>}
-        {!bookHref && a.phone && <a href={`tel:${a.phone.replace(/[^\d+]/g, "")}`} class="num mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.call} {a.phone}</a>}
+        {
+          info ? (
+            <div data-cta={a.howToBook}>
+              <p class="mt-2 text-xl font-semibold">{infoCta.label}</p>
+              <p class="mt-1">{infoCta.href || a.howToBook === "walk_in" ? infoCta.text : s.checkWithVenue}</p>
+              {infoCta.href && (
+                <a href={infoCta.href} rel={a.bookUrl ? "noopener nofollow" : undefined} class="num mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">
+                  {infoCta.href === a.bookUrl ? infoCta.label : `${s.call} ${a.phone}`}
+                </a>
+              )}
+            </div>
+          ) : (
+            <>
+              <p class="mt-2">{bookable ? s.bookOnline : s.bookText}</p>
+              {bookHref && <a href={bookHref} class="mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.bookNow}</a>}
+              {!bookHref && tel && <a href={tel} class="num mt-4 inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{s.call} {a.phone}</a>}
+            </>
+          )
+        }
       </section>
     </div>
 
     <aside class="hidden lg:block">
       <div class="sticky top-6 mt-10 rounded-3xl bg-white p-6 shadow-[0_1px_0_var(--color-line),0_16px_40px_-20px_rgb(14_26_20/0.3)]">
-        {fromSen !== null && <p class="text-3xl"><Price locale={locale} sen={fromSen} confirmed={published} from /></p>}
+        {fromSen !== null && <p class="text-3xl"><Price locale={locale} sen={fromSen} confirmed={confirmed} from /></p>}
         <p class="mt-2 text-sm text-muted">{todayText}</p>
         <a href={bookHref ?? "#book"} class="mt-5 flex min-h-12 items-center justify-center rounded-full bg-leaf font-semibold text-white hover:bg-forest">{bookHref ? s.bookNow : s.howToBook}</a>
-        {a.freeCancelHours !== null && <p class="mt-4 text-sm text-muted">{s.cancelText(a.freeCancelHours)}</p>}
+        {!info && a.freeCancelHours !== null && <p class="mt-4 text-sm text-muted">{s.cancelText(a.freeCancelHours)}</p>}
       </div>
     </aside>
   </div>

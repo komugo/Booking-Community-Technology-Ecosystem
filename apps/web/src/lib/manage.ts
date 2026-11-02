@@ -1,8 +1,8 @@
-import { activities, projOptions, projPackOffers, type Locale } from "@komugo/db";
+import { activities, operators, projOptions, projPackOffers, type Locale } from "@komugo/db";
 import { eq, inArray } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Group, type GroupTicket, type Me, type Quote } from "./api";
 import { form } from "./checkout";
-import { db, showDrafts } from "./db";
+import { db, sells } from "./db";
 import { codeFrom, problems } from "./form";
 import { path } from "./i18n";
 import { daysAndTimes } from "./slots";
@@ -166,11 +166,12 @@ export async function meStep({ request, url }: Ctx, l: Locale) {
 
 export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
   const [row] = await db
-    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, published: activities.published } })
+    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode }, commissionBps: operators.commissionBps })
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(eq(projPackOffers.id, params.offerId!));
-  if (!row || !row.offer.active || !(row.activity.published || showDrafts)) return notFound();
+  if (!row || !row.offer.active || !sells(row.activity.listingMode, row.commissionBps)) return notFound();
   const here = path(l, "packs", "buy", row.offer.id);
   let errors = codeFrom(url);
   if (request.method === "POST") {

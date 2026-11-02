@@ -4,18 +4,18 @@ import { useLocation, useParams, useSearch } from "wouter";
 import { api, ApiError, useApi } from "../api";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
-import type { AddOn, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
+import { rm, sen } from "../money";
+import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
 const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
 type Tab = (typeof TABS)[number];
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
+const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
-const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
 const str = (n: number | null) => (n === null ? "" : String(n));
 // An unparseable value is sent as typed so the API rejects it on the right field.
 const num = (s: string) => (s.trim() === "" ? null : Number.isFinite(Number(s)) ? Number(s) : s);
-const sen = (s: string) => (s.trim() === "" ? null : Number.isFinite(Number(s)) ? Math.round(Number(s) * 100) : s);
 
 function closedParts(days: string[], t: Dict) {
   return WEEKDAYS.flatMap((d) => {
@@ -87,6 +87,7 @@ export default function SetupPage() {
       </div>
 
       <div role="tabpanel" aria-label={labels[tab]} className="mt-5">
+        {tab === "activity" && me.member.role === "staff" && <CommissionCard op={op} setup={s} onSaved={setup.reload} />}
         {tab === "activity" &&
           s.catalogue.map((a) => <ActivityCard key={a.id} op={op} setup={s} id={a.id} staff={me.member.role === "staff"} onSaved={setup.reload} />)}
         {tab !== "activity" && (
@@ -206,30 +207,58 @@ function List({
   );
 }
 
+function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSaved: () => void }) {
+  const { t } = useT();
+  const [pct, setPct] = useState(setup.commissionBps === null ? "" : String(setup.commissionBps / 100));
+  const { busy, error, submit, err } = useSubmit(t);
+  const save = async () => {
+    // sen() multiplies by 100, which also turns a percentage into basis points.
+    if (await submit(() => api("PUT", `/operators/${op}/commission`, { commissionBps: sen(pct) }))) {
+      toast(t.saved);
+      onSaved();
+    }
+  };
+  return (
+    <section className="card mb-4 space-y-4 p-4" aria-label={t.commission}>
+      <Input label={t.commissionPct} value={pct} onChange={setPct} error={err("commissionBps") ?? error?.text} hint={t.commissionHint} numeric />
+      <button type="button" className="btn btn-primary w-full sm:w-auto" disabled={busy} onClick={save}>
+        {t.save}
+      </button>
+    </section>
+  );
+}
+
 function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Setup; id: string; staff: boolean; onSaved: () => void }) {
   const { t, l } = useT();
   const a = setup.catalogue.find((x) => x.id === id)!;
-  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: [] };
+  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 0, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
   const [hours, setHours] = useState(String(settings.freeCancelHours));
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);
+  const [waiver, setWaiver] = useState(settings.requiresWaiver);
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
-  const [published, setPublished] = useState(a.published);
+  const [mode, setMode] = useState(a.listingMode);
   const { busy, error, submit, err } = useSubmit(t);
   const rule = pick.nth ? `${pick.day}#${pick.nth}` : pick.day;
 
   const save = async () => {
     const ok = await submit(() =>
-      api("PUT", `/operators/${op}/activities/${id}`, { freeCancelHours: num(hours), bookingCutoffMinutes: num(cutoff), closedDays: closed }),
+      api("PUT", `/operators/${op}/activities/${id}`, {
+        freeCancelHours: num(hours),
+        bookingCutoffMinutes: num(cutoff),
+        closedDays: closed,
+        requiresWaiver: waiver,
+      }),
     );
     if (ok) {
       toast(t.saved);
       onSaved();
     }
   };
-  const publish = async (v: boolean) => {
-    setPublished(v);
-    if (!(await submit(() => api("PUT", `/operators/${op}/activities/${id}/published`, { published: v })))) setPublished(!v);
+  const changeMode = async (v: ListingMode) => {
+    const was = mode;
+    setMode(v);
+    if (!(await submit(() => api("PUT", `/operators/${op}/activities/${id}/listing-mode`, { listingMode: v })))) setMode(was);
   };
 
   return (
@@ -239,19 +268,23 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           {named(a, l)}
         </h2>
         {!staff && (
-          <span
-            data-published={published}
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${published ? "bg-lime text-forest" : "bg-sand"}`}
-          >
-            {published ? t.published : t.unpublished}
+          <span data-listing-mode={mode} className={`rounded-full px-3 py-1 text-sm font-semibold ${mode === "bookable" ? "bg-lime text-forest" : "bg-sand"}`}>
+            {t.listingModes[mode]}
           </span>
         )}
       </div>
       {staff && (
-        <div>
-          <Toggle label={t.published} checked={published} onChange={publish} />
-          <p className="text-sm text-muted">{t.publishedHint}</p>
-        </div>
+        <Field label={t.listingMode} hint={t.listingModeHint} error={err("listingMode")}>
+          {(fid, note) => (
+            <select id={fid} className="input" value={mode} aria-describedby={note} onChange={(e) => changeMode(e.target.value as ListingMode)}>
+              {MODES.map((m) => (
+                <option key={m} value={m}>
+                  {t.listingModes[m]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.freeCancelHours} error={err("freeCancelHours")}>
@@ -281,6 +314,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           )}
         </Field>
       </div>
+      <Toggle label={t.requiresWaiver} checked={waiver} onChange={setWaiver} />
       <fieldset>
         <legend className="label">{t.closedDays}</legend>
         <p className="font-display text-xl font-bold" data-closed-sentence>
@@ -430,6 +464,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
     maxWeightKg: str(item?.maxWeightKg ?? null),
     requiredCert: item?.requiredCert ?? "",
     minParticipants: item?.minParticipants ?? 1,
+    maxPerBooking: item?.maxPerBooking ?? 10,
     active: item?.active ?? true,
     needs: Object.fromEntries(KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
   });
@@ -448,6 +483,7 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
       maxWeightKg: num(v.maxWeightKg),
       requiredCert: v.requiredCert.trim() || null,
       minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
+      maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
       active: v.active,
       needs: KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
     };
@@ -488,6 +524,8 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
           />
         </div>
         <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
+        <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
+        {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
       </Group>
       <Group title={t.resourceNeeds}>
         {KINDS.map((k) => (

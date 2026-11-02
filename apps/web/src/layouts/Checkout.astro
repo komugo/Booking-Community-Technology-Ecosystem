@@ -83,12 +83,14 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
     const update = () => {
       const slot = pick.querySelector<HTMLInputElement>("[data-spots]:checked");
       const spots = Number(slot?.dataset.spots);
-      if (spots) qty.max = String(Math.min(10, spots));
+      if (spots) qty.max = String(Math.min(Number(pick.dataset.max), spots));
       const low = pick.querySelector<HTMLElement>("[data-low]")!;
       low.hidden = !spots || spots > 3;
       low.textContent = slot?.dataset.lowText ?? "";
       if (num(qty) > Number(qty.max)) qty.value = qty.max;
-      let sen = num(qty) * Number(pick.dataset.pick);
+      const price = Number(slot?.dataset.price ?? pick.dataset.pick);
+      pick.querySelector("[data-each]")!.textContent = rm(price);
+      let sen = num(qty) * price;
       for (const a of $$("[data-addon]", pick)) {
         a.max = qty.value;
         if (num(a) > num(qty)) a.value = qty.value;
@@ -113,6 +115,8 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10).split("-").map(Number);
   for (const card of $$<HTMLElement>("[data-person]")) {
     const field = (f: string) => card.querySelector<HTMLInputElement>(`[data-f="${f}"]`)!;
+    const waiver = card.querySelector<HTMLElement>("[data-waiver]");
+    const badge = card.querySelector<HTMLElement>("[data-signed-badge]");
     const sync = () => {
       const name = field("name").value.trim();
       for (const n of $$<HTMLElement>("[data-name]", card)) n.textContent = name || n.dataset.name!;
@@ -120,17 +124,18 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
       const age = y > 1900 && m && d ? today[0] - y - (today[1] < m || (today[1] === m && today[2] < d) ? 1 : 0) : 99;
       for (const el of $$<HTMLElement>("[data-minor]", card)) el.hidden = age >= 18;
       for (const el of $$<HTMLElement>("[data-adult]", card)) el.hidden = age < 18;
-      const signedAs = card.querySelector<HTMLInputElement>("[data-signed-as]")!;
+      const signedAs = card.querySelector<HTMLInputElement>("[data-signed-as]");
       const as = age < 18 ? "minor" : "adult";
-      if (signedAs.value !== as) card.querySelector<HTMLInputElement>("input[type=checkbox]")!.checked = false;
+      if (!signedAs || signedAs.value === as) return;
+      card.querySelector<HTMLInputElement>("input[type=checkbox]")!.checked = false;
       signedAs.value = as;
     };
     card.addEventListener("input", (e) => {
       const el = e.target as HTMLElement;
       const f = el.dataset.f;
-      if (f && f !== "weight") {
-        card.querySelector<HTMLElement>("[data-waiver]")!.hidden = false;
-        card.querySelector<HTMLElement>("[data-signed-badge]")!.hidden = true;
+      if (f && f !== "weight" && waiver && badge) {
+        waiver.hidden = false;
+        badge.hidden = true;
       }
       const group = el.closest("fieldset") ?? el.closest("div");
       for (const bad of $$<HTMLElement>("[aria-invalid]", group!)) {
@@ -144,10 +149,10 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
         const v: Record<string, string> = JSON.parse(chip.dataset.fill!);
         for (const [f, x] of Object.entries(v)) if (card.querySelector(`[data-f="${f}"]`)) field(f).value = x;
         sync();
-        const signed = card.querySelector<HTMLElement>("[data-signed-badge]")!;
-        signed.hidden = !chip.dataset.signed;
-        signed.textContent = chip.dataset.signed ?? "";
-        card.querySelector<HTMLElement>("[data-waiver]")!.hidden = !!chip.dataset.signed;
+        if (!waiver || !badge) return;
+        badge.hidden = !chip.dataset.signed;
+        badge.textContent = chip.dataset.signed ?? "";
+        waiver.hidden = !!chip.dataset.signed;
       });
     }
     sync();

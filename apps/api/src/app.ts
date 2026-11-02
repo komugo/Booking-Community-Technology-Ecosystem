@@ -9,6 +9,7 @@ import { devInbox } from "./email";
 import { manage } from "./manage";
 import { me } from "./me";
 import { forOperator, ops, requireMember } from "./ops/auth";
+import { payouts } from "./ops/payouts";
 import { refunds } from "./ops/refunds";
 import { routes } from "./ops/routes";
 import { packs } from "./packs";
@@ -30,6 +31,7 @@ app.route("/dev/billplz", fakeBillplz);
 ops.use("/operators/:operatorId/*", requireMember, forOperator);
 ops.route("/operators/:operatorId", routes);
 ops.route("/refunds", refunds);
+ops.route("/payouts", payouts);
 app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));

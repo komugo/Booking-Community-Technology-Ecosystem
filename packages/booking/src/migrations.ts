@@ -172,6 +172,24 @@ export const migrations: string[][] = [
     `INSERT INTO outbox (entity, entity_id, rev) SELECT 'pack', id, (SELECT rev FROM meta) FROM packs WHERE true
      ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
   ],
+  // Commission is snapshot on each sale from now on; Packs re-project to carry their sale price and date for Payouts.
+  [
+    `ALTER TABLE tickets ADD COLUMN commission_bps INTEGER CHECK (commission_bps BETWEEN 0 AND 10000)`,
+    `ALTER TABLE packs ADD COLUMN commission_bps INTEGER CHECK (commission_bps BETWEEN 0 AND 10000)`,
+    `UPDATE meta SET rev = max(rev + 1, unixepoch() * 1000000)`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'pack', id, (SELECT rev FROM meta) FROM packs WHERE true
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
+  [`ALTER TABLE activities ADD COLUMN requires_waiver INTEGER NOT NULL DEFAULT 1 CHECK (requires_waiver IN (0,1))`],
+  [`ALTER TABLE options ADD COLUMN max_per_booking INTEGER CHECK (max_per_booking > 0)`],
+  // Closure reasons are validated in code, so new ones need no table rebuild.
+  [
+    `ALTER TABLE timeslots ADD COLUMN reason TEXT`,
+    `UPDATE timeslots SET reason = closed_reason`,
+    `ALTER TABLE timeslots DROP COLUMN closed_reason`,
+    `ALTER TABLE timeslots RENAME COLUMN reason TO closed_reason`,
+  ],
+  [`ALTER TABLE schedules ADD COLUMN price_sen INTEGER CHECK (price_sen >= 0)`],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

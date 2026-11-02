@@ -18,7 +18,8 @@ export type BookingErrorCode =
   | "pack_used_up"
   | "window_passed"
   | "started"
-  | "quote_changed";
+  | "quote_changed"
+  | "price_differs";
 
 export class BookingError extends Error {
   constructor(readonly code: BookingErrorCode) {
@@ -38,7 +39,13 @@ export type ParticipantFacts = {
   certs: string[];
   waiverSigned: boolean;
 };
-export type ActivityInput = { id: string; freeCancelHours: number; bookingCutoffMinutes?: number; closedDays?: string[] };
+export type ActivityInput = {
+  id: string;
+  freeCancelHours: number;
+  bookingCutoffMinutes?: number;
+  closedDays?: string[];
+  requiresWaiver?: boolean;
+};
 export type OptionInput = {
   id: string;
   activityId: string;
@@ -51,6 +58,7 @@ export type OptionInput = {
   maxWeightKg: number | null;
   requiredCert: string | null;
   minParticipants: number | null;
+  maxPerBooking: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -63,6 +71,7 @@ export type ViewTicket = {
   timeslotId: string;
   startsAt: number;
   closedAt: number | null;
+  priceSen: number;
   refundId: string | null;
   refundSen: number;
 };
@@ -119,7 +128,7 @@ export type ResourceInput = {
   restMinutes: number;
   maxRiderWeightKg: number | null;
 };
-export type ClosureReason = "weather" | "horse_unfit" | "other";
+export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type ScheduleInput = {
   id: string;
   activityId: string;
@@ -128,6 +137,7 @@ export type ScheduleInput = {
   times: string[];
   startsOn: string;
   endsOn: string | null;
+  priceSen: number | null;
   active: boolean;
 };
 export type GenerateResult = { created: number; removed: number; kept: { id: string; optionId: string; startsAt: number }[] };
@@ -158,6 +168,7 @@ export type TimeslotRow = {
   startsAt: number;
   closedAt: number | null;
   closedReason: string | null;
+  horse: boolean;
   spots: number;
   tickets: {
     id: string;
@@ -171,7 +182,7 @@ export type TimeslotRow = {
   addOns: { bookingId: string; addOnId: string; quantity: number }[];
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[] }[];
+  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
   options: OptionInput[];
   addOns: AddOnInput[];
   resources: ResourceInput[];
@@ -187,7 +198,8 @@ const HOUR = 3_600_000;
 export const DAY = 86_400_000;
 const KL_OFFSET = 8 * HOUR;
 const HOLD_MS = 15 * MIN;
-const MAX_PARTICIPANTS = 10;
+const DEFAULT_MAX_PER_BOOKING = 10;
+const MAX_PER_BOOKING = 50;
 const MAX_ACTIVE_HOLDS = 3;
 
 export const klDayStart = (t: number) => Math.floor((t + KL_OFFSET) / DAY) * DAY - KL_OFFSET;
@@ -202,8 +214,10 @@ type Option = {
   max_weight_kg: number | null;
   required_cert: string | null;
   min_participants: number | null;
+  max_per_booking: number | null;
   active: number;
   booking_cutoff_minutes: number;
+  requires_waiver: number;
 };
 type Need = { kind: string; quantity: number };
 type Candidate = {
@@ -235,12 +249,25 @@ function loadOption(sql: SqlStorage, id: string) {
   return sql
     .exec<Option>(
       `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
-         min_participants, active,
-         (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes
+         min_participants, max_per_booking, active,
+         (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes,
+         (SELECT requires_waiver FROM activities WHERE id = options.activity_id) AS requires_waiver
        FROM options WHERE id = ?`,
       id,
     )
     .one();
+}
+
+// A Timeslot takes its Schedule's price, else its Option's; a booking over several Timeslots sums each one.
+export function slotsPriceSen(sql: SqlStorage, slotIds: string[]) {
+  return sql
+    .exec<{ sen: number }>(
+      `SELECT coalesce(sum(coalesce(sc.price_sen, o.price_sen)), 0) AS sen FROM timeslots t
+       JOIN options o ON o.id = t.option_id LEFT JOIN schedules sc ON sc.id = t.schedule_id
+       WHERE t.id IN (SELECT value FROM json_each(?))`,
+      ids(slotIds),
+    )
+    .one().sen;
 }
 
 const loadNeeds = (sql: SqlStorage, optionId: string) =>
@@ -495,21 +522,25 @@ const closedDaysOf = (sql: SqlStorage, activityId: string) =>
 export function upsertActivity(sql: SqlStorage, now: number, a: ActivityInput) {
   const before = closedDaysOf(sql, a.id);
   sql.exec(
-    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days)
-     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'))
+    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver)
+     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'), coalesce(?5, 1))
      ON CONFLICT(id) DO UPDATE SET free_cancel_hours = excluded.free_cancel_hours,
-       booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes), closed_days = coalesce(?4, closed_days)`,
+       booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes), closed_days = coalesce(?4, closed_days),
+       requires_waiver = coalesce(?5, requires_waiver)`,
     a.id,
     a.freeCancelHours,
     a.bookingCutoffMinutes ?? null,
     a.closedDays ? JSON.stringify(a.closedDays) : null,
+    a.requiresWaiver === undefined ? null : Number(a.requiresWaiver),
   );
   mark(sql, "activity", [a.id]);
   return before !== undefined && before !== closedDaysOf(sql, a.id) ? generate(sql, now, a.id) : null;
 }
 
 export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
-  const existing = first(sql.exec<{ activity_id: string }>("SELECT activity_id FROM schedules WHERE id = ?", s.id));
+  const existing = first(
+    sql.exec<{ activity_id: string; price_sen: number | null }>("SELECT activity_id, price_sen FROM schedules WHERE id = ?", s.id),
+  );
   const options = new Set(
     sql
       .exec<{ id: string }>("SELECT id FROM options WHERE activity_id = ?", s.activityId)
@@ -524,10 +555,10 @@ export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
     throw new BookingError("invalid_state");
   }
   sql.exec(
-    `INSERT INTO schedules (id, activity_id, option_ids, weekdays, times, starts_on, ends_on, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO schedules (id, activity_id, option_ids, weekdays, times, starts_on, ends_on, price_sen, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET option_ids = excluded.option_ids, weekdays = excluded.weekdays, times = excluded.times,
-       starts_on = excluded.starts_on, ends_on = excluded.ends_on, active = excluded.active`,
+       starts_on = excluded.starts_on, ends_on = excluded.ends_on, price_sen = excluded.price_sen, active = excluded.active`,
     s.id,
     s.activityId,
     ids([...new Set(s.optionIds)]),
@@ -535,8 +566,16 @@ export function upsertSchedule(sql: SqlStorage, now: number, s: ScheduleInput) {
     ids([...new Set(s.times)].sort()),
     s.startsOn,
     s.endsOn,
+    s.priceSen,
     s.active ? 1 : 0,
   );
+  if (existing && existing.price_sen !== s.priceSen) {
+    const repriced = sql
+      .exec<{ id: string }>("SELECT id FROM timeslots WHERE schedule_id = ? AND closed_at IS NULL AND starts_at > ?", s.id, now)
+      .toArray()
+      .map((r) => r.id);
+    mark(sql, "timeslot", repriced);
+  }
   return generate(sql, now, s.activityId);
 }
 
@@ -652,12 +691,12 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
   if (!first(sql.exec("SELECT 1 FROM activities WHERE id = ?", o.activityId))) throw new BookingError("invalid_state");
   sql.exec(
     `INSERT INTO options (id, activity_id, name_en, name_ms, price_sen, duration_minutes, min_age, max_age,
-       max_weight_kg, required_cert, min_participants, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       max_weight_kg, required_cert, min_participants, max_per_booking, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name_en = excluded.name_en, name_ms = excluded.name_ms,
        price_sen = excluded.price_sen, duration_minutes = excluded.duration_minutes, min_age = excluded.min_age,
        max_age = excluded.max_age, max_weight_kg = excluded.max_weight_kg, required_cert = excluded.required_cert,
-       min_participants = excluded.min_participants, active = excluded.active`,
+       min_participants = excluded.min_participants, max_per_booking = excluded.max_per_booking, active = excluded.active`,
     o.id,
     o.activityId,
     o.nameEn,
@@ -669,6 +708,7 @@ export function upsertOption(sql: SqlStorage, now: number, o: OptionInput) {
     o.maxWeightKg,
     o.requiredCert,
     o.minParticipants,
+    o.maxPerBooking,
     o.active ? 1 : 0,
   );
   sql.exec("DELETE FROM option_resources WHERE option_id = ?", o.id);
@@ -845,6 +885,25 @@ export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResu
   return { outcome: "checked_in", ticket: ticket(now) };
 }
 
+// Includes unexpired Packs with sessions left, which can only be redeemed while the Activity is Bookable.
+export const hasFutureBookings = (sql: SqlStorage, now: number, activityId: string) =>
+  !!first(
+    sql.exec(
+      `SELECT 1 FROM timeslots s JOIN options o ON o.id = s.option_id
+       WHERE o.activity_id = ?1 AND s.starts_at > ?2
+         AND (EXISTS (SELECT 1 FROM tickets WHERE timeslot_id = s.id AND status = 'issued')
+           OR EXISTS (SELECT 1 FROM holds WHERE timeslot_id = s.id AND status = 'active'))
+       UNION ALL
+       SELECT 1 FROM packs p
+       WHERE p.expires_at > ?2
+         AND EXISTS (SELECT 1 FROM json_each(p.option_ids) j JOIN options o ON o.id = j.value WHERE o.activity_id = ?1)
+         AND p.sessions_total > (SELECT count(*) FROM tickets WHERE pack_id = p.id AND status <> 'cancelled')
+       LIMIT 1`,
+      activityId,
+      now,
+    ),
+  );
+
 export function setup(sql: SqlStorage): Setup {
   const needs = new Map<string, OptionInput["needs"]>();
   for (const n of sql.exec<{ option_id: string; kind: ResourceKind; quantity: number }>(
@@ -854,8 +913,8 @@ export function setup(sql: SqlStorage): Setup {
   }
   return {
     activities: sql
-      .exec<{ id: string; free_cancel_hours: number; booking_cutoff_minutes: number; closed_days: string }>(
-        "SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days FROM activities ORDER BY rowid",
+      .exec<{ id: string; free_cancel_hours: number; booking_cutoff_minutes: number; closed_days: string; requires_waiver: number }>(
+        "SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver FROM activities ORDER BY rowid",
       )
       .toArray()
       .map((a) => ({
@@ -863,6 +922,7 @@ export function setup(sql: SqlStorage): Setup {
         freeCancelHours: a.free_cancel_hours,
         bookingCutoffMinutes: a.booking_cutoff_minutes,
         closedDays: JSON.parse(a.closed_days),
+        requiresWaiver: !!a.requires_waiver,
       })),
     options: sql
       .exec<{
@@ -877,6 +937,7 @@ export function setup(sql: SqlStorage): Setup {
         max_weight_kg: number | null;
         required_cert: string | null;
         min_participants: number | null;
+        max_per_booking: number | null;
         active: number;
       }>("SELECT * FROM options ORDER BY rowid")
       .toArray()
@@ -892,6 +953,7 @@ export function setup(sql: SqlStorage): Setup {
         maxWeightKg: o.max_weight_kg,
         requiredCert: o.required_cert,
         minParticipants: o.min_participants,
+        maxPerBooking: o.max_per_booking,
         active: o.active === 1,
         needs: needs.get(o.id) ?? [],
       })),
@@ -937,6 +999,7 @@ export function setup(sql: SqlStorage): Setup {
         times: string;
         starts_on: string;
         ends_on: string | null;
+        price_sen: number | null;
         active: number;
       }>("SELECT * FROM schedules ORDER BY rowid")
       .toArray()
@@ -948,6 +1011,7 @@ export function setup(sql: SqlStorage): Setup {
         times: JSON.parse(s.times),
         startsOn: s.starts_on,
         endsOn: s.ends_on,
+        priceSen: s.price_sen,
         active: s.active === 1,
       })),
     packOffers: sql
@@ -986,12 +1050,13 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       starts_at: number;
       closed_at: number | null;
       closed_reason: string | null;
+      horse: number;
     }>(
-      "from" in q
-        ? `SELECT id, option_id, starts_at, closed_at, closed_reason FROM timeslots
-           WHERE starts_at >= ? AND starts_at < ? ORDER BY starts_at, option_id`
-        : `SELECT id, option_id, starts_at, closed_at, closed_reason FROM timeslots
-           WHERE id IN (SELECT value FROM json_each(?)) ORDER BY starts_at, option_id`,
+      `SELECT id, option_id, starts_at, closed_at, closed_reason,
+         EXISTS (SELECT 1 FROM options o JOIN option_resources r ON r.option_id = o.id
+           WHERE o.activity_id = (SELECT activity_id FROM options WHERE id = timeslots.option_id) AND r.kind = 'horse') AS horse
+       FROM timeslots WHERE ${"from" in q ? "starts_at >= ? AND starts_at < ?" : "id IN (SELECT value FROM json_each(?))"}
+       ORDER BY starts_at, option_id`,
       ...("from" in q ? [q.from, q.to] : [ids(q.ids)]),
     )
     .toArray();
@@ -1034,6 +1099,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       startsAt: s.starts_at,
       closedAt: s.closed_at,
       closedReason: s.closed_reason,
+      horse: s.horse === 1,
       spots: spots(sql, now, s.id),
       tickets: mine.map((t) => ({
         id: t.id,
@@ -1113,7 +1179,8 @@ export function createHold(
   const released = supersede(sql, now, { ...i, participantIds: i.participants.map((p) => p.id) });
   const { slot, option, picks } = allocate(sql, now, i.timeslotId, i.participants, i.customerId);
   if (n < (option.min_participants ?? 1)) throw new BookingError("below_min_participants");
-  if (n > MAX_PARTICIPANTS) throw new BookingError("invalid_participant");
+  const max = option.max_per_booking ?? DEFAULT_MAX_PER_BOOKING;
+  if (n > max) throw new BookingError("invalid_participant");
   const addOns = priceAddOns(sql, option, n, i.addOns);
   const { active } = sql
     .exec<{ active: number }>("SELECT count(*) AS active FROM holds WHERE customer_id = ? AND status = 'active'", i.customerId)
@@ -1126,18 +1193,19 @@ export function createHold(
       slot.id,
     )
     .one();
-  if (active >= MAX_ACTIVE_HOLDS || people + n > MAX_PARTICIPANTS) throw new BookingError("too_many_holds");
-  if (i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
+  if (active >= MAX_ACTIVE_HOLDS || people + n > max) throw new BookingError("too_many_holds");
+  if (option.requires_waiver && i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
   const holdId = crypto.randomUUID();
   const expiresAt = now + HOLD_MS;
-  const amountSen = option.price_sen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
+  const priceSen = slotsPriceSen(sql, [slot.id]);
+  const amountSen = priceSen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
   sql.exec(
     `INSERT INTO holds (id, customer_id, timeslot_id, price_sen, amount_sen, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     holdId,
     i.customerId,
     slot.id,
-    option.price_sen,
+    priceSen,
     amountSen,
     now,
     expiresAt,
@@ -1283,7 +1351,11 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
   return bookingOutcome(sql, bookingId);
 }
 
-export function confirmHold(sql: SqlStorage, now: number, i: { billId: string; holdId: string; amountSen: number }) {
+export function confirmHold(
+  sql: SqlStorage,
+  now: number,
+  i: { billId: string; holdId: string; amountSen: number; commissionBps: number | null },
+) {
   const prior = first(
     sql.exec<{ hold_id: string; amount_sen: number; booking_id: string | null; refund_reason: PaymentRefundReason | null }>(
       "SELECT hold_id, amount_sen, booking_id, refund_reason FROM payments WHERE bill_id = ?",
@@ -1297,6 +1369,7 @@ export function confirmHold(sql: SqlStorage, now: number, i: { billId: string; h
       : ({ status: "refund_due", reason: prior.refund_reason! } as ConfirmResult);
   }
   const result = settle(sql, now, i);
+  if (result.status === "paid") sql.exec("UPDATE tickets SET commission_bps = ? WHERE booking_id = ?", i.commissionBps, result.bookingId);
   sql.exec(
     `INSERT INTO payments (bill_id, hold_id, amount_sen, received_at, status, refund_reason, booking_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -1406,7 +1479,11 @@ export function orderPack(sql: SqlStorage, now: number, i: { orderId: string; cu
 }
 
 // Idempotent by state: a bill already seen returns its stored outcome.
-export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: string; orderId: string; amountSen: number }): PackConfirm {
+export function confirmPackBill(
+  sql: SqlStorage,
+  now: number,
+  i: { billId: string; orderId: string; amountSen: number; commissionBps: number | null },
+): PackConfirm {
   const refunded = first(sql.exec<{ reason: "duplicate" | "amount_mismatch" }>("SELECT reason FROM refunds WHERE id = ?", `bill:${i.billId}`));
   if (refunded) return { status: "refund_due", reason: refunded.reason };
   const order = first(
@@ -1434,8 +1511,8 @@ export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: strin
   const packId = crypto.randomUUID();
   const expiresAt = packExpiry(now, order.valid_days);
   sql.exec(
-    `INSERT INTO packs (id, customer_id, sessions_total, expires_at, created_at, offer_id, option_ids)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO packs (id, customer_id, sessions_total, expires_at, created_at, offer_id, option_ids, commission_bps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     packId,
     order.customer_id,
     order.sessions,
@@ -1443,6 +1520,7 @@ export function confirmPackBill(sql: SqlStorage, now: number, i: { billId: strin
     now,
     order.offer_id,
     order.option_ids,
+    i.commissionBps,
   );
   sql.exec("UPDATE pack_orders SET bill_id = ?, pack_id = ? WHERE id = ?", i.billId, packId, i.orderId);
   mark(sql, "pack", [packId]);
@@ -1510,7 +1588,7 @@ function groupTickets(sql: SqlStorage, customerId: string, group: Group, ticketI
     .toArray();
   if (
     ticketIds.length < 1 ||
-    ticketIds.length > MAX_PARTICIPANTS ||
+    ticketIds.length > MAX_PER_BOOKING ||
     new Set(ticketIds).size !== ticketIds.length ||
     rows.length !== ticketIds.length ||
     rows.some((t) => t.status !== "issued" || t.customer_id !== customerId || t[o.col as "booking_id" | "pack_id"] !== o.id)
@@ -1667,6 +1745,8 @@ export function rescheduleTickets(
     if (current.pack_id) {
       const pack = sql.exec<{ expires_at: number }>("SELECT expires_at FROM packs WHERE id = ?", current.pack_id).one();
       if (target.starts_at > pack.expires_at) throw new BookingError("pack_expired");
+    } else if (slotsPriceSen(sql, [target.id]) !== current.price_sen) {
+      throw new BookingError("price_differs");
     }
   } else {
     wholeClosedGroup(sql, i.group, rows);
@@ -1710,6 +1790,7 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
       timeslotId: t.timeslot_id,
       startsAt: t.starts_at,
       closedAt: t.closed_at,
+      priceSen: t.price_sen,
       refundId: t.refund_id,
       refundSen: t.refund_id ? t.price_sen + (shares.get(t.id) ?? 0) : 0,
     }));
