@@ -133,22 +133,18 @@ Admission to one Timeslot or, for a Date ticket, one date: for exactly one Parti
 _Avoid_: Pass, voucher
 
 **Check-in**:
-The Operator scanning a Ticket on arrival (its QR, or the first 8 characters of its code). Only on the day of the Timeslot; checking in twice changes nothing. Off for now: the counter admits a Customer by matching their Ticket against the Digest or today's list.
+The Operator scanning a Ticket on arrival (its QR, or the first 8 characters of its code). Only on the day of the Timeslot; checking in twice changes nothing. Off for now: the counter admits a Customer by matching their Ticket against the Day list.
 
 **Operator contact**:
-A WhatsApp number on an Operator's list, kept by staff: **counter** (gets Digests and Booking alerts) or **owner** (also gets Payout notices and the email copy of Booking alerts). Has a language (BM by default, or EN) for all its messages. Not a Member and never signs in.
+A WhatsApp number on an Operator's list, kept by staff: **counter** (gets Booking alerts) or **owner** (also gets Payout notices and the email copy of Booking alerts). Has a language (BM by default, or EN) for all its messages. Not a Member and never signs in.
 _Avoid_: Recipient, subscriber
 
-**Digest**:
-A WhatsApp message at 9pm KL time to an Operator's contacts listing the next day's Tickets (time, court, Customer name, first 8 characters of the Ticket code; Date tickets as a count per Option). Sent even when there are none; not sent for a Closed day.
-_Avoid_: Report, summary
-
 **Booking alert**:
-An instant WhatsApp message to an Operator's contacts (and email to its owners) for a Ticket booked, cancelled or rescheduled on a day whose Digest already went out.
+An instant WhatsApp message to an Operator's contacts (and email to its owners) for every Booking, cancellation or reschedule of Tickets, one per day affected, carrying that day's Day list link.
 _Avoid_: Notification
 
 **Operator link**:
-A signed link in a WhatsApp message that lets an Operator contact take one action without Sign-in: **today's list** (that day's Tickets, kept current, each Timeslot with its close action; until the day ends) or **close** (a Closure of one Timeslot or date, usable once, until it starts).
+A signed link in a Booking alert to the **Day list**: one day's Tickets, kept current, usable without Sign-in from when sent until that day ends. On that day itself each Timeslot (or the date) has a close action for a same-day Closure; an already closed one shows as Closed.
 _Avoid_: Magic link, action link
 
 **Member**:
