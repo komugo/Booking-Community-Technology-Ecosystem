@@ -117,7 +117,7 @@ A temporary reservation of Resources while a Customer pays.
 _Avoid_: Lock, cart reservation
 
 **Checkout**:
-A Customer's in-progress purchase from Option pick to Booking; owns the current Hold and its bill. A new Hold for the Checkout replaces its previous Hold.
+A Customer's in-progress purchase from Option pick to Booking; owns the current Hold and its payment request. A new Hold for the Checkout replaces its previous Hold.
 _Avoid_: Cart, order
 
 **Sign-in**:
@@ -161,11 +161,11 @@ An Operator cancelling a Timeslot (or a date, for Date tickets), with a reason (
 _Avoid_: Operator cancellation
 
 **Payment**:
-One Billplz bill received for a Hold, or for a Pack order (a Customer's purchase of a Pack offer; a late payment always issues the Pack). Either **paid** (it produced the Booking) or **refund_due** with a reason (duplicate, amount mismatch, Timeslot unavailable, unknown Hold), which a Refund then settles.
-_Avoid_: Transaction, charge
+One CHIP payment received for a Hold, or for a Pack order (a Customer's purchase of a Pack offer; a late payment always issues the Pack). Either **paid** (it produced the Booking) or **refund_due** with a reason (duplicate, amount mismatch, Timeslot unavailable, unknown Hold), which a Refund then settles.
+_Avoid_: Transaction, charge, bill
 
 **Refund**:
-Money returned to the Customer by Komugo: one row per refund_due Payment or per cancel action, with a reason (duplicate, amount mismatch, unavailable, unknown Hold, cancel, Closure). It is **due** until staff mark it refunded on "Refunds to pay" after paying it out by hand. The Customer is emailed when it is due ("within 7 working days") and when it is sent.
+Money returned to the Customer by Komugo: one row per refund_due Payment or per cancel action, with a reason (duplicate, amount mismatch, unavailable, unknown Hold, cancel, Closure). Once due, Komugo asks CHIP to return it to the Customer's original payment method straight away; when CHIP accepts it is **sent** and the Customer is emailed. If CHIP refuses, it stays **due** on "Refunds to pay" until staff pay it by hand and mark it sent; the Customer is emailed when it is due ("within 7 working days") and when it is sent.
 
 **Reschedule**:
 Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of the same Option, same Ticket (QR unchanged), with Resources re-allocated; a per-court Ticket moves whole, to the same number of back-to-back hours on one court. By the Customer only inside the free-cancel window and only to a target of the same total price (Pack: to a Timeslot before expiry). After a Closure, free to any future open target at the same price or cheaper, with the difference refunded. Prices are fixed when the Hold is made.
