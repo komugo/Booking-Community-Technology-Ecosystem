@@ -157,6 +157,16 @@ export type PayoutRow = {
   paidAt: number | null;
 };
 export type Holiday = { date: string; name: string };
+export type ContactRole = "counter" | "owner";
+export type Contact = {
+  id: string;
+  name: string;
+  phone: string;
+  role: ContactRole;
+  locale: "ms" | "en";
+  email: string | null;
+  welcome: { status: "sent" | "failed"; at: number } | null;
+};
 export type InterestRow = {
   activityId: string;
   nameEn: string;

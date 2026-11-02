@@ -10,7 +10,9 @@
     "BILLPLZ_BASE": "https://www.billplz.com/api/v3",
     "BILLPLZ_COLLECTION_ID": "",
     "EMAIL_MODE": "resend",
-    "EMAIL_FROM": "Komugo <tickets@komugo.com>"
+    "EMAIL_FROM": "Komugo <tickets@komugo.com>",
+    "WHATSAPP_MODE": "sendontime",
+    "SENDONTIME_URL": ""
   },
   "d1_databases": [
     {
@@ -38,7 +40,9 @@
         "BILLPLZ_BASE": "https://www.billplz-sandbox.com/api/v3",
         "BILLPLZ_COLLECTION_ID": "",
         "EMAIL_MODE": "resend",
-        "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>"
+        "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>",
+        "WHATSAPP_MODE": "sendontime",
+        "SENDONTIME_URL": ""
       },
       "d1_databases": [
         {

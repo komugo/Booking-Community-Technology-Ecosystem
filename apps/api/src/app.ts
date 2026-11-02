@@ -10,6 +10,7 @@ import { interests } from "./interests";
 import { manage } from "./manage";
 import { me } from "./me";
 import { forOperator, ops, requireMember } from "./ops/auth";
+import { contacts } from "./ops/contacts";
 import { holidays } from "./ops/holidays";
 import { interestCounts } from "./ops/interests";
 import { payouts } from "./ops/payouts";
@@ -18,6 +19,7 @@ import { routes } from "./ops/routes";
 import { venues } from "./ops/venues";
 import { packs } from "./packs";
 import { seed } from "./seed";
+import { devOutbox } from "./whatsapp";
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -35,6 +37,7 @@ app.route("/dev/billplz", fakeBillplz);
 
 ops.use("/operators/:operatorId/*", requireMember, forOperator);
 ops.route("/operators/:operatorId", routes);
+ops.route("/operators/:operatorId/contacts", contacts);
 ops.route("/refunds", refunds);
 ops.route("/payouts", payouts);
 ops.route("/venues", venues);
@@ -43,6 +46,7 @@ ops.route("/holidays", holidays);
 app.route("/ops", ops);
 
 app.get("/dev/emails", (c) => (c.env.DEV_SEED === "1" ? c.json(devInbox) : c.notFound()));
+app.get("/dev/whatsapp", (c) => (c.env.DEV_SEED === "1" ? c.json(devOutbox) : c.notFound()));
 
 // The seed overwrites its rows, so it never runs against a deployed D1.
 const local = (url: string) => ["localhost", "127.0.0.1"].includes(new URL(url).hostname);

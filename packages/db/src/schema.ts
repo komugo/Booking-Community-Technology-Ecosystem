@@ -558,3 +558,40 @@ export const publicHolidays = sqliteTable("public_holidays", {
   date: text().primaryKey(),
   name: text().notNull(),
 });
+
+// Staff-kept WhatsApp numbers that get an Operator's messages; never Members.
+export const operatorContacts = sqliteTable(
+  "operator_contacts",
+  {
+    id: id(),
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    name: text().notNull(),
+    phone: text().notNull(),
+    role: text({ enum: ["counter", "owner"] }).notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull().default("ms"),
+    email: text(),
+    createdAt: integer().notNull(),
+  },
+  (t) => [uniqueIndex("operator_contacts_phone").on(t.operatorId, t.phone)],
+);
+
+// Every WhatsApp message sent, kept after its contact is removed.
+export const whatsappMessages = sqliteTable(
+  "whatsapp_messages",
+  {
+    id: id(),
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    contactId: text().notNull(),
+    phone: text().notNull(),
+    template: text({ enum: ["welcome"] }).notNull(),
+    text: text().notNull(),
+    status: text({ enum: ["sent", "failed"] }).notNull(),
+    error: text(),
+    createdAt: integer().notNull(),
+  },
+  (t) => [index("whatsapp_messages_contact").on(t.contactId, t.createdAt), index("whatsapp_messages_status").on(t.status, t.createdAt)],
+);

@@ -7,11 +7,12 @@ import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
 import { rm, sen } from "../money";
 import { PhotosEditor } from "../photos";
-import type { AddOn, BookingUnit, ListingMode, Option, PackOffer, Resource, ResourceKind, Setting, Setup, TicketType, Venues } from "../types";
+import type { AddOn, BookingUnit, Contact, ContactRole, ListingMode, Option, PackOffer, Resource, ResourceKind, Setting, Setup, TicketType, Venues } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
-const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
+const TABS = ["activity", "options", "add-ons", "packs", "resources", "contacts"] as const;
 type Tab = (typeof TABS)[number];
+type ListTab = Exclude<Tab, "activity" | "contacts">;
 const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane", "court"];
 const PERSON_KINDS = KINDS.filter((k) => k !== "court");
 const UNITS: BookingUnit[] = ["person", "court"];
@@ -40,8 +41,15 @@ export default function SetupPage() {
   const [, navigate] = useLocation();
   const tab = (new URLSearchParams(useSearch()).get("tab") ?? "activity") as Tab;
   const setup = useApi<Setup>(`/operators/${op}/setup`);
-  const [editing, setEditing] = useState<{ kind: Exclude<Tab, "activity">; item: Item | null } | null>(null);
-  const labels: Record<Tab, string> = { activity: t.activity, options: t.options, "add-ons": t.addOns, packs: t.packs, resources: t.resources };
+  const [editing, setEditing] = useState<{ kind: ListTab; item: Item | null } | null>(null);
+  const labels: Record<Tab, string> = {
+    activity: t.activity,
+    options: t.options,
+    "add-ons": t.addOns,
+    packs: t.packs,
+    resources: t.resources,
+    contacts: t.contacts,
+  };
 
   if (!setup.data) return setup.error ? <p className="py-16 text-center text-muted">{errorText(setup.error, t)}</p> : <Spinner label={t.loading} />;
   const s = setup.data;
@@ -74,7 +82,8 @@ export default function SetupPage() {
         {tab === "activity" && me.member.role === "staff" && <HolidaysCard op={op} setup={s} onSaved={setup.reload} />}
         {tab === "activity" &&
           s.catalogue.map((a) => <ActivityCard key={a.id} op={op} setup={s} id={a.id} staff={me.member.role === "staff"} onSaved={setup.reload} />)}
-        {tab !== "activity" && (
+        {tab === "contacts" && <Contacts op={op} />}
+        {tab !== "activity" && tab !== "contacts" && (
           <List setup={s} kind={tab} onNew={() => setEditing({ kind: tab, item: null })} onEdit={(item) => setEditing({ kind: tab, item })} />
         )}
       </div>
@@ -121,7 +130,7 @@ function List({
   onEdit,
 }: {
   setup: Setup;
-  kind: Exclude<Tab, "activity">;
+  kind: ListTab;
   onNew: () => void;
   onEdit: (x: Item) => void;
 }) {
@@ -193,6 +202,116 @@ function List({
         ))}
       </ul>
     </>
+  );
+}
+
+function Contacts({ op }: { op: string }) {
+  const { t } = useT();
+  const list = useApi<{ contacts: Contact[] }>(`/operators/${op}/contacts`);
+  const [editing, setEditing] = useState<{ item: Contact | null } | null>(null);
+  const done = () => {
+    setEditing(null);
+    toast(t.saved);
+    list.reload();
+  };
+
+  if (!list.data) return list.error ? <p className="py-16 text-center text-muted">{errorText(list.error, t)}</p> : <Spinner label={t.loading} />;
+  return (
+    <>
+      <p className="mb-4 text-muted">{t.contactsHint}</p>
+      <button type="button" className="btn btn-primary" onClick={() => setEditing({ item: null })}>
+        <Icon name="plus" className="size-5" />
+        {t.newContact}
+      </button>
+      {list.data.contacts.length === 0 ? (
+        <p className="mt-4 rounded-2xl bg-sand p-4">{t.noContacts}</p>
+      ) : (
+        <ul className="mt-4 grid gap-3 lg:grid-cols-2" aria-label={t.contacts}>
+          {list.data.contacts.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => setEditing({ item: c })}
+                data-row
+                className="card flex min-h-16 w-full items-center justify-between gap-3 p-4 text-left hover:bg-sand/40"
+              >
+                <span className="min-w-0">
+                  <span className="block font-display text-lg font-bold">{c.name}</span>
+                  <span className="num block text-sm text-muted">
+                    {[c.phone, t.contactRoles[c.role], t.contactLanguages[c.locale], ...(c.email ? [c.email] : [])].join(" · ")}
+                  </span>
+                </span>
+                {c.welcome && (
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.welcome.status === "sent" ? "bg-lime text-forest" : "bg-sand text-clay"}`}>
+                    {t.welcomeStatus[c.welcome.status]}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Sheet open={!!editing} onClose={() => setEditing(null)} full title={editing?.item ? t.editContact : t.newContact}>
+        {editing && <ContactEditor op={op} item={editing.item} onSaved={done} />}
+      </Sheet>
+    </>
+  );
+}
+
+function ContactEditor({ op, item, onSaved }: { op: string; item: Contact | null; onSaved: () => void }) {
+  const { t } = useT();
+  const [v, setV] = useState({
+    name: item?.name ?? "",
+    phone: item?.phone ?? "",
+    role: item?.role ?? ("counter" as ContactRole),
+    locale: item?.locale ?? ("ms" as Contact["locale"]),
+    email: item?.email ?? "",
+  });
+  const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
+  const { busy, error, submit, err } = useSubmit(t);
+  const path = `/operators/${op}/contacts${item ? `/${item.id}` : ""}`;
+
+  const save = async () => {
+    if (await submit(() => api(item ? "PUT" : "POST", path, v))) onSaved();
+  };
+  const remove = async () => {
+    if (await submit(() => api("POST", `${path}/remove`, {}))) onSaved();
+  };
+
+  return (
+    <div className="space-y-4">
+      <Input label={t.name} value={v.name} onChange={(name) => set({ name })} error={err("name")} />
+      <Input label={t.whatsappNumber} value={v.phone} onChange={(phone) => set({ phone })} error={err("phone")} hint={t.whatsappNumberHint} />
+      <Field label={t.contactRole} hint={t.contactRoleHint} error={err("role")}>
+        {(id, note) => (
+          <select id={id} className="input" value={v.role} aria-describedby={note} onChange={(e) => set({ role: e.target.value as ContactRole })}>
+            {(["counter", "owner"] as const).map((r) => (
+              <option key={r} value={r}>
+                {t.contactRoles[r]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {v.role === "owner" && <Input label={t.ownerEmail} value={v.email} onChange={(email) => set({ email })} error={err("email")} />}
+      <Field label={t.contactLanguage} error={err("locale")}>
+        {(id, note) => (
+          <select id={id} className="input" value={v.locale} aria-describedby={note} onChange={(e) => set({ locale: e.target.value as Contact["locale"] })}>
+            {(["ms", "en"] as const).map((l) => (
+              <option key={l} value={l}>
+                {t.contactLanguages[l]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {item && (
+        <button type="button" className="btn btn-quiet" disabled={busy} onClick={remove}>
+          {t.removeContact}
+        </button>
+      )}
+      <SaveBar busy={busy} error={error} onSave={save} />
+    </div>
   );
 }
 
