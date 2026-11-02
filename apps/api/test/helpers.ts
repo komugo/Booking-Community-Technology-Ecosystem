@@ -1,6 +1,6 @@
 import { createExecutionContext, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
 import { booking, type OptionInput, type PackOfferInput } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, waivers, type ListingMode } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, photos, venues, waivers, type ListingMode } from "@komugo/db";
 import { WAIVER } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -158,6 +158,26 @@ export async function world(
   return { operatorId, activityId, optionId, helmetId, timeslotId, b, stub, flush, doSql };
 }
 export type World = Awaited<ReturnType<typeof world>>;
+
+export const unsplash = (n = 1) => ({
+  url: `https://images.unsplash.com/photo-${n}`,
+  width: 1600,
+  height: 1067,
+  altEn: "Courts",
+  altMs: "Gelanggang",
+  creditName: "Someone",
+  creditUrl: "https://unsplash.com/@someone",
+  sourceUrl: `https://unsplash.com/photos/${n}`,
+});
+
+// Meets the publish bar: a Venue with a map pin and one photo.
+export async function publishable(w: World) {
+  const [a] = await db.select({ cityId: activities.cityId }).from(activities).where(eq(activities.id, w.activityId));
+  const [venue] = await db.insert(venues).values({ cityId: a.cityId, nameEn: "Venue", nameMs: "Tempat", lat: 2.93, lng: 101.69 }).returning();
+  await db.update(activities).set({ venueId: venue.id }).where(eq(activities.id, w.activityId));
+  await db.insert(photos).values({ ...unsplash(), activityId: w.activityId });
+  return venue.id;
+}
 
 export async function slotAt(w: World, startsAt: number) {
   const {

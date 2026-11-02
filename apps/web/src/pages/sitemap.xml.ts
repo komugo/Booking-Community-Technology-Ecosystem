@@ -1,14 +1,17 @@
 import type { APIRoute } from "astro";
 import { listSitemapEntries, type Slugs } from "@komugo/db";
 import { db } from "../lib/db";
-import { path } from "../lib/i18n";
+import { path, VENUE } from "../lib/i18n";
 import { abs } from "../lib/seo";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 export const GET: APIRoute = async ({ site }) => {
   const entries = await listSitemapEntries(db);
-  const pages: Slugs[][] = [[], ...entries.map((e) => [e.city, e.category, e.activity].filter((x): x is Slugs => x !== undefined))];
+  const pages: Slugs[][] = [
+    [],
+    ...entries.map((e) => (e.venue ? [e.city, VENUE, e.venue] : [e.city, e.category, e.activity].filter((x): x is Slugs => x !== undefined))),
+  ];
   const urls = pages.flatMap((parts) => {
     const en = abs(site, path("en", ...parts.map((p) => p.en)));
     const ms = abs(site, path("ms", ...parts.map((p) => p.ms)));

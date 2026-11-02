@@ -18,6 +18,7 @@ export type Fixture = {
   k: string;
   customerEmail: string;
   activityPath: string;
+  venueSlug?: string;
   offerId?: string;
 };
 

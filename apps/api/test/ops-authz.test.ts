@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { client, d1, member, rid, world, type World } from "./helpers";
+import { client, d1, member, publishable, rid, unsplash, world, type World } from "./helpers";
 
 const option = (activityId: string) => ({
   activityId,
@@ -31,6 +31,7 @@ const schedule = (w: World) => ({
 
 async function routesFor(w: World) {
   const scheduleId = rid();
+  const venueId = await publishable(w);
   await w.b.upsertSchedule({ ...schedule(w), id: scheduleId, weekdays: ["Sa"] });
   const {
     ids: [closable],
@@ -38,6 +39,7 @@ async function routesFor(w: World) {
   return [
     ["GET", "/setup", 200],
     ["PUT", `/activities/${w.activityId}`, 200, { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: ["Mo"], requiresWaiver: true }],
+    ["PUT", `/activities/${w.activityId}/copy`, 204, { descriptionEn: "x", descriptionMs: "x", venueId, photos: [unsplash()] }],
     ["POST", "/options", 201, option(w.activityId)],
     ["PUT", `/options/${w.optionId}`, 200, { ...option(w.activityId), durationMinutes: 60, maxWeightKg: 90, minAge: 7 }],
     ["POST", "/add-ons", 201, addOn(w.activityId)],
@@ -93,6 +95,7 @@ describe("ops authorization", () => {
     expect((await staff.json("PUT", commission, { commissionBps: 1250 })).body).toEqual({ commissionBps: 1250 });
     expect((await own.json("GET", `/ops/operators/${w.operatorId}/setup`)).body.commissionBps).toBe(1250);
     expect(await d1("SELECT signed_up FROM operators WHERE id = ?", w.operatorId)).toEqual([{ signed_up: 1 }]);
+    await publishable(w);
     expect((await staff.json("PUT", url, { listingMode: "bookable" })).body).toEqual({ listingMode: "bookable" });
     expect(await d1("SELECT listing_mode, published FROM activities WHERE id = ?", w.activityId)).toEqual([{ listing_mode: "bookable", published: 1 }]);
   });
@@ -106,6 +109,10 @@ describe("ops authorization", () => {
     expect((await m.call("PUT", `${base}/add-ons/${b.helmetId}`, addOn(a.activityId))).status).toBe(404);
     expect((await m.call("POST", `${base}/options`, option(b.activityId))).status).toBe(404);
     expect((await m.call("PUT", `${base}/activities/${b.activityId}`, { freeCancelHours: 0, bookingCutoffMinutes: 0, closedDays: [], requiresWaiver: true })).status).toBe(404);
+    const copy = { descriptionEn: "Mine", descriptionMs: "Saya", venueId: null, photos: [] };
+    expect((await m.call("PUT", `${base}/activities/${b.activityId}/copy`, copy)).status).toBe(404);
+    expect((await m.call("PUT", `/ops/operators/${b.operatorId}/activities/${b.activityId}/copy`, copy)).status).toBe(404);
+    expect(await d1("SELECT description_en FROM activities WHERE id = ?", b.activityId)).toEqual([{ description_en: "x" }]);
     await a.flush();
     await b.flush();
     expect(await d1("SELECT operator_id, duration_minutes FROM proj_options WHERE id = ?", b.optionId)).toEqual([

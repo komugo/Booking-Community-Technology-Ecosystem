@@ -3,6 +3,7 @@ import { Link, Redirect, Route, Switch, useLocation, useRoute } from "wouter";
 import { openQueue } from "./checkins";
 import { useT } from "./i18n";
 import { loadMe, useMe } from "./me";
+import Interests from "./pages/Interests";
 import Payouts from "./pages/Payouts";
 import Scan from "./pages/Scan";
 import Schedule from "./pages/Schedule";
@@ -11,6 +12,7 @@ import Setup from "./pages/Setup";
 import SignIn from "./pages/SignIn";
 import Timeslot from "./pages/Timeslot";
 import Today from "./pages/Today";
+import Venues from "./pages/Venues";
 import type { Me } from "./types";
 import { LangPill, Logo, SignedInAs, Spinner, TabBar, Toast } from "./ui";
 
@@ -62,6 +64,8 @@ function Signed({ me }: { me: Me }) {
       <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
       <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
       <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
+      <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
+      <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
       <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
       <Route component={NotFound} />
     </Switch>
@@ -148,6 +152,8 @@ function StaffLinks() {
         [
           ["/refunds", t.refunds],
           ["/payouts", t.payouts],
+          ["/venues", t.venues],
+          ["/interests", t.interests],
         ] as const
       ).map(([href, label]) => (
         <Link key={href} href={href} className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-leaf hover:bg-sand">

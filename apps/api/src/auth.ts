@@ -14,7 +14,7 @@ const MAX_SENDS_PER_HOUR = 5;
 const MAX_SENDS_PER_DAY = 10;
 
 export const normEmail = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
-const validEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+export const validEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const codeHash = (env: Env, email: string, code: string) => hmacHex(env.APP_SECRET, `otp:${email}:${code}`);
 export const clientIp = (c: Ctx) => c.req.header("x-client-ip") ?? "unknown";
 export const ipLimited = (c: Ctx) => limited(c.env.RL_IP, `otp:${clientIp(c)}`);

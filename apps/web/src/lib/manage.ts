@@ -190,3 +190,15 @@ export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
   ]);
   return { locale: l, offer: row.offer, activity: row.activity, options, email: me.data?.email ?? null, here, problems: problems(l, errors) };
 }
+
+export async function unsubscribeStep({ request, params, url }: Ctx, l: Locale) {
+  const id = params.id!;
+  const k = url.searchParams.get("k") ?? "";
+  if (request.method === "POST") {
+    const res = await api(request, "POST", `/interests/${q(id)}/unsubscribe`, { k });
+    return res.status === 204 ? see(`${path(l, "unsubscribe", id)}?k=${q(k)}`) : notFound();
+  }
+  const res = await api<{ activity: { nameEn: string; nameMs: string }; unsubscribed: boolean }>(request, "GET", `/interests/${q(id)}?k=${q(k)}`);
+  if (!res.data) return notFound();
+  return { locale: l, activity: l === "ms" ? res.data.activity.nameMs : res.data.activity.nameEn, unsubscribed: res.data.unsubscribed };
+}

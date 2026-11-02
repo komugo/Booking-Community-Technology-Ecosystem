@@ -1,10 +1,14 @@
 import { booking, type RefundReason } from "@komugo/booking";
 import {
+  activities,
   bills,
+  categories,
   checkouts,
+  cities,
   closureNotices,
   createDb,
   customers,
+  interests,
   packOrders,
   participants,
   projOptions,
@@ -15,6 +19,7 @@ import {
 } from "@komugo/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { klDateTime, klDay, named, optionDetails, rm, type Locale, type OptionDetails } from "./details";
+import { interestLink } from "./interests";
 import { log } from "./lib";
 import { bookingLink, groupLink } from "./manage";
 
@@ -44,14 +49,16 @@ export async function sendEmail(env: Env, e: Email) {
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 
-const html = (lines: string[], link?: { href: string; label: string }) =>
+type Link = { href: string; label: string };
+
+const html = (lines: string[], link?: Link, footer?: Link) =>
   `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#111">${lines
     .map((l) => `<p>${esc(l)}</p>`)
     .join("")}${
     link
       ? `<p><a href="${esc(link.href)}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">${esc(link.label)}</a></p>`
       : ""
-  }</div>`;
+  }${footer ? `<p style="font-size:13px;color:#666"><a href="${esc(footer.href)}" style="color:#666">${esc(footer.label)}</a></p>` : ""}</div>`;
 
 export function otpEmail(to: string, code: string, l: Locale): Email {
   const lines =
@@ -398,6 +405,43 @@ export async function sendRefundPaidEmail(env: Env, r: RefundRow) {
   });
   await db.insert(refundEmails).values({ refundId: r.id, kind: "paid", emailedAt: Date.now() }).onConflictDoNothing();
   log("refund_paid_emailed", { refundId: r.id });
+}
+
+export async function sendInterestEmail(env: Env, id: string) {
+  const db = createDb(env.DB);
+  const [row] = await db
+    .select({ interest: interests, activity: activities, city: cities, category: categories })
+    .from(interests)
+    .innerJoin(activities, eq(activities.id, interests.activityId))
+    .innerJoin(cities, eq(cities.id, activities.cityId))
+    .innerJoin(categories, eq(categories.id, activities.categoryId))
+    .where(eq(interests.id, id));
+  if (!row || row.interest.emailedAt !== null || row.interest.unsubscribedAt !== null) return;
+  const { interest: i, activity: a, city, category } = row;
+  const l = i.locale;
+  const name = named(a, l);
+  const href = l === "ms" ? `${site(env, l)}/${city.slugMs}/${category.slugMs}/${a.slugMs}` : `${site(env, l)}/${city.slugEn}/${category.slugEn}/${a.slugEn}`;
+  const unsubscribe = {
+    href: `${site(env, l)}/unsubscribe/${i.id}?k=${await interestLink(env, i.id)}`,
+    label: l === "ms" ? "Berhenti melanggan" : "Unsubscribe",
+  };
+  const lines =
+    l === "ms"
+      ? [`${name} kini boleh ditempah dalam talian di Komugo.`, "Anda minta kami beritahu sekali sahaja. Ini satu-satunya e-mel tentangnya."]
+      : [`${name} can now be booked online on Komugo.`, "You asked us to tell you once. This is the only email about it."];
+  const label = l === "ms" ? "Tempah sekarang" : "Book now";
+  await sendEmail(env, {
+    to: i.email,
+    subject: l === "ms" ? `Kini boleh ditempah: ${name}` : `Now bookable: ${name}`,
+    text: [...lines, `${label}: ${href}`, `${unsubscribe.label}: ${unsubscribe.href}`].join("\n\n"),
+    html: html(lines, { href, label }, unsubscribe),
+    idempotencyKey: `interest:${i.id}`,
+  });
+  await db
+    .update(interests)
+    .set({ emailedAt: Date.now() })
+    .where(and(eq(interests.id, i.id), isNull(interests.emailedAt)));
+  log("interest_emailed", { interestId: i.id });
 }
 
 const site = (env: Env, l: Locale) => `${env.PUBLIC_SITE_URL}${l === "ms" ? "/ms" : ""}`;

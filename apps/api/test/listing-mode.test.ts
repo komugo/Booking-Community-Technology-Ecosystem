@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { activities, getActivityPage, getCityHub, listSitemapEntries, operators, photos, venues } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { booked, boughtPack, client, customer, d1, db, held, member, packOffer, pay, rid, signedIn, world } from "./helpers";
+import { booked, boughtPack, client, customer, d1, db, held, member, packOffer, pay, publishable, rid, signedIn, world } from "./helpers";
 
 const mode = async (w: { operatorId: string; activityId: string }, listingMode: string) =>
   (await member("staff")).json("PUT", `/ops/operators/${w.operatorId}/activities/${w.activityId}/listing-mode`, { listingMode });
@@ -18,6 +18,7 @@ async function slugsOf(activityId: string) {
 describe("Listing mode", () => {
   test("only an Activity of a signed-up Operator can be Bookable", async () => {
     const w = await world({ listingMode: "hidden", signedUp: false });
+    await publishable(w);
     expect(await mode(w, "bookable")).toEqual({ status: 409, body: { code: "not_signed_up", field: "listingMode" } });
     expect(await mode(w, "info")).toEqual({ status: 200, body: { listingMode: "info" } });
     await db.update(operators).set({ signedUp: true }).where(eq(operators.id, w.operatorId));

@@ -5,6 +5,8 @@ type Params = Record<string, string | number | undefined>;
 
 export const path = (l: Locale, ...parts: string[]) => "/" + [l === "ms" ? "ms" : "", ...parts].filter(Boolean).join("/");
 
+export const VENUE: Record<Locale, string> = { en: "venue", ms: "tempat" };
+
 export const rm = (sen: number) => `RM${sen % 100 ? (sen / 100).toFixed(2) : sen / 100}`;
 
 export const WEEKDAYS: Weekday[] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -79,8 +81,18 @@ export const t = {
     bookWithText: "Booking is handled by the operator, not through Komugo.",
     callVenue: "Call the venue",
     callVenueText: "Call to check availability and book.",
+    notify: {
+      title: "Notify me when bookable",
+      text: "We'll email you once when you can book this online. No sign-in needed.",
+      send: "Notify me",
+      sent: "Done. We'll email you once when it's bookable.",
+    },
     howToBook: "How to book",
     bookNow: "Book now",
+    infoBadge: "Info",
+    venueTitle: (v: string, c: string) => `${v}, ${c}: what to do, hours and map | Komugo`,
+    venueDescription: (v: string, c: string) => `What you can do at ${v} in ${c}, with the address, map and opening hours.`,
+    atVenue: "What to do here",
     bookOnline: "Pick an option, choose a time and pay online. Everyone gets their own ticket.",
     addOnsBook: "Add gear when you book. Rental covers one session.",
     age: (min: number | null, max: number | null) =>
@@ -222,6 +234,12 @@ export const t = {
         sign_in_required: "Sign in to change this booking.",
         pack_refund_due: "Payment received, but we couldn't issue your Pack. Full refund within 7 working days.",
       },
+    },
+    unsubscribe: {
+      title: "Unsubscribe",
+      body: (a: string) => `You asked us to email you once when ${a} can be booked online.`,
+      send: "Unsubscribe",
+      done: (a: string) => `You're unsubscribed. We won't email you about ${a}.`,
     },
     signIn: {
       title: "Sign in",
@@ -399,8 +417,18 @@ export const t = {
     bookWithText: "Tempahan diuruskan oleh pengendali, bukan melalui Komugo.",
     callVenue: "Hubungi tempat ini",
     callVenueText: "Hubungi untuk semak kekosongan dan menempah.",
+    notify: {
+      title: "Beritahu saya bila boleh ditempah",
+      text: "Kami akan e-mel anda sekali apabila ini boleh ditempah dalam talian. Tidak perlu log masuk.",
+      send: "Beritahu saya",
+      sent: "Siap. Kami akan e-mel anda sekali apabila ia boleh ditempah.",
+    },
     howToBook: "Cara menempah",
     bookNow: "Tempah sekarang",
+    infoBadge: "Maklumat",
+    venueTitle: (v: string, c: string) => `${v}, ${c}: aktiviti, waktu operasi dan peta | Komugo`,
+    venueDescription: (v: string, c: string) => `Aktiviti yang boleh dibuat di ${v}, ${c}, dengan alamat, peta dan waktu operasi.`,
+    atVenue: "Aktiviti di sini",
     bookOnline: "Pilih satu pilihan, tetapkan masa dan bayar dalam talian. Setiap orang dapat tiket sendiri.",
     addOnsBook: "Tambah peralatan semasa menempah. Sewaan untuk satu sesi.",
     age: (min: number | null, max: number | null) =>
@@ -542,6 +570,12 @@ export const t = {
         sign_in_required: "Log masuk untuk mengubah tempahan ini.",
         pack_refund_due: "Bayaran diterima, tetapi Pek anda tidak dapat dikeluarkan. Bayaran balik penuh dalam masa 7 hari bekerja.",
       },
+    },
+    unsubscribe: {
+      title: "Berhenti melanggan",
+      body: (a: string) => `Anda meminta kami e-mel anda sekali apabila ${a} boleh ditempah dalam talian.`,
+      send: "Berhenti melanggan",
+      done: (a: string) => `Anda telah berhenti melanggan. Kami tidak akan e-mel anda tentang ${a}.`,
     },
     signIn: {
       title: "Log masuk",

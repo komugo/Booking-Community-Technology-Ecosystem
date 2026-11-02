@@ -2,8 +2,9 @@
 import Activity from "../../../views/Activity.astro";
 import { loadActivity } from "../../../lib/catalog";
 
-const data = await loadActivity(Astro.params, "en", Astro.url.search);
+const data = await loadActivity(Astro, "en");
 if (data instanceof Response) return data;
+Astro.response.status = data.status;
 ---
 
 <Activity {...data} />

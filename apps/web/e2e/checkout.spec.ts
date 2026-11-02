@@ -58,7 +58,7 @@ for (const locale of ["en", "ms"] as const) {
     };
     const to = email(locale);
 
-    await page.goto("/putrajaya/rock-climbing/putrajaya-challenge-park");
+    await page.goto("/putrajaya/climbing-adventure-parks/putrajaya-challenge-park");
     if (locale === "ms") await page.locator('nav[aria-label="Language"] a[hreflang="ms"]').click();
     await expect(page.locator("#sticky-cta a")).toHaveAttribute("href", "#options");
     await shot("00-activity");

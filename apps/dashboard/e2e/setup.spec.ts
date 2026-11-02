@@ -75,7 +75,54 @@ test("only staff can set Listing mode, and Bookable needs a Commission", async (
   await page.getByLabel("Commission (%)").fill("12.5");
   await page.getByRole("button", { name: "Save" }).first().click();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
-  await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), mode.selectOption("bookable")]);
-  await page.reload();
-  await expect(page.getByLabel("Listing mode")).toHaveValue("bookable");
+  await mode.selectOption("bookable");
+  await expect(page.getByText("Not ready to show in the catalogue.")).toBeVisible();
+  await expect(mode).toHaveValue("hidden");
 });
+
+test("staff pin a Venue and fill the Activity page before it leaves Hidden", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true });
+  const page = await (await newContext(browser)).newPage();
+  await page.route(/images\.unsplash\.com|tile\.openstreetmap\.org/, (r) => r.fulfill({ contentType: "image/png", body: PNG }));
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
+  await page.getByLabel("Listing mode").selectOption("info");
+  await expect(page.getByText("It still needs a Venue, a photo.")).toBeVisible();
+  await expect(page.getByLabel("Listing mode")).toHaveValue("hidden");
+
+  await page.goto("/venues");
+  await page.getByRole("button", { name: "New Venue" }).click();
+  const sheet = page.getByRole("dialog");
+  const name = `Kompleks ${fx.operatorId}`;
+  await sheet.getByLabel("City").selectOption(fx.cityId);
+  await sheet.getByLabel("Name (English)").fill(name);
+  await sheet.getByLabel("Name (BM)").fill(name);
+  await sheet.getByLabel("Presint").selectOption("9");
+  await sheet.locator("[data-map]").click({ position: { x: 120, y: 100 } });
+  await expect(sheet.locator("[data-pin]")).toBeVisible();
+  await expect(sheet.getByLabel("Latitude")).not.toHaveValue("");
+  await sheet.getByRole("button", { name: "Add hours" }).click();
+  await sheet.getByRole("button", { name: "Monday" }).click();
+  await noAxeViolations(page);
+  await shot(page, "venue");
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect(page.locator("[data-row]", { hasText: name })).toContainText("Presint 9 · Map pin · 0 photos");
+
+  await page.goto(`/o/${fx.operatorId}/setup`);
+  await page.getByRole("button", { name: "Edit page" }).click();
+  await sheet.getByLabel("Venue").selectOption({ label: name });
+  await sheet.getByRole("button", { name: "Add photo" }).click();
+  await sheet.getByLabel("Image URL (images.unsplash.com)").fill("https://images.unsplash.com/photo-1626224583764-f87db24ac4ea");
+  await expect(sheet.getByLabel("Width (px)")).toHaveValue("1");
+  await sheet.getByLabel("Describe the photo (English)").fill("Badminton courts");
+  await sheet.getByLabel("Describe the photo (BM)").fill("Gelanggang badminton");
+  await sheet.getByLabel("Photographer", { exact: true }).fill("Someone");
+  await sheet.getByLabel("Photographer's Unsplash link").fill("https://unsplash.com/@someone");
+  await sheet.getByLabel("Photo's Unsplash page").fill("https://unsplash.com/photos/abc");
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), page.getByLabel("Listing mode").selectOption("info")]);
+  await page.reload();
+  await expect(page.getByLabel("Listing mode")).toHaveValue("info");
+});
+
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
