@@ -15,7 +15,7 @@ export async function optionDetails(db: Db, optionId: string, timeslotId: string
           nameMs: activities.nameMs,
           slugEn: activities.slugEn,
           slugMs: activities.slugMs,
-          published: activities.published,
+          listingMode: activities.listingMode,
           streetAddress: activities.streetAddress,
           postalCode: activities.postalCode,
           lat: activities.lat,
@@ -25,8 +25,10 @@ export async function optionDetails(db: Db, optionId: string, timeslotId: string
         city: { slugEn: cities.slugEn, slugMs: cities.slugMs, nameEn: cities.nameEn, nameMs: cities.nameMs },
         category: { slugEn: categories.slugEn, slugMs: categories.slugMs },
         operatorName: operators.name,
+        commissionBps: operators.commissionBps,
         freeCancelHours: projActivities.freeCancelHours,
         bookingCutoffMinutes: projActivities.bookingCutoffMinutes,
+        requiresWaiver: projActivities.requiresWaiver,
       })
       .from(projOptions)
       .innerJoin(activities, eq(activities.id, projOptions.activityId))
@@ -45,12 +47,19 @@ export type OptionDetails = NonNullable<Awaited<ReturnType<typeof optionDetails>
 
 export const named = (x: { nameEn: string; nameMs: string }, l: Locale) => (l === "ms" ? x.nameMs : x.nameEn);
 
-export const klDateTime = (t: number, l: Locale) =>
+const klDateTime = (t: number, l: Locale) =>
   new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", {
     timeZone: "Asia/Kuala_Lumpur",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(t);
+
+const klTime = (t: number, l: Locale) =>
+  new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: "Asia/Kuala_Lumpur", timeStyle: "short" }).format(t);
+
+// A Date ticket shows its date's opening hours instead of a start time.
+export const klWhen = (s: { startsAt: number; endsAt: number | null }, l: Locale) =>
+  s.endsAt === null ? klDateTime(s.startsAt, l) : `${klDay(s.startsAt, l)}, ${klTime(s.startsAt, l)}–${klTime(s.endsAt, l)}`;
 
 export const klDay = (t: number, l: Locale) =>
   new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: "Asia/Kuala_Lumpur", dateStyle: "medium" }).format(t);

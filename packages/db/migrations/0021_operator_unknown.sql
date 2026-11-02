@@ -1,0 +1,2 @@
+ALTER TABLE `operators` ADD `unknown` integer DEFAULT false NOT NULL;--> statement-breakpoint
+UPDATE `operators` SET `unknown` = 1 WHERE `id` IN ('op_putrajaya_equestrian_park', 'op_glamping_wetland_putrajaya', 'op_putrajaya_story', 'op_nasyrul_quran_complex', 'op_perdana_putra', 'op_astaka_morocco');

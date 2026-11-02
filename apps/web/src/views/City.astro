@@ -3,14 +3,25 @@ import Base from "../layouts/Base.astro";
 import HubHero from "../components/HubHero.astro";
 import CategoryTile from "../components/CategoryTile.astro";
 import ActivityCard from "../components/ActivityCard.astro";
+import VenueMap from "../components/VenueMap.astro";
 import { path, t } from "../lib/i18n";
 import { heroSizes } from "../lib/photo";
 import { breadcrumbLd, itemListLd } from "../lib/seo";
 import { categoryFromSen, type CityData } from "../lib/catalog";
 
 type Props = CityData;
-const { locale, alternates, city, categories, activities, indexable } = Astro.props;
+const { locale, alternates, city, categories, activities, venues, presints, filters: f, map, indexable } = Astro.props;
 const s = t[locale];
+const fs = s.filters;
+const base = alternates[locale];
+const filtered = f.bookable || f.free || f.setting !== null || f.presint !== null;
+const href = (params: Record<string, string | number | false | null>) => {
+  const q = new URLSearchParams(Object.entries(params).flatMap(([k, v]) => (v ? [[k, String(v)]] : []))).toString();
+  return `${base}${q ? `?${q}` : ""}#all`;
+};
+const view = (m: boolean) => href({ bookable: f.bookable && 1, free: f.free && 1, setting: f.setting, presint: f.presint, view: m && "map" });
+const presintChoices = f.presint && !presints.includes(f.presint) ? [...presints, f.presint] : presints;
+const select = "h-12 rounded-xl border border-line bg-white px-3 text-base";
 const crumbs = [
   { name: s.home, path: path(locale) },
   { name: city.name, path: alternates[locale] },
@@ -45,13 +56,63 @@ const crumbs = [
 
     <section class="mt-20" aria-labelledby="all">
       <h2 id="all" class="text-4xl font-extrabold md:text-6xl">{s.allActivities}</h2>
+
+      <form method="get" action={`${base}#all`} aria-label={fs.title} class="mt-8 flex flex-wrap items-end gap-x-6 gap-y-4 rounded-2xl bg-sand p-4 md:p-5" data-filters>
+        {map && <input type="hidden" name="view" value="map" />}
+        <label class="flex min-h-12 items-center gap-2 font-medium">
+          <input type="checkbox" name="bookable" value="1" checked={f.bookable} class="size-6 accent-leaf" />
+          {fs.bookable}
+        </label>
+        <label class="flex min-h-12 items-center gap-2 font-medium">
+          <input type="checkbox" name="free" value="1" checked={f.free} class="size-6 accent-leaf" />
+          {fs.free}
+        </label>
+        <label class="grid gap-1 text-sm font-medium">
+          {fs.setting}
+          <select name="setting" class={select}>
+            <option value="">{fs.any}</option>
+            <option value="indoor" selected={f.setting === "indoor"}>{fs.indoor}</option>
+            <option value="outdoor" selected={f.setting === "outdoor"}>{fs.outdoor}</option>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm font-medium">
+          {fs.presint}
+          <select name="presint" class={`${select} num`}>
+            <option value="">{fs.any}</option>
+            {presintChoices.map((n) => <option value={n} selected={f.presint === n}>{s.presint(n)}</option>)}
+          </select>
+        </label>
+        <div class="flex items-center gap-4">
+          <button class="inline-flex min-h-12 items-center rounded-full bg-leaf px-6 font-semibold text-white hover:bg-forest">{fs.apply}</button>
+          {filtered && <a href={href({ view: map && "map" })} class="font-semibold underline underline-offset-4 hover:text-leaf">{fs.clear}</a>}
+        </div>
+      </form>
+
+      <nav aria-label={fs.view} class="mt-6 inline-flex rounded-full border border-line p-1">
+        {
+          ([[false, fs.list], [true, fs.map]] as const).map(([m, label]) => (
+            <a href={view(m)} aria-current={map === m ? "page" : undefined} class="inline-flex min-h-11 items-center rounded-full px-5 font-semibold aria-[current=page]:bg-forest aria-[current=page]:text-white">
+              {label}
+            </a>
+          ))
+        }
+      </nav>
+
       {
-        activities.length ? (
+        map ? (
+          venues.length ? (
+            <div class="mt-6">
+              <VenueMap venues={venues} locale={locale} city={city.slugs[locale]} label={fs.mapLabel(city.name)} />
+            </div>
+          ) : (
+            <p class="mt-6 text-muted">{filtered ? fs.none : s.empty}</p>
+          )
+        ) : activities.length ? (
           <div class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
             {activities.map((a) => <ActivityCard card={a} locale={locale} sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw" />)}
           </div>
         ) : (
-          <p class="mt-6 text-muted">{s.empty}</p>
+          <p class="mt-6 text-muted">{filtered ? fs.none : s.empty}</p>
         )
       }
     </section>

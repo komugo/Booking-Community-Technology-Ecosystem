@@ -9,12 +9,12 @@ import { count, inArray } from "drizzle-orm";
 type PhotoSeed = Omit<typeof photos.$inferInsert, "activityId" | "position">;
 type HubSeed = typeof cities.$inferInsert & { id: string; photo: PhotoSeed };
 type OptionSeed = Pick<OptionInput, "id" | "nameEn" | "nameMs" | "priceSen" | "durationMinutes"> &
-  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "requiredCert">> & {
+  Partial<Pick<OptionInput, "minAge" | "maxAge" | "maxWeightKg" | "minParticipants" | "maxPerBooking" | "requiredCert">> & {
     needs: Partial<Record<ResourceKind, number>>;
   };
 type ResourceSeed = Pick<ResourceInput, "id" | "kind" | "name"> &
   Partial<Pick<ResourceInput, "maxSessionsPerDay" | "restMinutes" | "maxRiderWeightKg">>;
-type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published"> & {
+type ActivitySeed = Omit<typeof activities.$inferInsert, "operatorId" | "cityId" | "categoryId" | "published" | "listingMode"> & {
   id: string;
   operator: { id: string; name: string };
   category: HubSeed;
@@ -74,12 +74,12 @@ const horseRiding: HubSeed = {
   photo: unsplash("1594768816441-1dd241ffaa67", "9h_bJdGqzCk", 5184, 3456, "Mikayla Storms", "mikham", "Rider on a chestnut horse in an outdoor arena", "Penunggang di atas kuda perang di gelanggang terbuka"),
 };
 
-const rockClimbing: HubSeed = {
+const climbing: HubSeed = {
   id: "cat_rock_climbing",
-  slugEn: "rock-climbing",
-  slugMs: "panjat-tebing",
-  nameEn: "Rock climbing",
-  nameMs: "Panjat tebing",
+  slugEn: "climbing-adventure-parks",
+  slugMs: "panjat-taman-pengembaraan",
+  nameEn: "Climbing & adventure parks",
+  nameMs: "Panjat & taman pengembaraan",
   introEn:
     "Indoor wall climbing in Putrajaya costs a few ringgit for a 3-hour session, with gear to rent on site and instructors for beginners. It's air-conditioned and open late, which makes it an easy weeknight plan.",
   introMs:
@@ -159,7 +159,7 @@ const equestrian: ActivitySeed = {
 const challengePark: ActivitySeed = {
   id: "act_challenge_park",
   operator: { id: "op_challenge_park", name: "Putrajaya Challenge Park" },
-  category: rockClimbing,
+  category: climbing,
   slugEn: "putrajaya-challenge-park",
   slugMs: "taman-cabaran-putrajaya",
   nameEn: "Putrajaya Challenge Park",
@@ -258,7 +258,11 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
         maxAge: null,
         maxWeightKg: null,
         minParticipants: null,
+        maxPerBooking: null,
         requiredCert: null,
+        bookingUnit: "person",
+        ticketType: "timeslot",
+        dailyLimit: null,
         active: true,
         ...o,
         activityId: a.id,
@@ -274,6 +278,7 @@ export async function seed(env: Env): Promise<{ options: number; addOns: number 
       times: ["09:00", "11:00", "14:00", "16:00"],
       startsOn: klDate(Date.now()),
       endsOn: null,
+      priceSen: null,
       active: true,
     });
   }

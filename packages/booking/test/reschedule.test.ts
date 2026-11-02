@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
-import { later, rid, rideWorld } from "./helpers";
+import { HOUR, kl, later, rid, rideWorld } from "./helpers";
 
 async function booked(o: { people?: number; horse?: { maxSessionsPerDay?: number } } = {}) {
   const w = await rideWorld(o.horse ?? {});
@@ -43,6 +43,15 @@ test("after the window it is window_passed, once started it is started, and anot
   });
 });
 
+test("inside the window a Timeslot at another price is price_differs; after a Closure it moves free", async () => {
+  const w = await booked();
+  const next = await w.slot(w.optionId, later(96));
+  await w.sql("UPDATE options SET price_sen = price_sen + 4000 WHERE id = ?", w.optionId);
+  await expect(w.move(next)).rejects.toMatchObject({ code: "price_differs" });
+  await w.b.closeTimeslot(w.ts, "weather");
+  expect(await w.move(next, undefined, undefined, rid(), true)).toMatchObject({ timeslotId: next });
+});
+
 test("after a Closure any future open Timeslot is free, ignoring the window and Pack expiry", async () => {
   const w = await booked();
   await w.b.closeTimeslot(w.ts, "weather");
@@ -73,8 +82,9 @@ test("Resources are re-allocated: Requirements on the new date and Welfare Rules
   });
 
   const h = await booked({ horse: { maxSessionsPerDay: 1 } });
-  const dayA = await h.slot(h.optionId, later(120));
-  const dayB = await h.slot(h.optionId, later(122));
+  const morning = kl(`${klDate(later(120))}T09:00`);
+  const dayA = await h.slot(h.optionId, morning);
+  const dayB = await h.slot(h.optionId, morning + 2 * HOUR);
   await h.book(h.customerId, dayA, [await h.participant(h.customerId)]);
   await expect(h.move(dayB)).rejects.toMatchObject({ code: "no_availability" });
 });

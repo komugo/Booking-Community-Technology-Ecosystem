@@ -1,9 +1,10 @@
-import { isClosedDay, klDate, klWeekday, WEEKDAYS, type Weekday } from "@komugo/types/rules";
+import { isClosedDay, klDate, klWeekday, UNLIMITED_SPOTS, WEEKDAYS, type Weekday } from "@komugo/types/rules";
 import { useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { api, useApi } from "../api";
 import { addDays, today, visible } from "../day";
-import { dateLong, day, errorText, named, time, useT, type Dict } from "../i18n";
+import { dateLong, day, errorText, hours, named, time, useT, type Dict } from "../i18n";
+import { rm, sen } from "../money";
 import type { Generated, Locale, Schedule, Setup, Timeslot } from "../types";
 import { Field, Icon, Sheet, Spinner, toast, Toggle } from "../ui";
 
@@ -123,8 +124,12 @@ export default function SchedulePage() {
                           data-chip
                           className={`num inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-semibold ${x.closedAt ? "border-clay/40 text-clay line-through" : booked ? "border-leaf bg-leaf/10 text-forest" : "border-line bg-white"}`}
                         >
-                          {time(x.startsAt, l)} {named(x.option, l)} ·{" "}
-                          {x.closedAt ? (t.reasons[(x.closedReason ?? "other") as keyof Dict["reasons"]] ?? t.reasons.other) : t.left(x.spots)}
+                          {hours(x, l)} {named(x.option, l)} ·{" "}
+                          {x.closedAt
+                            ? (t.reasons[(x.closedReason ?? "other") as keyof Dict["reasons"]] ?? t.reasons.other)
+                            : x.spots >= UNLIMITED_SPOTS
+                              ? t.noLimit
+                              : t.left(x.spots)}
                         </Link>
                       </li>
                     );
@@ -164,6 +169,7 @@ export default function SchedulePage() {
                       x.times.join(", "),
                       t.fromDate(dateLong(noon(x.startsOn), l)),
                       x.endsOn && t.untilDate(dateLong(noon(x.endsOn), l)),
+                      x.priceSen !== null && rm(x.priceSen),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -217,21 +223,26 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
       times: [],
       startsOn: today(),
       endsOn: null,
+      priceSen: null,
       active: true,
     },
   );
+  const [price, setPrice] = useState(v.priceSen === null ? "" : String(v.priceSen / 100));
   const [newTime, setNewTime] = useState("09:00");
   const [error, setError] = useState<{ field?: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
-  const options = setup.options.filter((o) => o.activityId === v.activityId);
+  const options = setup.options.filter((o) => o.activityId === v.activityId && o.ticketType === "timeslot");
   const err = (f: string) => (error?.field === f ? error.text : undefined);
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      const g = await api<Generated>(schedule ? "PUT" : "POST", `/operators/${op}/schedules${schedule ? `/${schedule.id}` : ""}`, v);
+      const g = await api<Generated>(schedule ? "PUT" : "POST", `/operators/${op}/schedules${schedule ? `/${schedule.id}` : ""}`, {
+        ...v,
+        priceSen: sen(price),
+      });
       onSaved(g);
     } catch (e) {
       setError({ field: (e as { field?: string }).field, text: errorText(e, t) });
@@ -377,6 +388,19 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
           )}
         </Field>
       </div>
+      <Field label={t.priceRm} hint={t.schedulePriceHint} error={err("priceSen")}>
+        {(id, note) => (
+          <input
+            id={id}
+            className="input num"
+            inputMode="decimal"
+            value={price}
+            aria-describedby={note}
+            aria-invalid={!!err("priceSen") || undefined}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+        )}
+      </Field>
       <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
       {error && !error.field && (
         <p role="alert" className="font-semibold text-clay">
@@ -394,7 +418,7 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
 
 function OneOff({ op, setup, l, onSaved }: { op: string; setup: Setup; l: Locale; onSaved: () => void }) {
   const { t } = useT();
-  const options = setup.options.filter((o) => o.active);
+  const options = setup.options.filter((o) => o.active && o.ticketType === "timeslot");
   const [optionId, setOptionId] = useState(options[0]?.id ?? "");
   const [date, setDate] = useState(today());
   const [at, setAt] = useState("09:00");

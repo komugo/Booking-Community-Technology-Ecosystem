@@ -1,7 +1,7 @@
 ---
 import Checkout from "../../layouts/Checkout.astro";
 import BottomBar from "../../components/checkout/BottomBar.astro";
-import { klDayYear, klLongDay, klTime, path, rm, t } from "../../lib/i18n";
+import { klDayYear, klHours, klLongDay, klTime, path, rm, t } from "../../lib/i18n";
 import { named, type payStep } from "../../lib/checkout";
 
 type Props = Exclude<Awaited<ReturnType<typeof payStep>>, Response>;
@@ -31,7 +31,7 @@ const why = (x: (typeof packs)[number]) =>
 const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherTitle) : co.state === "expired" ? c.expiredTitle : c.payTitle;
 ---
 
-<Checkout locale={l} title={title} step={co.state === "refund_due" ? undefined : 4} back={path(l, "checkout", co.id, "who")} problems={p}>
+<Checkout locale={l} title={title} step={co.state === "refund_due" ? undefined : 4} back={o.bookingUnit === "court" ? path(l, "book", o.id) : path(l, "checkout", co.id, "who")} problems={p}>
   {
     co.state === "held" && (
       <div class="mt-4 rounded-2xl bg-forest p-4 text-white">
@@ -86,8 +86,8 @@ const title = co.state === "refund_due" ? (gone ? c.refundTitle : c.refundOtherT
   <section class="mt-6 rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]" aria-labelledby="summary">
     <h2 id="summary" class="text-2xl font-extrabold">{named(co.activity, l)}</h2>
     <p class="mt-1 font-semibold">{named(o, l)}</p>
-    {co.startsAt && <p class="mt-2">{klLongDay(l, co.startsAt)} · <span class="num">{klTime(l, co.startsAt)}</span></p>}
-    <p class="mt-1 text-sm text-muted">{co.participants.map((x) => x.name).join(", ")}</p>
+    {co.startsAt && <p class="mt-2">{klLongDay(l, co.startsAt)} · <span class="num">{klHours(l, { startsAt: co.startsAt, endsAt: co.endsAt })}</span></p>}
+    {co.participants.length > 0 && <p class="mt-1 text-sm text-muted">{co.participants.map((x) => x.name).join(", ")}</p>}
     <table class="mt-4 w-full text-sm">
       <tbody>
         <tr>

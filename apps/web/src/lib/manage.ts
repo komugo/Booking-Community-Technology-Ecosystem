@@ -1,8 +1,8 @@
-import { activities, projOptions, projPackOffers, type Locale } from "@komugo/db";
+import { activities, operators, projOptions, projPackOffers, type Locale } from "@komugo/db";
 import { eq, inArray } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Group, type GroupTicket, type Me, type Quote } from "./api";
 import { form } from "./checkout";
-import { db, showDrafts } from "./db";
+import { db, sells } from "./db";
 import { codeFrom, problems } from "./form";
 import { path } from "./i18n";
 import { daysAndTimes } from "./slots";
@@ -46,6 +46,7 @@ export async function groupStep({ request, params, url }: Ctx, l: Locale, kind: 
       return {
         ...c,
         startsAt: tickets[0]?.startsAt ?? 0,
+        endsAt: tickets[0]?.endsAt ?? null,
         optionId: tickets[0]?.optionId ?? g.option.id,
         issued,
         refundSen: quote?.refundSen ?? tickets.reduce((s, x) => s + x.refundSen, 0),
@@ -113,7 +114,7 @@ export async function rescheduleStep({ request, params, url }: Ctx, l: Locale, k
     if (res.status === 401) return see(signInAt(l, url.pathname + url.search));
     errors = errorsOf(res.error);
   }
-  const res = await api<{ ticketIds: string[]; slots: { id: string; startsAt: number; spots: number }[] }>(
+  const res = await api<{ ticketIds: string[]; slots: { id: string; startsAt: number; endsAt: number | null; spots: number }[] }>(
     request,
     "GET",
     `/${plural(kind)}/${q(g.id)}/slots?t=${q(t)}&k=${g.k}`,
@@ -166,11 +167,12 @@ export async function meStep({ request, url }: Ctx, l: Locale) {
 
 export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
   const [row] = await db
-    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, published: activities.published } })
+    .select({ offer: projPackOffers, activity: { nameEn: activities.nameEn, nameMs: activities.nameMs, listingMode: activities.listingMode }, commissionBps: operators.commissionBps })
     .from(projPackOffers)
     .innerJoin(activities, eq(activities.id, projPackOffers.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(eq(projPackOffers.id, params.offerId!));
-  if (!row || !row.offer.active || !(row.activity.published || showDrafts)) return notFound();
+  if (!row || !row.offer.active || !sells(row.activity.listingMode, row.commissionBps)) return notFound();
   const here = path(l, "packs", "buy", row.offer.id);
   let errors = codeFrom(url);
   if (request.method === "POST") {
@@ -188,4 +190,16 @@ export async function buyPackStep({ request, params, url }: Ctx, l: Locale) {
     api<Me>(request, "GET", "/me"),
   ]);
   return { locale: l, offer: row.offer, activity: row.activity, options, email: me.data?.email ?? null, here, problems: problems(l, errors) };
+}
+
+export async function unsubscribeStep({ request, params, url }: Ctx, l: Locale) {
+  const id = params.id!;
+  const k = url.searchParams.get("k") ?? "";
+  if (request.method === "POST") {
+    const res = await api(request, "POST", `/interests/${q(id)}/unsubscribe`, { k });
+    return res.status === 204 ? see(`${path(l, "unsubscribe", id)}?k=${q(k)}`) : notFound();
+  }
+  const res = await api<{ activity: { nameEn: string; nameMs: string }; unsubscribed: boolean }>(request, "GET", `/interests/${q(id)}?k=${q(k)}`);
+  if (!res.data) return notFound();
+  return { locale: l, activity: l === "ms" ? res.data.activity.nameMs : res.data.activity.nameEn, unsubscribed: res.data.unsubscribed };
 }

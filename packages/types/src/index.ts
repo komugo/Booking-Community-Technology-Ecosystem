@@ -12,6 +12,8 @@ export {
   klWeekday,
   packExpiry,
   participantKey,
+  UNLIMITED_SPOTS,
   WEEKDAYS,
+  type OpeningHours,
   type Weekday,
 } from "./rules";

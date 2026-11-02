@@ -1,5 +1,5 @@
 import type { CheckInResult, TimeslotRow } from "@komugo/booking";
-import { checkouts, closureNotices, createDb, customers, participants, projAddOns, projOptions, waivers, within } from "@komugo/db";
+import { checkouts, closureNotices, createDb, customers, participants, projActivities, projAddOns, projOptions, waivers, within } from "@komugo/db";
 import { ageOn, klDate, WAIVER } from "@komugo/types";
 import { and, eq } from "drizzle-orm";
 
@@ -29,8 +29,15 @@ async function load(env: Env, operatorId: string, q: Lookup) {
       .from(customers)
       .where(within(customers.id, q.customerIds ?? [])),
     db
-      .select({ id: projOptions.id, nameEn: projOptions.nameEn, nameMs: projOptions.nameMs, durationMinutes: projOptions.durationMinutes })
+      .select({
+        id: projOptions.id,
+        nameEn: projOptions.nameEn,
+        nameMs: projOptions.nameMs,
+        durationMinutes: projOptions.durationMinutes,
+        requiresWaiver: projActivities.requiresWaiver,
+      })
       .from(projOptions)
+      .leftJoin(projActivities, eq(projActivities.id, projOptions.activityId))
       .where(within(projOptions.id, q.optionIds ?? [])),
     db
       .select({ id: projAddOns.id, nameEn: projAddOns.nameEn, nameMs: projAddOns.nameMs })
@@ -45,13 +52,16 @@ async function load(env: Env, operatorId: string, q: Lookup) {
     contact: by(contacts, (c) => c.bookingId),
     customer: by(buyers, (c) => c.id),
     addOn: by(addOns, (a) => a.id),
-    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0 },
-    participant(id: string, startsAt: number) {
+    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0, requiresWaiver: true },
+    // A per-court Ticket has no Participant, so it shows the Customer's name.
+    participant(id: string, startsAt: number, optionId: string, customerName: string) {
       const p = person.get(id);
       const w = waiver.get(id);
+      const status = !w ? "missing" : w.version !== WAIVER.version ? "outdated" : w.guardian ? "guardian" : "signed";
+      const required = option.get(optionId)?.requiresWaiver !== false;
       return {
-        participant: { name: p?.name ?? "", age: p ? ageOn(p.birthDate, klDate(startsAt)) : null, weightKg: p?.weightKg ?? null },
-        waiver: !w ? "missing" : w.version !== WAIVER.version ? "outdated" : w.guardian ? "guardian" : "signed",
+        participant: { name: p?.name ?? customerName, age: p ? ageOn(p.birthDate, klDate(startsAt)) : null, weightKg: p?.weightKg ?? null },
+        waiver: !required && (status === "missing" || status === "outdated") ? "not_required" : status,
         signerName: w?.signerName ?? null,
       };
     },
@@ -95,19 +105,22 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
     return {
       id: r.id,
       startsAt: r.startsAt,
+      endsAt: r.endsAt,
       closedAt: r.closedAt,
       closedReason: r.closedReason,
+      horse: r.horse,
       spots: r.spots,
       option: x.option(r.optionId),
       groups: [...groups.values()].map(({ bookingId, packId, customerId, tickets: ts }) => {
         const buyer = x.customer.get(customerId);
         const contact = bookingId ? x.contact.get(bookingId) : undefined;
+        const name = contact?.name ?? buyer?.name ?? "";
         const notice = notices.find((n) => n.timeslotId === r.id && n.ref === groupRef({ bookingId, packId, customerId }));
         return {
           bookingId,
           packId,
           customerId,
-          contact: { name: contact?.name ?? buyer?.name ?? "", phone: contact?.phone ?? buyer?.phone ?? null, email: buyer?.email ?? null },
+          contact: { name, phone: contact?.phone ?? buyer?.phone ?? null, email: buyer?.email ?? null },
           addOns: r.addOns
             .filter((a) => a.bookingId === bookingId)
             .map((a) => ({ nameEn: x.addOn.get(a.addOnId)?.nameEn ?? "", nameMs: x.addOn.get(a.addOnId)?.nameMs ?? "", quantity: a.quantity })),
@@ -117,7 +130,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
             code: ticketCode(t.id),
             checkedInAt: t.checkedInAt,
             resources: t.resources,
-            ...x.participant(t.participantId, r.startsAt),
+            ...x.participant(t.participantId, r.startsAt, r.optionId, name),
           })),
         };
       }),
@@ -128,7 +141,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
 export async function enrichCheckIn(env: Env, operatorId: string, r: CheckInResult) {
   if (!r.ticket) return { outcome: r.outcome, ticket: null };
   const t = r.ticket;
-  const x = await load(env, operatorId, { participantIds: [t.participantId], optionIds: [t.optionId] });
+  const x = await load(env, operatorId, { participantIds: [t.participantId], customerIds: [t.customerId], optionIds: [t.optionId] });
   const { nameEn, nameMs } = x.option(t.optionId);
   return {
     outcome: r.outcome,
@@ -140,7 +153,7 @@ export async function enrichCheckIn(env: Env, operatorId: string, r: CheckInResu
       startsAt: t.startsAt,
       checkedInAt: t.checkedInAt,
       option: { nameEn, nameMs },
-      ...x.participant(t.participantId, t.startsAt),
+      ...x.participant(t.participantId, t.startsAt, t.optionId, x.customer.get(t.customerId)?.name ?? ""),
     },
   };
 }

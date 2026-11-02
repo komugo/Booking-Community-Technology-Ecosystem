@@ -1,6 +1,9 @@
-import { getActivityPage, getCategoryHub, getCityHub, getHome, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
-import { db, showDrafts } from "./db";
-import { path, type Alternates } from "./i18n";
+import { getActivityPage, getCategoryHub, getCityHub, getHome, getVenuePage, SETTINGS, type ActivityCard, type CityFilters, type Locale, type Slugs } from "@komugo/db";
+import { api, errorsOf, see, type ApiError } from "./api";
+import { form } from "./checkout";
+import { db, sells, showDrafts } from "./db";
+import { problems } from "./form";
+import { path, VENUE, type Alternates } from "./i18n";
 
 type Params = Record<string, string | undefined>;
 
@@ -16,11 +19,23 @@ export async function loadHome(locale: Locale) {
   return { locale, alternates: { en: path("en"), ms: path("ms") }, ...(await getHome(db, query(locale))) };
 }
 
+function cityFilters(q: URLSearchParams): CityFilters {
+  const presint = Number(q.get("presint"));
+  return {
+    bookable: q.has("bookable"),
+    free: q.has("free"),
+    setting: SETTINGS.find((x) => x === q.get("setting")) ?? null,
+    presint: Number.isInteger(presint) && presint >= 1 && presint <= 20 ? presint : null,
+  };
+}
+
 export async function loadCity(p: Params, locale: Locale, search: string) {
-  const data = await getCityHub(db, { ...query(locale), city: p.city! });
+  const q = new URLSearchParams(search);
+  const filters = cityFilters(q);
+  const data = await getCityHub(db, { ...query(locale), city: p.city!, filters });
   if (!data) return notFound();
   const alt = alternates(locale, search, [p.city], [data.city.slugs]);
-  return alt instanceof Response ? alt : { locale, alternates: alt, ...data };
+  return alt instanceof Response ? alt : { locale, alternates: alt, ...data, filters, map: q.get("view") === "map" };
 }
 
 export async function loadCategory(p: Params, locale: Locale, search: string) {
@@ -30,19 +45,45 @@ export async function loadCategory(p: Params, locale: Locale, search: string) {
   return alt instanceof Response ? alt : { locale, alternates: alt, ...data };
 }
 
-export async function loadActivity(p: Params, locale: Locale, search: string) {
+export async function loadActivity({ params: p, request, url }: { params: Params; request: Request; url: URL }, locale: Locale) {
   const data = await getActivityPage(db, { ...query(locale), city: p.city!, category: p.category!, activity: p.activity! });
   if (!data?.city || !data.category) return notFound();
   const { city, category } = data;
-  const alt = alternates(locale, search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
+  const alt = alternates(locale, url.search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
   if (alt instanceof Response) return alt;
-  return { locale, alternates: alt, ...data, city, category, bookable: (data.published || showDrafts) && data.options.length > 0 };
+  let errors: ApiError[] = [];
+  let email = "";
+  if (request.method === "POST") {
+    email = (await form(request))("email");
+    const res = await api(request, "POST", "/interests", { activityId: data.id, email, locale });
+    if (res.status === 204) return see(`${alt[locale]}?notify=sent#notify`);
+    errors = errorsOf(res.error);
+  }
+  return {
+    locale,
+    alternates: alt,
+    ...data,
+    city,
+    category,
+    bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0,
+    notify: { sent: url.searchParams.get("notify") === "sent", email, problems: problems(locale, errors) },
+    status: errors.length ? 400 : 200,
+  };
+}
+
+export async function loadVenue(p: Params, locale: Locale, search: string) {
+  const data = await getVenuePage(db, { ...query(locale), city: p.city!, venue: p.venue! });
+  if (!data?.city) return notFound();
+  const { city } = data;
+  const alt = alternates(locale, search, [p.city, VENUE[locale], p.venue], [city.slugs, VENUE, data.slugs]);
+  return alt instanceof Response ? alt : { locale, alternates: alt, ...data, city };
 }
 
 export type HomeData = Awaited<ReturnType<typeof loadHome>>;
 export type CityData = Exclude<Awaited<ReturnType<typeof loadCity>>, Response>;
 export type CategoryData = Exclude<Awaited<ReturnType<typeof loadCategory>>, Response>;
 export type ActivityData = Exclude<Awaited<ReturnType<typeof loadActivity>>, Response>;
+export type VenueData = Exclude<Awaited<ReturnType<typeof loadVenue>>, Response>;
 
 export function categoryFromSen(cards: ActivityCard[], categorySlugEn: string) {
   const inCategory = cards.filter((c) => c.category.en === categorySlugEn);

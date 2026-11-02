@@ -14,7 +14,7 @@ me.get("/", async (c) => {
   const customerId = session.customerId;
   const db = createDb(c.env.DB);
   const [[customer], tickets, packs] = await Promise.all([
-    db.select({ email: customers.email }).from(customers).where(eq(customers.id, customerId)),
+    db.select({ email: customers.email, name: customers.name }).from(customers).where(eq(customers.id, customerId)),
     db.select().from(projTickets).where(eq(projTickets.customerId, customerId)).orderBy(desc(projTickets.startsAt)).limit(200),
     db
       .select({ pack: projPacks, nameEn: projPackOffers.nameEn, nameMs: projPackOffers.nameMs })
@@ -58,12 +58,13 @@ me.get("/", async (c) => {
         k: await groupLink(c.env, kind, id),
         timeslotId: t.timeslotId,
         startsAt: t.startsAt,
+        endsAt: t.endsAt,
         closed: t.closedAt !== null,
         option: { nameEn: o?.nameEn ?? "", nameMs: o?.nameMs ?? "" },
         activity: o?.activity ?? { nameEn: "", nameMs: "" },
-        participants: ts.map((x) => person.get(x.participantId) ?? ""),
+        participants: ts.map((x) => person.get(x.participantId) ?? customer?.name ?? ""),
         statuses: ts.map((x) => x.status),
-        section: issued && t.closedAt !== null && !choice ? "awaiting" : issued && t.closedAt === null && t.startsAt > now ? "upcoming" : "past",
+        section: issued && t.closedAt !== null && !choice ? "awaiting" : issued && t.closedAt === null && (t.endsAt ?? t.startsAt) > now ? "upcoming" : "past",
       };
     }),
   );

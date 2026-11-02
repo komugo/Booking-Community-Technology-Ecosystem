@@ -342,6 +342,7 @@ export function SignedInAs({ me }: { me: Me }) {
 
 export function WaiverChip({ waiver, signer }: { waiver: Waiver; signer: string | null }) {
   const { t } = useT();
+  if (waiver === "not_required") return null;
   const ok = waiver === "signed" || waiver === "guardian";
   return (
     <span

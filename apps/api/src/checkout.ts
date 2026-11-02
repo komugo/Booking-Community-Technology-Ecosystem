@@ -23,7 +23,7 @@ import { fail, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type 
 import { bookingLink, groupLink } from "./manage";
 import { ensureSession, owns, readSession, type Session } from "./session";
 
-const MAX_PEOPLE = 10;
+const DEFAULT_MAX_PER_BOOKING = 10;
 const MAX_HOLDS_PER_CHECKOUT = 8;
 const PAY_MARGIN = MIN;
 
@@ -37,6 +37,8 @@ export async function ownedCheckout(c: Ctx, id: string) {
 
 const busy = async (c: Ctx, s: Session) => limited(c.env.RL_CHECKOUT, s.idHash);
 const done = (co: Checkout) => !!(co.bookingId || co.refundReason || co.packId);
+// Only a per-court Checkout starts with an empty participant list: its group has no Participants, so no Who step.
+export const perCourt = (co: Checkout) => co.participantIds?.length === 0;
 
 async function saved(db: Db, customerId: string, operatorId: string) {
   return db
@@ -148,6 +150,11 @@ async function releaseBill(env: Env, holdId: string) {
   }
 }
 
+async function notBookable(env: Env, activityId: string) {
+  const [a] = await createDb(env.DB).select({ listingMode: activities.listingMode }).from(activities).where(eq(activities.id, activityId));
+  return a?.listingMode !== "bookable" && env.BOOK_DRAFTS !== "1";
+}
+
 export async function holdStep(
   env: Env,
   waitUntil: WaitUntil,
@@ -163,8 +170,7 @@ export async function holdStep(
   const people = participantIds ?? c.participantIds;
   if (!c.customerId || !people) return "invalid_state";
   if (c.holdSeq > MAX_HOLDS_PER_CHECKOUT) return "too_many_holds";
-  const [activity] = await db.select({ published: activities.published }).from(activities).where(eq(activities.id, c.activityId));
-  if (!activity?.published && env.BOOK_DRAFTS !== "1") return "not_bookable";
+  if (await notBookable(env, c.activityId)) return "not_bookable";
   let released: string[];
   try {
     const h = await booking(env, c.operatorId).createHold({
@@ -272,7 +278,7 @@ async function validateWho(
     seen.add(key);
 
     let waiver: DraftParticipant["waiver"] = null;
-    if (!alreadySigned.has(key)) {
+    if (d.requiresWaiver !== false && !alreadySigned.has(key)) {
       const minor = ageOn(birthDate, today) < 18;
       const guardianName = text(p.waiver?.guardianName, 100);
       if (p.waiver?.accepted !== true || (p.waiver.guardian === true) !== minor) {
@@ -307,14 +313,16 @@ checkout.post("/", async (c) => {
     picks.map((a) => a.id),
   );
   const now = Date.now();
+  const court = d?.option.bookingUnit === "court";
   if (
     !d ||
     !d.slot ||
     d.slot.optionId !== d.option.id ||
     !d.option.active ||
     d.slot.closedAt !== null ||
-    d.slot.startsAt - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
-    (!d.activity.published && c.env.BOOK_DRAFTS !== "1")
+    (d.slot.endsAt ?? d.slot.startsAt) - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
+    (court && d.requiresWaiver !== false) ||
+    ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")
   ) {
     return fail(c, 409, { code: "not_bookable" });
   }
@@ -323,7 +331,8 @@ checkout.post("/", async (c) => {
   if (!Number.isInteger(quantity) || quantity < min) {
     return fail(c, 400, { code: "below_min_participants", field: "quantity", params: { min } });
   }
-  if (quantity > MAX_PEOPLE) return fail(c, 400, { code: "invalid_participant", field: "quantity", params: { max: MAX_PEOPLE } });
+  const max = court ? 1 : (d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING);
+  if (quantity > max) return fail(c, 400, { code: "above_max_per_booking", field: "quantity", params: { max } });
   if (quantity > d.slot.spots) return fail(c, 409, { code: "no_availability", params: { spots: d.slot.spots } });
   const addOnOf = new Map(d.addOns.map((a) => [a.id, a]));
   if (
@@ -347,11 +356,15 @@ checkout.post("/", async (c) => {
     timeslotId: d.slot.id,
     quantity,
     addOns: picks,
+    participantIds: court ? [] : null,
     locale: body.locale === "ms" ? "ms" : "en",
     createdAt: now,
     updatedAt: now,
   });
-  return c.json({ id }, 201);
+  if (!court) return c.json({ id, next: "who" as const }, 201);
+  if (!session.customerId) return c.json({ id, next: "contact" as const }, 201);
+  const code = await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), id);
+  return code ? fail(c, 409, { code }) : c.json({ id, next: "pay" as const }, 201);
 });
 
 checkout.get("/:id", async (c) => {
@@ -400,26 +413,30 @@ checkout.get("/:id", async (c) => {
     locale: co.locale,
     quantity: co.quantity,
     startsAt: d.slot?.startsAt ?? null,
+    endsAt: d.slot?.endsAt ?? null,
     timeslotId: co.timeslotId,
     option: {
       id: d.option.id,
       nameEn: d.option.nameEn,
       nameMs: d.option.nameMs,
-      priceSen: d.option.priceSen,
+      priceSen: d.slot?.priceSen ?? d.option.priceSen,
       durationMinutes: d.option.durationMinutes,
       minAge: d.option.minAge,
       maxAge: d.option.maxAge,
       maxWeightKg: d.option.maxWeightKg,
       requiredCert: d.option.requiredCert,
       minParticipants: d.option.minParticipants,
+      maxPerBooking: d.option.maxPerBooking,
+      bookingUnit: d.option.bookingUnit,
+      ticketType: d.option.ticketType,
       asksWeight: d.option.asksWeight,
     },
     activity: { ...d.activity, city: d.city, category: d.category },
     operatorName: d.operatorName,
     freeCancelHours: d.freeCancelHours,
-    waiver: { version: WAIVER.version, text: waiverText(co.locale, d.operatorName) },
+    waiver: d.requiresWaiver === false ? null : { version: WAIVER.version, text: waiverText(co.locale, d.operatorName) },
     addOns,
-    estimatedSen: d.option.priceSen * co.quantity + addOns.reduce((s, a) => s + a.qty * a.priceSen, 0),
+    estimatedSen: (d.slot?.priceSen ?? d.option.priceSen) * co.quantity + addOns.reduce((s, a) => s + a.qty * a.priceSen, 0),
     amountSen: co.amountSen,
     holdExpiresAt: co.holdExpiresAt,
     signedIn: !!customerId,
@@ -448,7 +465,7 @@ checkout.put("/:id/who", async (c) => {
   if (!owned) return fail(c, 404, { code: "not_found" });
   const { checkout: co, session } = owned;
   if (await busy(c, session)) return fail(c, 429, { code: "rate_limited" });
-  if (done(co)) return fail(c, 409, { code: "invalid_state" });
+  if (done(co) || perCourt(co)) return fail(c, 409, { code: "invalid_state" });
   const body = await c.req.json<{ participants?: unknown }>();
   const inputs = Array.isArray(body.participants) ? (body.participants as WhoInput[]) : [];
   if (inputs.length !== co.quantity) return fail(c, 400, { code: "invalid_participant", field: "participants" });
@@ -503,6 +520,9 @@ checkout.post("/:id/pay", async (c) => {
     optionDetails(db, co.optionId, co.timeslotId, []),
   ]);
   if (!customer?.email || !d?.slot) return fail(c, 409, { code: "invalid_state" });
+  if ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1") {
+    return fail(c, 409, { code: "not_bookable" });
+  }
   const l = co.locale;
   let bill;
   try {
@@ -550,6 +570,7 @@ checkout.post("/:id/redeem", async (c) => {
   if (!co.holdId || co.holdExpiresAt! <= Date.now()) return fail(c, 409, { code: "hold_expired" });
   const body = await c.req.json<{ packId?: unknown }>().catch(() => ({}) as { packId?: unknown });
   const packId = String(body.packId ?? "");
+  if (await notBookable(c.env, co.activityId)) return fail(c, 409, { code: "not_bookable" });
   const holdId = co.holdId;
   try {
     await booking(c.env, co.operatorId).redeemPack({ requestId: `${co.id}:redeem:${holdId}`, customerId: co.customerId, packId, holdId });

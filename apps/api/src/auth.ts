@@ -2,7 +2,7 @@ import { checkouts, createDb, customers, otps } from "@komugo/db";
 import { Hono } from "hono";
 import { and, count, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import { holdReply, holdStep, ownedCheckout, persistDraft } from "./checkout";
+import { holdReply, holdStep, ownedCheckout, perCourt, persistDraft } from "./checkout";
 import { otpEmail, sendEmail } from "./email";
 import type { Locale } from "./details";
 import { DAY, emailRef, fail, HOUR, hmacHex, limited, log, logError, MIN, safeEqual, type Ctx } from "./lib";
@@ -14,7 +14,7 @@ const MAX_SENDS_PER_HOUR = 5;
 const MAX_SENDS_PER_DAY = 10;
 
 export const normEmail = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
-const validEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+export const validEmail = (email: string) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const codeHash = (env: Env, email: string, code: string) => hmacHex(env.APP_SECRET, `otp:${email}:${code}`);
 export const clientIp = (c: Ctx) => c.req.header("x-client-ip") ?? "unknown";
 export const ipLimited = (c: Ctx) => limited(c.env.RL_IP, `otp:${clientIp(c)}`);
@@ -171,6 +171,7 @@ auth.post("/otp/verify", async (c) => {
 
   if (!checkout.draft) {
     await db.update(checkouts).set({ customerId, updatedAt: now }).where(eq(checkouts.id, checkout.id));
+    if (perCourt(checkout)) return holdReply(c, await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), checkout.id));
     return c.json({ next: "who" as const });
   }
   const ids = await persistDraft(db, checkout, customerId, checkout.draft);

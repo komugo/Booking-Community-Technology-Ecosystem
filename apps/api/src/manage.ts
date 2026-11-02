@@ -3,6 +3,7 @@ import {
   checkouts,
   closureNotices,
   createDb,
+  customers,
   packOrders,
   participants,
   projActivities,
@@ -11,7 +12,7 @@ import {
   projTimeslots,
 } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, ne } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
@@ -83,7 +84,7 @@ export function manage(kind: Kind) {
     const v = await view(a);
     const optionId = "optionId" in v ? v.optionId : (v.tickets[0]?.optionId ?? v.optionIds[0] ?? "");
     const addOns = "addOns" in v ? v.addOns : [];
-    const [d, people, closure, offer, options] = await Promise.all([
+    const [d, people, [buyer], closure, offer, options] = await Promise.all([
       optionDetails(
         db,
         optionId,
@@ -94,6 +95,7 @@ export function manage(kind: Kind) {
         .select({ id: participants.id, name: participants.name })
         .from(participants)
         .where(inArray(participants.id, v.tickets.map((t) => t.participantId).concat(""))),
+      db.select({ name: customers.name }).from(customers).where(eq(customers.id, a.customerId)),
       db
         .select({ timeslotId: closureNotices.timeslotId, reason: closureNotices.reason })
         .from(closureNotices)
@@ -116,7 +118,7 @@ export function manage(kind: Kind) {
       activity: { ...d.activity, city: d.city, category: d.category },
       operatorName: d.operatorName,
       freeCancelHours: v.freeCancelHours,
-      tickets: v.tickets.map((t) => ({ ...t, participantName: nameOf.get(t.participantId) ?? "" })),
+      tickets: v.tickets.map((t) => ({ ...t, participantName: nameOf.get(t.participantId) ?? buyer?.name ?? "" })),
       addOns: addOns.map((x) => ({ ...x, nameEn: addOnOf.get(x.addOnId)?.nameEn ?? "", nameMs: addOnOf.get(x.addOnId)?.nameMs ?? "" })),
       closure: closure.map((n) => ({ ...n, choice: choiceOf.get(n.timeslotId)?.choice ?? null, chosenAt: choiceOf.get(n.timeslotId)?.chosenAt ?? null })),
       canChange: a.viaSession,
@@ -158,14 +160,18 @@ export function manage(kind: Kind) {
       .where(eq(projOptions.id, tickets[0].optionId));
     const last = "expiresAt" in v && !closed ? Math.min(v.expiresAt + 1, now + 60 * DAY) : now + 60 * DAY;
     const slots = await db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, endsAt: projTimeslots.endsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
+      .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
       .where(
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
+          kind === "booking" && !closed
+            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`, tickets[0].priceSen)
+            : undefined,
           isNull(projTimeslots.closedAt),
           gte(projTimeslots.spots, tickets.length),
-          gt(projTimeslots.startsAt, now + (cutoff?.minutes ?? 0) * MIN),
+          gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + (cutoff?.minutes ?? 0) * MIN),
           lt(projTimeslots.startsAt, last),
           ne(projTimeslots.id, tickets[0].timeslotId),
         ),
@@ -215,6 +221,7 @@ export function manage(kind: Kind) {
     const x = await change(c);
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
+    const [o] = await createDb(c.env.DB).select({ bookingUnit: projOptions.bookingUnit }).from(projOptions).where(eq(projOptions.id, tickets[0].optionId));
     return c.json(
       await a.b.rescheduleTickets({
         requestId: x.requestId,
@@ -222,7 +229,7 @@ export function manage(kind: Kind) {
         group: a.group,
         ticketIds: tickets.map((t) => t.id),
         timeslotId: String(body.timeslotId ?? ""),
-        participantIds: tickets.map((t) => t.participantId),
+        participantIds: o?.bookingUnit === "court" ? [] : tickets.map((t) => t.participantId),
         onlyClosed: !a.viaSession,
       }),
     );

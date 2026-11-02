@@ -45,3 +45,16 @@ test("Today lists each Booking with contact, Add-ons and Participants with age, 
   expect((await m.json("GET", `/ops/operators/${w.operatorId}/timeslots?from=2030-01-15&days=15`)).body).toMatchObject({ field: "days" });
   expect((await m.json("GET", `/ops/operators/${w.operatorId}/timeslots/nope`)).status).toBe(404);
 });
+
+test("Participants of an Activity that does not require a Waiver show not_required instead of missing", async () => {
+  const w = await world({ requiresWaiver: false });
+  await booked(w, [{ name: "Aisyah", waiver: "none" }, { name: "Adam", waiver: "guardian" }]);
+  const m = await member("operator", w.operatorId);
+  const { body } = await m.json("GET", `/ops/operators/${w.operatorId}/timeslots?from=2030-01-15&days=1`);
+  expect(body.timeslots[0].groups[0].tickets.map((t: Record<string, unknown>) => t.waiver)).toEqual(["not_required", "guardian"]);
+
+  const code = body.timeslots[0].groups[0].tickets[0].code;
+  await w.doSql("UPDATE timeslots SET starts_at = ? WHERE id = ?", Date.now() - 60_000, w.timeslotId);
+  const r = await m.json("POST", `/ops/operators/${w.operatorId}/check-ins`, { requestId: crypto.randomUUID(), code });
+  expect(r.body).toMatchObject({ outcome: "checked_in", ticket: { waiver: "not_required", signerName: null } });
+});

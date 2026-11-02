@@ -2,11 +2,11 @@ import { klDate } from "@komugo/types/rules";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { api, ApiError } from "../api";
-import { dateLong, errorText, named, time, useT } from "../i18n";
+import { dateLong, errorText, hours, named, time, useT } from "../i18n";
 import type { ClosureReason, Group, Timeslot } from "../types";
 import { Icon, Sheet, Spinner, WaiverChip } from "../ui";
 
-const REASONS: ClosureReason[] = ["weather", "horse_unfit", "other"];
+const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 export default function TimeslotPage() {
   const { t, l } = useT();
@@ -72,7 +72,7 @@ export default function TimeslotPage() {
       </Link>
       <p className="mt-2 text-sm font-semibold text-muted">{dateLong(slot.startsAt, l)}</p>
       <h1 className="num mt-1 text-4xl font-extrabold">
-        {time(slot.startsAt, l)} · {named(slot.option, l)}
+        {hours(slot, l)} · {named(slot.option, l)}
       </h1>
 
       {slot.closedAt ? (
@@ -155,7 +155,7 @@ export default function TimeslotPage() {
                 setOpen(true);
               }}
             >
-              {t.closeTimeslot}
+              {slot.endsAt === null ? t.closeTimeslot : t.closeDate}
             </button>
           )}
         </>
@@ -164,7 +164,7 @@ export default function TimeslotPage() {
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title={t.closeTimeslot}
+        title={slot.endsAt === null ? t.closeTimeslot : t.closeDate}
         footer={
           <>
             {error && (
@@ -181,7 +181,7 @@ export default function TimeslotPage() {
         <fieldset>
           <legend className="label">{t.whyClose}</legend>
           <div className="grid grid-cols-3 gap-2">
-            {REASONS.map((r) => (
+            {REASONS.filter((r) => r !== "horse_unfit" || slot.horse).map((r) => (
               <label
                 key={r}
                 className="flex min-h-16 cursor-pointer items-center justify-center rounded-2xl border border-line bg-white px-2 text-center font-semibold has-checked:border-forest has-checked:bg-forest has-checked:text-white has-focus-visible:outline-3 has-focus-visible:outline-lime"

@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { Weekday } from "@komugo/types";
+import type { OpeningHours, Weekday } from "@komugo/types";
 
-export type { Weekday };
-export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+export type { OpeningHours, Weekday };
 export type Faq = { q: string; a: string };
 
 const json = <T>() => text({ mode: "json" }).$type<T>().notNull().default(sql`'[]'`);
@@ -16,6 +15,9 @@ const id = () =>
 export const operators = sqliteTable("operators", {
   id: id(),
   name: text().notNull(),
+  signedUp: integer({ mode: "boolean" }).notNull().default(false),
+  commissionBps: integer(),
+  unknown: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 const hub = () => ({
@@ -30,6 +32,40 @@ const hub = () => ({
 });
 export const cities = sqliteTable("cities", hub());
 export const categories = sqliteTable("categories", hub());
+
+export const venues = sqliteTable(
+  "venues",
+  {
+    id: id(),
+    cityId: text()
+      .notNull()
+      .references(() => cities.id),
+    nameEn: text().notNull(),
+    nameMs: text().notNull(),
+    // Set once at creation and never regenerated, so links survive a rename.
+    slugEn: text(),
+    slugMs: text(),
+    streetAddress: text(),
+    postalCode: text(),
+    presint: integer(),
+    phone: text(),
+    lat: real(),
+    lng: real(),
+    openingHours: json<OpeningHours[]>(),
+  },
+  (t) => [
+    index("venues_city").on(t.cityId),
+    uniqueIndex("venues_city_slug_en").on(t.cityId, t.slugEn),
+    uniqueIndex("venues_city_slug_ms").on(t.cityId, t.slugMs),
+    check("venues_presint", sql`${t.presint} between 1 and 20`),
+  ],
+);
+
+export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
+export type ListingMode = (typeof LISTING_MODES)[number];
+export const HOW_TO_BOOK = ["walk_in", "external", "unknown"] as const;
+export const SETTINGS = ["indoor", "outdoor"] as const;
+export type Setting = (typeof SETTINGS)[number];
 
 export const activities = sqliteTable(
   "activities",
@@ -50,7 +86,16 @@ export const activities = sqliteTable(
     nameMs: text().notNull(),
     descriptionEn: text().notNull(),
     descriptionMs: text().notNull(),
+    // Superseded by listingMode; kept equal to listingMode = 'bookable' so a rollback still gates checkout.
     published: integer({ mode: "boolean" }).notNull().default(false),
+    venueId: text().references(() => venues.id),
+    listingMode: text({ enum: LISTING_MODES }).notNull().default("hidden"),
+    howToBook: text({ enum: HOW_TO_BOOK }).notNull().default("unknown"),
+    free: integer({ mode: "boolean" }).notNull().default(false),
+    setting: text({ enum: SETTINGS }),
+    bookUrl: text(),
+    priceNoteEn: text(),
+    priceNoteMs: text(),
     streetAddress: text(),
     postalCode: text(),
     phone: text(),
@@ -64,7 +109,11 @@ export const activities = sqliteTable(
     faqEn: json<Faq[]>(),
     faqMs: json<Faq[]>(),
   },
-  (t) => [index("activities_city_category").on(t.cityId, t.categoryId), index("activities_operator").on(t.operatorId)],
+  (t) => [
+    index("activities_city_category").on(t.cityId, t.categoryId),
+    index("activities_operator").on(t.operatorId),
+    index("activities_venue").on(t.venueId),
+  ],
 );
 
 export const photos = sqliteTable(
@@ -72,6 +121,7 @@ export const photos = sqliteTable(
   {
     id: id(),
     activityId: text().references(() => activities.id),
+    venueId: text().references(() => venues.id),
     position: integer().notNull().default(0),
     url: text().notNull(),
     width: integer().notNull(),
@@ -82,7 +132,7 @@ export const photos = sqliteTable(
     creditUrl: text().notNull(),
     sourceUrl: text().notNull(),
   },
-  (t) => [index("photos_activity_position").on(t.activityId, t.position)],
+  (t) => [index("photos_activity_position").on(t.activityId, t.position), index("photos_venue_position").on(t.venueId, t.position)],
 );
 
 export const customers = sqliteTable(
@@ -146,6 +196,7 @@ export const projActivities = sqliteTable("proj_activities", {
   operatorId: text().notNull(),
   freeCancelHours: integer().notNull(),
   bookingCutoffMinutes: integer().notNull().default(60),
+  requiresWaiver: integer({ mode: "boolean" }).notNull().default(true),
   version: integer().notNull(),
 });
 
@@ -164,6 +215,10 @@ export const projOptions = sqliteTable(
     maxWeightKg: integer(),
     requiredCert: text(),
     minParticipants: integer(),
+    maxPerBooking: integer(),
+    bookingUnit: text({ enum: ["person", "court"] }).notNull().default("person"),
+    ticketType: text({ enum: ["timeslot", "date"] }).notNull().default("timeslot"),
+    dailyLimit: integer(),
     active: integer({ mode: "boolean" }).notNull(),
     asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),
@@ -186,7 +241,8 @@ export const projAddOns = sqliteTable(
   (t) => [index("proj_add_ons_activity").on(t.activityId)],
 );
 
-// spots is not re-projected as time passes: readers must also filter starts_at - booking_cutoff_minutes > now.
+// spots is not re-projected as time passes: readers must also filter coalesce(ends_at, starts_at) - booking_cutoff_minutes > now.
+// price_sen is the Schedule's price; null means the Option's. Only a Date ticket's Timeslot has ends_at: that date's closing time.
 export const projTimeslots = sqliteTable(
   "proj_timeslots",
   {
@@ -194,8 +250,10 @@ export const projTimeslots = sqliteTable(
     operatorId: text().notNull(),
     optionId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     spots: integer().notNull(),
+    priceSen: integer(),
     version: integer().notNull(),
   },
   (t) => [index("proj_timeslots_option_starts").on(t.optionId, t.startsAt), index("proj_timeslots_starts").on(t.startsAt)],
@@ -213,8 +271,10 @@ export const projTickets = sqliteTable(
     optionId: text().notNull(),
     timeslotId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     priceSen: integer().notNull(),
+    commissionBps: integer(),
     status: text({ enum: ["issued", "cancelled", "forfeited"] }).notNull(),
     version: integer().notNull(),
   },
@@ -232,6 +292,9 @@ export const projPacks = sqliteTable(
     expiresAt: integer().notNull(),
     offerId: text(),
     optionIds: json<string[]>(),
+    priceSen: integer(),
+    commissionBps: integer(),
+    createdAt: integer(),
     version: integer().notNull(),
   },
   (t) => [index("proj_packs_customer").on(t.customerId)],
@@ -438,13 +501,27 @@ export const closureNotices = sqliteTable(
       .references(() => customers.id),
     bookingId: text(),
     packId: text(),
-    reason: text({ enum: ["weather", "horse_unfit", "other"] }).notNull(),
+    reason: text({ enum: ["weather", "maintenance", "event", "horse_unfit", "other"] }).notNull(),
     createdAt: integer().notNull(),
     emailedAt: integer(),
     choice: text({ enum: ["refund", "reschedule"] }),
     chosenAt: integer(),
   },
   (t) => [primaryKey({ columns: [t.timeslotId, t.ref] }), index("closure_notices_unsent").on(t.emailedAt, t.createdAt)],
+);
+
+export const payouts = sqliteTable(
+  "payouts",
+  {
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    month: text().notNull(),
+    amountSen: integer().notNull(),
+    paidAt: integer().notNull(),
+    paidBy: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.operatorId, t.month] }), index("payouts_paid_at").on(t.paidAt)],
 );
 
 export const refundEmails = sqliteTable(
@@ -455,4 +532,21 @@ export const refundEmails = sqliteTable(
     emailedAt: integer().notNull(),
   },
   (t) => [primaryKey({ columns: [t.refundId, t.kind] })],
+);
+
+export const interests = sqliteTable(
+  "interests",
+  {
+    id: id(),
+    activityId: text()
+      .notNull()
+      .references(() => activities.id),
+    email: text().notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    createdAt: integer().notNull(),
+    emailedAt: integer(),
+    unsubscribedAt: integer(),
+    failedAt: integer(),
+  },
+  (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
 );

@@ -1,7 +1,7 @@
 import { booking } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
-import { WAIVER } from "@komugo/types";
+import { WAIVER, WEEKDAYS } from "@komugo/types";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
 import { groupLink } from "../manage";
 import { recordClosure } from "../ops/closure";
@@ -22,6 +22,10 @@ export async function fixture(
     viaPack?: unknown;
     extraSlots?: unknown;
     close?: unknown;
+    info?: unknown;
+    court?: unknown;
+    dateTicket?: unknown;
+    dailyLimit?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -36,7 +40,7 @@ export async function fixture(
   const [city] = await db.insert(cities).values(hub).returning();
   const [category] = await db.insert(categories).values(hub).returning();
   await db.batch([
-    db.insert(operators).values({ id: operatorId, name: `Fixture Stable ${rid}` }),
+    db.insert(operators).values({ id: operatorId, name: `Fixture Stable ${rid}`, signedUp: true }),
     db.insert(activities).values({
       ...hub,
       id: activityId,
@@ -69,6 +73,10 @@ export async function fixture(
     maxWeightKg: 90,
     requiredCert: null,
     minParticipants: null,
+    maxPerBooking: null,
+    bookingUnit: "person",
+    ticketType: "timeslot",
+    dailyLimit: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });
@@ -174,8 +182,72 @@ export async function fixture(
     for (let i = 0; i < 50 && !(await projected()); i++) await new Promise((r) => setTimeout(r, 100));
     await recordClosure(env, waitUntil, operatorId, timeslotId, "weather");
   }
+  let venueSlug: string | undefined;
+  if (o.info === true) {
+    const names = { nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9" };
+    const slugs = await venueSlugs(db, city.id, names);
+    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9, lat: 2.9264, lng: 101.6964 }).returning();
+    venueSlug = slugs.en;
+    await db.update(activities).set({ venueId: venue.id, listingMode: "info", free: true, setting: "outdoor" }).where(eq(activities.id, activityId));
+  }
+  // A per-court Option with two courts and one free hour tomorrow; per-court sells only without a waiver.
+  const courtOptionId = `opt_${rid}_court`;
+  if (o.court === true) {
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    for (const n of ["A", "B"]) {
+      await b.upsertResource({ id: `res_${rid}_court${n}`, kind: "court", name: `Court ${n}`, active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null });
+    }
+    await b.upsertOption({
+      id: courtOptionId,
+      activityId,
+      nameEn: "Court hire",
+      nameMs: "Sewa gelanggang",
+      priceSen: 2000,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "court",
+      ticketType: "timeslot",
+      dailyLimit: null,
+      active: true,
+      needs: [{ kind: "court", quantity: 1 }],
+    });
+    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR] });
+  }
+  // A Date ticket Option open 06:00–23:30 every day, with no waiver.
+  const dateOptionId = `opt_${rid}_date`;
+  if (o.dateTicket === true) {
+    const hours = [{ days: WEEKDAYS, opens: "06:00", closes: "23:30" }];
+    await db.update(activities).set({ openingHours: hours }).where(eq(activities.id, activityId));
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    await b.setHours([{ activityId, hours }]);
+    await b.upsertOption({
+      id: dateOptionId,
+      activityId,
+      nameEn: "Day pass",
+      nameMs: "Pas harian",
+      priceSen: 1500,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "person",
+      ticketType: "date",
+      dailyLimit: Number.isInteger(o.dailyLimit) ? (o.dailyLimit as number) : null,
+      active: true,
+      needs: [],
+    });
+  }
   return {
     operatorId,
+    cityId: city.id,
     activityId,
     optionId,
     timeslotId,
@@ -186,8 +258,11 @@ export async function fixture(
     k: await groupLink(env, group.kind, group.id),
     customerEmail: customer.email!,
     activityPath: `/${hub.slugEn}/${hub.slugEn}/${hub.slugEn}`,
+    venueSlug,
     email,
     ...(staffEmail ? { staffEmail } : {}),
     ...(o.packOffer === true || viaPack ? { offerId } : {}),
+    ...(o.court === true ? { courtOptionId } : {}),
+    ...(o.dateTicket === true ? { dateOptionId } : {}),
   };
 }

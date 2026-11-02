@@ -1,0 +1,106 @@
+---
+import Base from "../layouts/Base.astro";
+import HubHero from "../components/HubHero.astro";
+import Photo from "../components/Photo.astro";
+import HoursTable from "../components/HoursTable.astro";
+import ActivityCard from "../components/ActivityCard.astro";
+import { path, t } from "../lib/i18n";
+import { heroSizes } from "../lib/photo";
+import { breadcrumbLd, itemListLd } from "../lib/seo";
+import type { VenueData } from "../lib/catalog";
+
+type Props = VenueData;
+const v = Astro.props;
+const { locale, alternates, city } = v;
+const s = t[locale];
+const crumbs = [
+  { name: s.home, path: path(locale) },
+  { name: city.name, path: path(locale, city.slugs[locale]) },
+  { name: v.name, path: alternates[locale] },
+];
+const hero = v.photos[0] ?? null;
+const address = [v.streetAddress, [v.postalCode, city.name].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+const pin = v.lat !== null && v.lng !== null ? `${v.lat},${v.lng}` : null;
+const mapsQuery = pin ?? `${v.name}, ${address}`;
+const tel = v.phone ? `tel:${v.phone.replace(/[^\d+]/g, "")}` : null;
+---
+
+<Base
+  locale={locale}
+  title={s.venueTitle(v.name, city.name)}
+  description={s.venueDescription(v.name, city.name)}
+  alternates={alternates}
+  indexable={v.indexable}
+  image={hero}
+  hero={hero ? { photo: hero, sizes: heroSizes(hero) } : undefined}
+  jsonLd={[breadcrumbLd(Astro.site, crumbs), ...itemListLd(Astro.site, locale, v.activities)]}
+>
+  <HubHero locale={locale} photo={hero} lines={[v.name]} crumbs={crumbs} />
+
+  <div class="wrap">
+    <ul class="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-lg md:mt-12">
+      {v.presint && <li>{s.presint(v.presint)}</li>}
+      {address && <li data-address>{address}</li>}
+    </ul>
+
+    <section class="mt-14" aria-labelledby="at-venue">
+      <h2 id="at-venue" class="text-4xl font-extrabold md:text-6xl">{s.atVenue}</h2>
+      <div class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        {v.activities.map((a) => <ActivityCard card={a} locale={locale} badge sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw" />)}
+      </div>
+    </section>
+
+    {
+      v.photos.length > 1 && (
+        <section class="mt-14" aria-label={s.gallery}>
+          <div class="snap-row auto-cols-[85%] gap-3 sm:auto-cols-[45%] lg:auto-cols-[32%]" tabindex="0">
+            {v.photos.slice(1).map((p) => (
+              <Photo photo={p} locale={locale} sizes="(min-width: 1024px) 32vw, (min-width: 640px) 45vw, 85vw" class="aspect-4/3 rounded-3xl" />
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    <div class="mt-14 grid gap-5 md:grid-cols-2">
+      <section class="rounded-2xl bg-sand p-5" aria-labelledby="hours">
+        <h2 id="hours" class="text-xl font-bold">{s.hours}</h2>
+        <div class="mt-3 text-sm" data-hours>{v.openingHours.length ? <HoursTable locale={locale} hours={v.openingHours} /> : s.checkWithVenue}</div>
+      </section>
+
+      <section class="overflow-hidden rounded-2xl bg-forest text-white" aria-labelledby="location">
+        {
+          pin && (
+            <iframe
+              title={s.location}
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(pin)}&z=16&output=embed`}
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              class="aspect-video w-full border-0"
+              data-map
+            />
+          )
+        }
+        <div class="p-6">
+          <h2 id="location" class="text-xl font-bold">{s.location}</h2>
+          {address && <p class="mt-1 text-white/80">{address}</p>}
+          <div class="mt-5 flex flex-wrap gap-3">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+              class="inline-flex min-h-11 items-center rounded-full bg-lime px-5 font-semibold text-ink"
+            >
+              {s.openMaps}
+            </a>
+            {
+              tel && (
+                <a href={tel} class="num inline-flex min-h-11 items-center rounded-full border border-white/40 px-5 font-semibold hover:bg-white/10">
+                  {s.call} {v.phone}
+                </a>
+              )
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</Base>

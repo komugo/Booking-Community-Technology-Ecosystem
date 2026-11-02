@@ -2,9 +2,11 @@ export { OperatorBooking } from "./operator";
 export { booking } from "./client";
 export {
   BookingError,
+  RESOURCE_KINDS,
   type ActivityInput,
   type AddOnInput,
   type AddOnPick,
+  type BookingUnit,
   type BookingView,
   type BookingErrorCode,
   type CheckInResult,
@@ -19,5 +21,6 @@ export {
   type ResourceInput,
   type ResourceKind,
   type ScheduleInput,
+  type TicketType,
   type TimeslotRow,
 } from "./engine";

@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { expect, test } from "vitest";
 import { cron } from "../src/cron";
 import { devInbox } from "../src/email";
-import { booked, boughtPack, client, customer, d1, later, member, packOffer, resend, rid, signedIn, slotAt, world } from "./helpers";
+import { booked, boughtPack, client, customer, d1, later, member, packOffer, resend, rid, signedIn, SLOT_AT, slotAt, world } from "./helpers";
 
 test("closing a booked Timeslot emails each Customer once, in their language, with a link to choose", async () => {
   const w = await world();
@@ -74,6 +74,16 @@ test("closing a started Timeslot is 409 and records nothing", async () => {
   const r = await m.json("POST", `/ops/operators/${w.operatorId}/timeslots/${w.timeslotId}/close`, { reason: "weather" });
   expect(r).toEqual({ status: 409, body: { code: "invalid_state" } });
   expect(await d1("SELECT count(*) AS n FROM closure_notices WHERE timeslot_id = ?", w.timeslotId)).toEqual([{ n: 0 }]);
+});
+
+test("maintenance and event close any Timeslot; horse unfit is refused off horse Activities", async () => {
+  const w = await world({ horses: 0, option: { needs: [{ kind: "instructor", quantity: 1 }] } });
+  const m = await member("operator", w.operatorId);
+  const url = (id: string) => `/ops/operators/${w.operatorId}/timeslots/${id}/close`;
+  expect(await m.json("POST", url(w.timeslotId), { reason: "horse_unfit" })).toEqual({ status: 400, body: { code: "invalid_field", field: "reason" } });
+  expect((await m.json("POST", url(w.timeslotId), { reason: "maintenance" })).body.timeslot).toMatchObject({ closedReason: "maintenance", horse: false });
+  const other = await slotAt(w, SLOT_AT + 3_600_000);
+  expect((await m.json("POST", url(other), { reason: "event" })).body.timeslot).toMatchObject({ closedReason: "event" });
 });
 
 test("a Pack group's notice links to its Pack and stays listed with the Customer's choice", async () => {

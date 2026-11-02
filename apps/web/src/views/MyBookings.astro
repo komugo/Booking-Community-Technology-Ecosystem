@@ -1,6 +1,6 @@
 ---
 import Checkout from "../layouts/Checkout.astro";
-import { klDayMonth, klDayYear, klTime, klWeekday, path, t } from "../lib/i18n";
+import { klDayMonth, klDayYear, klHours, klWeekday, path, t } from "../lib/i18n";
 import { named } from "../lib/checkout";
 import type { meStep } from "../lib/manage";
 import type { Me } from "../lib/api";
@@ -30,7 +30,7 @@ const row = "flex min-h-20 items-center gap-4 rounded-2xl bg-white p-3 pr-4 shad
               <a href={href(v)} data-awaiting class={`${row} border-l-4 border-clay`}>
                 <span class="min-w-0 flex-1">
                   <span class="block font-semibold">{named(v.activity, l)}</span>
-                  <span class="num block text-sm text-muted">{m.closed} · {klWeekday(l, v.startsAt)} {klDayMonth(l, v.startsAt)} {klTime(l, v.startsAt)}</span>
+                  <span class="num block text-sm text-muted">{m.closed} · {klWeekday(l, v.startsAt)} {klDayMonth(l, v.startsAt)} {klHours(l, v)}</span>
                 </span>
                 <span class="rounded-full bg-clay px-3 py-1 text-sm font-semibold text-white">{m.choose}</span>
               </a>
@@ -54,7 +54,7 @@ const row = "flex min-h-20 items-center gap-4 rounded-2xl bg-white p-3 pr-4 shad
                   <span class="num text-sm leading-tight font-bold">{klDayMonth(l, v.startsAt)}</span>
                 </span>
                 <span class="min-w-0 flex-1">
-                  <span class="num block font-semibold">{klTime(l, v.startsAt)} · {named(v.option, l)}</span>
+                  <span class="num block font-semibold">{klHours(l, v)} · {named(v.option, l)}</span>
                   <span class="block text-sm">{named(v.activity, l)}</span>
                   <span class="block truncate text-sm text-muted">{v.participants.join(", ")}</span>
                 </span>

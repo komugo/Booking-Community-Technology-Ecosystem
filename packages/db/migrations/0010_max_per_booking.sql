@@ -1,0 +1,1 @@
+ALTER TABLE `proj_options` ADD `max_per_booking` integer;

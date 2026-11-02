@@ -1,7 +1,7 @@
-import { activities, projActivities, projAddOns, projOptions, projTimeslots, type Locale } from "@komugo/db";
-import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
+import { activities, operators, optionFrom, projActivities, projAddOns, projOptions, projTimeslots, slotPrices, type Locale } from "@komugo/db";
+import { and, asc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { api, errorsOf, see, type ApiError, type Checkout } from "./api";
-import { db, showDrafts } from "./db";
+import { db, sells } from "./db";
 import { codeFrom, problems } from "./form";
 import { path } from "./i18n";
 import { daysAndTimes } from "./slots";
@@ -13,7 +13,7 @@ const notFound = () => new Response(null, { status: 404 });
 const step = (l: Locale, id: string, s: string) => path(l, "checkout", id, s);
 export const named = (x: { nameEn: string; nameMs: string }, l: Locale) => (l === "ms" ? x.nameMs : x.nameEn);
 
-const STEP_1 = new Set(["no_availability", "below_min_participants", "not_bookable", "invalid_add_on"]);
+const STEP_1 = new Set(["no_availability", "below_min_participants", "above_max_per_booking", "not_bookable", "invalid_add_on"]);
 const STEP_2 = new Set(["requirement_not_met", "invalid_participant", "waiver_missing"]);
 
 export function holdRedirect(l: Locale, co: { id: string; option: { id: string } }, code: string, cookies: string[] = []) {
@@ -31,19 +31,25 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
   const [row] = await db
     .select({
       option: projOptions,
-      published: activities.published,
+      listingMode: activities.listingMode,
+      commissionBps: operators.commissionBps,
       activityNameEn: activities.nameEn,
       activityNameMs: activities.nameMs,
       cutoffMinutes: projActivities.bookingCutoffMinutes,
+      freeCancelHours: projActivities.freeCancelHours,
+      requiresWaiver: projActivities.requiresWaiver,
     })
     .from(projOptions)
     .innerJoin(activities, eq(activities.id, projOptions.activityId))
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
     .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
     .where(and(eq(projOptions.id, optionId), eq(projOptions.active, true)));
-  if (!row || !(row.published || showDrafts)) return notFound();
+  if (!row || !sells(row.listingMode, row.commissionBps)) return notFound();
   const o = row.option;
+  const court = o.bookingUnit === "court";
+  if (court && row.requiresWaiver) return notFound();
   const now = Date.now();
-  const [siblings, addOns, slots] = await db.batch([
+  const [options, addOns, slots, prices] = await db.batch([
     db
       .select({ id: projOptions.id, nameEn: projOptions.nameEn, nameMs: projOptions.nameMs, priceSen: projOptions.priceSen })
       .from(projOptions)
@@ -55,24 +61,33 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
       .where(and(eq(projAddOns.activityId, o.activityId), eq(projAddOns.active, true)))
       .orderBy(asc(projAddOns.priceSen)),
     db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({
+        id: projTimeslots.id,
+        startsAt: projTimeslots.startsAt,
+        endsAt: projTimeslots.endsAt,
+        spots: projTimeslots.spots,
+        priceSen: projTimeslots.priceSen,
+      })
       .from(projTimeslots)
       .where(
         and(
           eq(projTimeslots.optionId, o.id),
-          gt(projTimeslots.startsAt, now + row.cutoffMinutes * 60_000),
+          gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + row.cutoffMinutes * 60_000),
           lt(projTimeslots.startsAt, now + 60 * DAY),
           isNull(projTimeslots.closedAt),
           gt(projTimeslots.spots, 0),
         ),
       )
       .orderBy(asc(projTimeslots.startsAt)),
+    slotPrices(db, [o.activityId]),
   ]);
+  const siblings = options.map((x) => ({ ...x, fromPriceSen: optionFrom(x, prices) }));
 
   const min = o.minParticipants ?? 1;
+  const max = court ? 1 : (o.maxPerBooking ?? 10);
   let errors: ApiError[] = codeFrom(url);
   const q = (k: string) => Math.max(0, Math.floor(Number(url.searchParams.get(k)) || 0));
-  const quantity = Math.min(10, Math.max(min, q("quantity")));
+  const quantity = Math.min(max, Math.max(min, q("quantity")));
   let values = {
     timeslotId: "",
     quantity,
@@ -92,7 +107,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     if (!values.timeslotId) {
       errors = [{ code: "not_bookable", field: "time" }];
     } else {
-      const res = await api<{ id: string }>(request, "POST", "/checkouts", {
+      const res = await api<{ id: string; next: "who" | "contact" | "pay" }>(request, "POST", "/checkouts", {
         optionId: o.id,
         timeslotId: values.timeslotId,
         quantity: values.quantity,
@@ -101,13 +116,17 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
           .map(([id, qty]) => ({ id, qty })),
         locale: l,
       });
-      if (res.data) return see(step(l, res.data.id, "who"), res.cookies);
+      if (res.data) return see(step(l, res.data.id, res.data.next), res.cookies);
       errors = errorsOf(res.error);
       cookies = res.cookies;
     }
   }
 
-  const { days, date: day, times, nextOpen } = daysAndTimes(slots, date, now);
+  const { days, date: day, times, nextOpen } = daysAndTimes(
+    slots.map((x) => ({ ...x, priceSen: x.priceSen ?? o.priceSen })),
+    date,
+    now,
+  );
   if (!times.some((x) => x.id === values.timeslotId)) {
     values.timeslotId = (times.find((x) => x.spots >= values.quantity) ?? times[0])?.id ?? "";
   }
@@ -116,6 +135,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     locale: l,
     option: o,
     activityName: l === "ms" ? row.activityNameMs : row.activityNameEn,
+    freeCancelHours: row.freeCancelHours,
     siblings,
     addOns,
     days,
@@ -124,6 +144,7 @@ export async function pickStep({ request, params, url }: Ctx, l: Locale) {
     nextOpen,
     values,
     min,
+    max,
     problems: problems(l, errors),
     status: errors.length && request.method === "POST" ? 400 : 200,
     cookies,
@@ -141,6 +162,7 @@ export async function whoStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
   if (co.state === "booked" || co.state === "refund_due" || co.state === "redeemed") return see(step(l, co.id, "pay"));
+  if (co.option.bookingUnit === "court") return see(co.signedIn ? path(l, "book", co.option.id) : step(l, co.id, "contact"));
   let errors: ApiError[] = codeFrom(url);
   let values: Record<string, string> = {};
   if (request.method === "POST") {
@@ -168,7 +190,7 @@ export async function whoStep({ request, params, url }: Ctx, l: Locale) {
 export async function contactStep({ request, params, url }: Ctx, l: Locale) {
   const co = await loadCheckout(request, params.id!);
   if (!co) return notFound();
-  if (co.signedIn) return see(step(l, co.id, co.participants.length ? "pay" : "who"));
+  if (co.signedIn) return see(step(l, co.id, co.participants.length || co.option.bookingUnit === "court" ? "pay" : "who"));
   let errors: ApiError[] = codeFrom(url);
   let values = { name: co.contact.name ?? "", email: co.contact.email ?? "", phone: co.contact.phone ?? "" };
   let editing = !co.contact.email || url.searchParams.has("change");
