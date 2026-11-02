@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { signOut } from "./me";
 import type { Me, Waiver } from "./types";
 import { useQueue } from "./checkins";
+import { CHECK_IN } from "./flags";
 import { setLocale, t, useT } from "./i18n";
 import { store } from "./store";
 
@@ -244,21 +245,23 @@ export function SyncPill({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function TabBar({ op }: { op: string }) {
+const COLS = ["", "grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"];
+
+export function TabBar({ op, staff }: { op: string; staff: boolean }) {
   const { t } = useT();
   const [path] = useLocation();
-  const tabs = [
-    { href: `/o/${op}/today`, label: t.today, icon: "today" },
-    { href: `/o/${op}/scan`, label: t.scan, icon: "scan" },
-    { href: `/o/${op}/schedule`, label: t.schedule, icon: "schedule" },
-    { href: `/o/${op}/setup`, label: t.setup, icon: "setup" },
-  ] as const;
+  const tabs = ([
+    { href: `/o/${op}/today`, label: t.today, icon: "today", on: true },
+    { href: `/o/${op}/scan`, label: t.scan, icon: "scan", on: CHECK_IN },
+    { href: `/o/${op}/schedule`, label: t.schedule, icon: "schedule", on: true },
+    { href: `/o/${op}/setup`, label: t.setup, icon: "setup", on: staff },
+  ] as const).filter((x) => x.on);
   return (
     <nav
       aria-label={t.mainNav}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:inset-y-0 lg:right-auto lg:w-28 lg:border-t-0 lg:border-r lg:pt-24 lg:pb-0"
     >
-      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4 lg:h-auto lg:grid-cols-1 lg:gap-3">
+      <ul className={`mx-auto grid h-16 max-w-lg ${COLS[tabs.length]} lg:h-auto lg:grid-cols-1 lg:gap-3`}>
         {tabs.map((tab) => {
           const current = path.startsWith(tab.href) || (tab.icon === "schedule" && path.startsWith(`/o/${op}/timeslots`));
           const scan = tab.icon === "scan";

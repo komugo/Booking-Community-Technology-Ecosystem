@@ -3,11 +3,24 @@ import { day, fixture, newContext, shot, signIn } from "./helpers";
 
 const weekday = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
 
-test("a Schedule generates Timeslots and skips Closed days", async ({ browser, request }) => {
+test("an operator sees the week's Timeslots but no Schedules or one-off Timeslots", async ({ browser, request }) => {
   const fx = await fixture(request);
   const page = await (await newContext(browser)).newPage();
   await signIn(page, fx.email);
   await page.getByRole("link", { name: "Schedule" }).click();
+  const chip = page.locator(`[data-date="${day()}"] [data-chip][href="/o/${fx.operatorId}/timeslots/${fx.timeslotId}"]`);
+  await expect(chip).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Schedules" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add one-off Timeslot" })).toHaveCount(0);
+  await chip.click();
+  await expect(page).toHaveURL(`/o/${fx.operatorId}/timeslots/${fx.timeslotId}`);
+  await expect(page.getByRole("button", { name: "Close Timeslot" })).toBeVisible();
+});
+
+test("a Schedule generates Timeslots and skips Closed days", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true });
+  const page = await (await newContext(browser)).newPage();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/schedule`);
 
   await page.getByRole("button", { name: "New Schedule" }).click();
   const sheet = page.getByRole("dialog", { name: "New Schedule" });

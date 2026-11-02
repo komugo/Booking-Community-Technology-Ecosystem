@@ -90,7 +90,7 @@ test("the Operator checks in a per-court Ticket and sees the Customer's name and
 
 test("ops saves a per-court Option and Court Resources, but not a Pack offer with it", async () => {
   const w = await courts(1);
-  const m = await member("operator", w.operatorId);
+  const m = await member("staff");
   const base = `/ops/operators/${w.operatorId}`;
   expect((await m.json("POST", `${base}/resources`, { kind: "court", name: "Court 9", active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null })).status).toBe(201);
   const option = { activityId: w.activityId, ...COURT, durationMinutes: 60, maxAge: null, requiredCert: null, minParticipants: null, maxPerBooking: null, active: true };

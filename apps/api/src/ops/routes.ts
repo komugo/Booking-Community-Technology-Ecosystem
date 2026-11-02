@@ -83,7 +83,7 @@ routes.put("/commission", staffOnly, async (c) => {
   return c.json({ commissionBps: body.commissionBps });
 });
 
-routes.put("/activities/:id", async (c) => {
+routes.put("/activities/:id", staffOnly, async (c) => {
   const body = await json(c);
   const errors = invalid([
     [int(body.freeCancelHours, 0, 720), "freeCancelHours"],
@@ -106,8 +106,8 @@ routes.put("/activities/:id", async (c) => {
 
 const text = (v: unknown) => typeof v === "string" && v.trim().length <= 5000;
 
-// Operators edit their own Activity's copy; only staff move it to another Venue.
-routes.put("/activities/:id/copy", async (c) => {
+// Staff-only while operators' Setup is off (#31); with it on, operators edit their own copy and only staff move it to another Venue.
+routes.put("/activities/:id/copy", staffOnly, async (c) => {
   const body = await json(c);
   const errors = invalid([
     [text(body.descriptionEn), "descriptionEn"],
@@ -375,18 +375,18 @@ const withHours = (env: Env, upsert: (o: OptionInput) => Promise<unknown>) => as
   return upsert(o);
 };
 
-routes.post("/options", (c) => save(c, null, "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
-routes.put("/options/:id", (c) => save(c, c.req.param("id"), "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
-routes.post("/add-ons", (c) => save(c, null, "addOns", addOnInput, c.var.b.upsertAddOn));
-routes.put("/add-ons/:id", (c) => save(c, c.req.param("id"), "addOns", addOnInput, c.var.b.upsertAddOn));
-routes.post("/resources", (c) => save(c, null, "resources", resourceInput, c.var.b.upsertResource));
-routes.put("/resources/:id", (c) => save(c, c.req.param("id"), "resources", resourceInput, c.var.b.upsertResource));
-routes.post("/schedules", (c) => save(c, null, "schedules", scheduleInput, c.var.b.upsertSchedule));
-routes.put("/schedules/:id", (c) => save(c, c.req.param("id"), "schedules", scheduleInput, c.var.b.upsertSchedule));
-routes.post("/pack-offers", (c) => save(c, null, "packOffers", packOfferInput, c.var.b.upsertPackOffer));
-routes.put("/pack-offers/:id", (c) => save(c, c.req.param("id"), "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+routes.post("/options", staffOnly, (c) => save(c, null, "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
+routes.put("/options/:id", staffOnly, (c) => save(c, c.req.param("id"), "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
+routes.post("/add-ons", staffOnly, (c) => save(c, null, "addOns", addOnInput, c.var.b.upsertAddOn));
+routes.put("/add-ons/:id", staffOnly, (c) => save(c, c.req.param("id"), "addOns", addOnInput, c.var.b.upsertAddOn));
+routes.post("/resources", staffOnly, (c) => save(c, null, "resources", resourceInput, c.var.b.upsertResource));
+routes.put("/resources/:id", staffOnly, (c) => save(c, c.req.param("id"), "resources", resourceInput, c.var.b.upsertResource));
+routes.post("/schedules", staffOnly, (c) => save(c, null, "schedules", scheduleInput, c.var.b.upsertSchedule));
+routes.put("/schedules/:id", staffOnly, (c) => save(c, c.req.param("id"), "schedules", scheduleInput, c.var.b.upsertSchedule));
+routes.post("/pack-offers", staffOnly, (c) => save(c, null, "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+routes.put("/pack-offers/:id", staffOnly, (c) => save(c, c.req.param("id"), "packOffers", packOfferInput, c.var.b.upsertPackOffer));
 
-routes.post("/timeslots", async (c) => {
+routes.post("/timeslots", staffOnly, async (c) => {
   const body = await json(c);
   if (typeof body.optionId !== "string") return fail(c, 400, { code: "invalid_field", field: "optionId" });
   if (!list<number>(body.startsAt, 50, Number.isInteger) || !(body.startsAt as number[]).length) {

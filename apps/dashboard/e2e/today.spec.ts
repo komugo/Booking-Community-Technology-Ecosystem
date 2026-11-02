@@ -23,10 +23,4 @@ test("Today lists Participants with age, weight, horse, Waiver, Add-ons and cont
 
   await noAxeViolations(page);
   await shot(page, "today");
-
-  await child.getByRole("button", { name: "Check in" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Check in" }).click();
-  await expect(child).toContainText(/Checked in \d{2}:\d{2}/);
-  await page.reload();
-  await expect(child).toContainText(/Checked in \d{2}:\d{2}/);
 });

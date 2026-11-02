@@ -26,7 +26,7 @@ async function gym(dailyLimit: number | null = null) {
   const w = await world({ requiresWaiver: false });
   const venueId = await publishable(w);
   await db.update(venues).set({ openingHours: [{ days: WEEKDAYS, opens: "07:00", closes: "22:00" }] }).where(eq(venues.id, venueId));
-  const m = await member("operator", w.operatorId);
+  const m = await member("staff");
   const base = `/ops/operators/${w.operatorId}`;
   const r = await m.json<{ id: string }>("POST", `${base}/options`, { ...DATE, activityId: w.activityId, dailyLimit });
   expect(r.status).toBe(201);
@@ -92,7 +92,8 @@ test("closing a date emails each Customer to choose a Refund or a move to anothe
   await cl.json("PUT", `/checkouts/${body.id}/who`, { participants: [adult("Aisyah")] });
   const { billId } = await pay(cl, body.id);
   await cl.json("GET", returnPath((await fake(billId, "pay"))!));
-  const r = await g.m.json("POST", `${g.base}/timeslots/${g.slot.id}/close`, { reason: "maintenance" });
+  const own = await member("operator", g.operatorId);
+  const r = await own.json("POST", `${g.base}/timeslots/${g.slot.id}/close`, { reason: "maintenance" });
   expect(r.status).toBe(200);
   const [mail] = devInbox.filter((e) => e.to === email && e.subject.startsWith("Tarikh ditutup"));
   expect(mail.text).toMatch(/7:00.*–.*10:00/);

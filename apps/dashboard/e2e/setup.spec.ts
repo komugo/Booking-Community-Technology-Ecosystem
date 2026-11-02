@@ -1,11 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { fixture, newContext, noAxeViolations, shot, signIn } from "./helpers";
 
-test("operator manages Resources, Options, Add-ons and Closed days", async ({ browser, request }) => {
+test("Setup is staff-only", async ({ browser, request }) => {
   const fx = await fixture(request);
   const page = await (await newContext(browser)).newPage();
-  await signIn(page, fx.email);
-  await page.getByRole("link", { name: "Setup" }).click();
+  await signIn(page, fx.email, `/o/${fx.operatorId}/setup`);
+  await expect(page.getByRole("heading", { name: "Nothing here" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Setup" })).toHaveCount(0);
+});
+
+test("staff manage Resources, Options, Add-ons and Closed days", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true });
+  const page = await (await newContext(browser)).newPage();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
 
   await page.getByRole("tab", { name: "Resources" }).click();
   await page.getByRole("button", { name: "New Resource" }).click();
@@ -43,8 +50,6 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(page.locator("[data-row]", { hasText: "Gloves" })).toContainText("RM7.50");
 
   await page.getByRole("tab", { name: "Activity" }).click();
-  await expect(page.locator("[data-listing-mode]")).toHaveText("Hidden");
-  await expect(page.getByLabel("Listing mode")).toHaveCount(0);
   const sentence = page.locator("[data-closed-sentence]");
   await expect(sentence).toHaveText("Closed 1st and 3rd Monday");
   await page.getByRole("button", { name: "Remove 1st Monday" }).click();
@@ -56,7 +61,7 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await page.getByLabel("Closed days", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Add Closed day" }).click();
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save" }).last().click();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await page.reload();
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");

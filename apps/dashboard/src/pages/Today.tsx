@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { scan, useQueue } from "../checkins";
 import { addDays, today, useDay } from "../day";
+import { CHECK_IN } from "../flags";
 import { day, hours, named, time, useT } from "../i18n";
 import type { Ticket, Timeslot } from "../types";
 import { Icon, Sheet, WaiverChip } from "../ui";
@@ -157,21 +158,22 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
                     </p>
                     <WaiverChip waiver={x.waiver} signer={x.signerName} />
                   </div>
-                  {at ? (
-                    <span className="num inline-flex shrink-0 items-center gap-1 rounded-full bg-lime px-3 py-1.5 text-sm font-semibold text-forest">
-                      <Icon name="check" className="size-4" />
-                      {t.checkedInAt(time(at, l))}
-                    </span>
-                  ) : queued ? (
-                    <span className="shrink-0 rounded-full bg-sand px-3 py-1.5 text-sm font-semibold">{t.pending}</span>
-                  ) : (
-                    checkable &&
-                    !closed && (
-                      <button type="button" className="btn btn-quiet shrink-0 px-4 text-sm" onClick={() => onCheckIn(x)}>
-                        {t.checkIn}
-                      </button>
-                    )
-                  )}
+                  {CHECK_IN &&
+                    (at ? (
+                      <span className="num inline-flex shrink-0 items-center gap-1 rounded-full bg-lime px-3 py-1.5 text-sm font-semibold text-forest">
+                        <Icon name="check" className="size-4" />
+                        {t.checkedInAt(time(at, l))}
+                      </span>
+                    ) : queued ? (
+                      <span className="shrink-0 rounded-full bg-sand px-3 py-1.5 text-sm font-semibold">{t.pending}</span>
+                    ) : (
+                      checkable &&
+                      !closed && (
+                        <button type="button" className="btn btn-quiet shrink-0 px-4 text-sm" onClick={() => onCheckIn(x)}>
+                          {t.checkIn}
+                        </button>
+                      )
+                    ))}
                 </li>
               );
             })}

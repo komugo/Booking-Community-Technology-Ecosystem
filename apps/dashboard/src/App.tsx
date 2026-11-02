@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Redirect, Route, Switch, useLocation, useRoute } from "wouter";
 import { openQueue } from "./checkins";
+import { CHECK_IN } from "./flags";
 import { useT } from "./i18n";
 import { loadMe, useMe } from "./me";
 import Interests from "./pages/Interests";
@@ -75,9 +76,10 @@ function Signed({ me }: { me: Me }) {
 function Shell({ me, op }: { me: Me; op: string }) {
   const { t } = useT();
   const operator = me.operators.find((o) => o.id === op)!;
+  const staff = me.member.role === "staff";
   const [scanning] = useRoute("/o/:op/scan");
   useEffect(() => openQueue(op), [op]);
-  if (scanning) return <Scan />;
+  if (CHECK_IN && scanning) return <Scan />;
   return (
     <div className="min-h-dvh pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-28">
       <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
@@ -90,8 +92,12 @@ function Shell({ me, op }: { me: Me; op: string }) {
               </Link>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            {me.member.role === "staff" && <StaffLinks />}
+          <div className="flex min-w-0 items-center gap-1">
+            {staff && (
+              <div className="flex min-w-0 overflow-x-auto">
+                <StaffLinks />
+              </div>
+            )}
             <LangPill />
           </div>
         </div>
@@ -101,11 +107,11 @@ function Shell({ me, op }: { me: Me; op: string }) {
           <Route path="/o/:op/today" component={Today} />
           <Route path="/o/:op/timeslots/:id" component={Timeslot} />
           <Route path="/o/:op/schedule" component={Schedule} />
-          <Route path="/o/:op/setup" component={Setup} />
+          <Route path="/o/:op/setup">{staff ? <Setup /> : <NotFound />}</Route>
           <Route component={NotFound} />
         </Switch>
       </main>
-      <TabBar op={op} />
+      <TabBar op={op} staff={staff} />
     </div>
   );
 }
