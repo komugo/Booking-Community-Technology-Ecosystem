@@ -9,7 +9,7 @@ import type { groupStep } from "../../lib/manage";
 import type { Booking } from "../../lib/api";
 
 type Props = Exclude<Awaited<ReturnType<typeof groupStep>>, Response> & { g: Booking };
-const { locale: l, g: b, visits, closures, cancelled, moved } = Astro.props;
+const { locale: l, g: b, visits, closures, cancelled, moved, refunded } = Astro.props;
 const s = t[l];
 const c = s.checkout;
 const live = b.tickets.some((x) => x.status === "issued" && x.closedAt === null);
@@ -17,7 +17,7 @@ const live = b.tickets.some((x) => x.status === "issued" && x.closedAt === null)
 
 <Checkout locale={l} title={live ? c.bookedTitle : s.manage.yourBooking}>
   <p class="mt-2 text-lg">{named(b.activity, l)} · {named(b.option, l)}</p>
-  <Notices locale={l} g={b} closures={closures} cancelled={cancelled} moved={moved} />
+  <Notices locale={l} g={b} closures={closures} cancelled={cancelled} moved={moved} refunded={refunded} />
   {
     live && (
       <>

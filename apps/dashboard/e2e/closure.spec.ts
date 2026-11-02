@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { customerCancel, emails, fixture, newContext, shot, signIn } from "./helpers";
+import { API, customerCancel, emails, fixture, newContext, shot, signIn } from "./helpers";
 
 test("closing a booked Timeslot emails the customer once, even after an offline retry", async ({ browser, request }) => {
   const fx = await fixture(request, { locale: "ms" });
@@ -45,4 +45,16 @@ test("closing a booked Timeslot emails the customer once, even after an offline 
 
   await page.getByRole("link", { name: "Today" }).first().click();
   await expect(page.locator(`[data-timeslot="${fx.timeslotId}"]`)).toContainText("Closed · Weather");
+});
+
+test("a Closure from a close Operator link shows the contact who made it", async ({ browser, request }) => {
+  const fx = await fixture(request);
+  const u = new URL(fx.close);
+  const res = await request.post(`${API}/closes${u.pathname.replace(/^\/close/, "")}${u.search}`, { data: { reason: "event" } });
+  expect(res.status()).toBe(204);
+
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await signIn(page, fx.email, `/o/${fx.operatorId}/timeslots/${fx.timeslotId}`);
+  await expect(page.getByText(/Closed \(Event\) at \d{2}:\d{2} by Siti on WhatsApp/)).toBeVisible();
 });

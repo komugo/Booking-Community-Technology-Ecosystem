@@ -2,6 +2,7 @@ import { booking, BookingError, type ConfirmResult } from "@komugo/booking";
 import { bills, checkouts, createDb } from "@komugo/db";
 import { Hono } from "hono";
 import { and, eq, isNull } from "drizzle-orm";
+import { bookingAlert } from "./digest";
 import { sendBookedEmail, sendRefundEmail } from "./email";
 import { fail, hmacHex, log, logError, safeEqual, type WaitUntil } from "./lib";
 import { bookingLink } from "./manage";
@@ -128,14 +129,19 @@ async function confirmBooking(env: Env, waitUntil: WaitUntil, bill: BillRow, amo
       if (checkout.bookingId && checkout.bookingId !== result.bookingId) {
         logError("duplicate_booking", { billId, checkoutId, bookingId: result.bookingId });
       }
-      await db.batch([
+      const [, first] = await db.batch([
         paid,
         db
           .update(checkouts)
           .set({ bookingId: result.bookingId, emailedAt: null, updatedAt: now })
-          .where(and(eq(checkouts.id, checkoutId), isNull(checkouts.bookingId))),
+          .where(and(eq(checkouts.id, checkoutId), isNull(checkouts.bookingId)))
+          .returning({ id: checkouts.id }),
       ]);
       waitUntil(sendBookedEmail(env, checkoutId).catch((e) => logError("checkout_email_failed", { checkoutId, error: String(e) })));
+      if (first.length) {
+        const alert = { customerId: checkout.customerId!, bookingId: result.bookingId, ticketIds: result.ticketIds, from: null, to: checkout.timeslotId };
+        waitUntil(bookingAlert(env, checkout.operatorId, alert).catch((e) => logError("booking_alert_failed", { checkoutId, error: String(e) })));
+      }
     } else {
       // Only the current Hold's refund ends the Checkout; a stray bill's refund leaves it bookable.
       const ends = !checkout.bookingId && !checkout.packId && bill.holdId === checkout.holdId;

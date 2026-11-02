@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { klDate } from "@komugo/types";
 import { expect, test } from "vitest";
-import { later, rid, rideWorld } from "./helpers";
+import { HOUR, kl, later, rid, rideWorld } from "./helpers";
 
 async function booked(o: { people?: number; horse?: { maxSessionsPerDay?: number } } = {}) {
   const w = await rideWorld(o.horse ?? {});
@@ -20,8 +20,8 @@ test("inside the window a Reschedule keeps the Ticket and moves its Allocations;
   const next = await w.slot(w.optionId, later(96));
   const requestId = rid();
   const moved = await w.move(next, undefined, undefined, requestId);
-  expect(moved).toEqual({ timeslotId: next, startsAt: later(96) });
-  expect(await w.move(next, undefined, undefined, requestId)).toEqual(moved);
+  expect(moved).toEqual({ timeslotId: next, startsAt: later(96), refund: null, replayed: false });
+  expect(await w.move(next, undefined, undefined, requestId)).toEqual({ ...moved, replayed: true });
   expect(await w.sql("SELECT id, timeslot_id, status FROM tickets")).toEqual([{ id: w.ticketIds[0], timeslot_id: next, status: "issued" }]);
   expect(await w.sql("SELECT ticket_id, block_start FROM allocations")).toEqual([{ ticket_id: w.ticketIds[0], block_start: later(96) }]);
 });
@@ -43,13 +43,44 @@ test("after the window it is window_passed, once started it is started, and anot
   });
 });
 
-test("inside the window a Timeslot at another price is price_differs; after a Closure it moves free", async () => {
+test("inside the window a Timeslot at another price is price_differs, cheaper or pricier", async () => {
   const w = await booked();
   const next = await w.slot(w.optionId, later(96));
-  await w.sql("UPDATE options SET price_sen = price_sen + 4000 WHERE id = ?", w.optionId);
+  await w.sql("UPDATE timeslots SET price_sen = 1 WHERE id = ?", next);
   await expect(w.move(next)).rejects.toMatchObject({ code: "price_differs" });
+  await w.sql("UPDATE options SET price_sen = price_sen + 4000 WHERE id = ?", w.optionId);
+  await w.sql("UPDATE timeslots SET price_sen = NULL WHERE id = ?", next);
+  await expect(w.move(next)).rejects.toMatchObject({ code: "price_differs" });
+});
+
+test("after a Closure a pricier Timeslot is price_differs; a cheaper one refunds the difference and reprices the Tickets", async () => {
+  const w = await booked({ people: 2 });
+  const paid = Number((await w.sql("SELECT price_sen FROM tickets LIMIT 1"))[0].price_sen);
+  const pricier = await w.slot(w.optionId, later(96));
+  const cheaper = await w.slot(w.optionId, later(120));
+  await w.sql("UPDATE timeslots SET price_sen = ? WHERE id = ?", paid + 1000, pricier);
+  await w.sql("UPDATE timeslots SET price_sen = ? WHERE id = ?", paid - 1500, cheaper);
   await w.b.closeTimeslot(w.ts, "weather");
-  expect(await w.move(next, undefined, undefined, rid(), true)).toMatchObject({ timeslotId: next });
+  await expect(w.move(pricier, undefined, undefined, rid(), true)).rejects.toMatchObject({ code: "price_differs" });
+
+  const moved = await w.move(cheaper, undefined, undefined, rid(), true);
+  expect(moved).toMatchObject({ timeslotId: cheaper, refund: { amountSen: 3000, reason: "closure" } });
+  expect(await w.sql("SELECT amount_sen, reason, booking_id FROM refunds")).toEqual([
+    { amount_sen: 3000, reason: "closure", booking_id: w.group.bookingId },
+  ]);
+  expect(await w.sql("SELECT price_sen, refund_id, status FROM tickets")).toEqual([
+    { price_sen: paid - 1500, refund_id: null, status: "issued" },
+    { price_sen: paid - 1500, refund_id: null, status: "issued" },
+  ]);
+  expect((await w.quote(w.customerId, w.group, w.ticketIds)).refundSen).toBe(2 * (paid - 1500));
+});
+
+test("after a Closure a same-price Timeslot moves with no Refund", async () => {
+  const w = await booked();
+  const next = await w.slot(w.optionId, later(96));
+  await w.b.closeTimeslot(w.ts, "weather");
+  expect(await w.move(next, undefined, undefined, rid(), true)).toEqual({ timeslotId: next, startsAt: later(96), refund: null, replayed: false });
+  expect(await w.sql("SELECT id FROM refunds")).toEqual([]);
 });
 
 test("after a Closure any future open Timeslot is free, ignoring the window and Pack expiry", async () => {
@@ -82,8 +113,9 @@ test("Resources are re-allocated: Requirements on the new date and Welfare Rules
   });
 
   const h = await booked({ horse: { maxSessionsPerDay: 1 } });
-  const dayA = await h.slot(h.optionId, later(120));
-  const dayB = await h.slot(h.optionId, later(122));
+  const morning = kl(`${klDate(later(120))}T09:00`);
+  const dayA = await h.slot(h.optionId, morning);
+  const dayB = await h.slot(h.optionId, morning + 2 * HOUR);
   await h.book(h.customerId, dayA, [await h.participant(h.customerId)]);
   await expect(h.move(dayB)).rejects.toMatchObject({ code: "no_availability" });
 });

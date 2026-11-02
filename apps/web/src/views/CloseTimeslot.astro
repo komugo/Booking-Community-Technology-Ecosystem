@@ -1,0 +1,47 @@
+---
+import Checkout from "../layouts/Checkout.astro";
+import { klLongDay, klTime, t } from "../lib/i18n";
+import type { closeStep } from "../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof closeStep>>, Response>;
+const { locale: l, view, invalid } = Astro.props;
+const s = t[l].closeLink;
+const reasons = ["weather", "maintenance", "event", ...(view?.timeslot.horse ? ["horse_unfit"] : []), "other"];
+---
+
+<Checkout locale={l} title={view?.timeslot.date ? s.titleDate : s.title}>
+  {
+    view ? (
+      <>
+        <p class="mt-2 text-lg font-semibold">{view.operator}</p>
+        <p class="text-muted">{klLongDay(l, view.timeslot.startsAt)}</p>
+        <h2 class="mt-1 text-xl font-bold">
+          {!view.timeslot.date && `${klTime(l, view.timeslot.startsAt)} · `}
+          {l === "ms" ? view.timeslot.option.nameMs : view.timeslot.option.nameEn}
+        </h2>
+        {view.timeslot.closedAt !== null ? (
+          <p role="status" class="mt-6 rounded-2xl bg-sand p-4 font-semibold">{s.done(view.timeslot.closedBy)}</p>
+        ) : (
+          <form method="post" class="mt-6 space-y-4">
+            <fieldset>
+              <legend class="font-bold">{s.reason}</legend>
+              <div class="mt-2 space-y-1">
+                {reasons.map((r) => (
+                  <label class="flex min-h-11 items-center gap-3">
+                    <input type="radio" name="reason" value={r} required class="size-5 accent-clay" />
+                    {s.reasons[r]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {invalid && <p role="alert" class="font-semibold text-clay">{s.invalid}</p>}
+            <p data-customers class="rounded-2xl bg-sand p-4 font-semibold">{s.customers(view.customers)}</p>
+            <button class="inline-flex min-h-12 items-center rounded-full bg-clay px-6 font-semibold text-white hover:bg-clay/90">{s.send}</button>
+          </form>
+        )}
+      </>
+    ) : (
+      <p role="status" class="mt-6 rounded-2xl bg-clay/5 p-4 font-semibold text-clay">{s.expired}</p>
+    )
+  }
+</Checkout>

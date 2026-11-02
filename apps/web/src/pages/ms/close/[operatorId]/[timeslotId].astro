@@ -1,0 +1,10 @@
+---
+import CloseTimeslot from "../../../../views/CloseTimeslot.astro";
+import { closeStep } from "../../../../lib/manage";
+
+const data = await closeStep(Astro, "ms");
+if (data instanceof Response) return data;
+if (!data.view) Astro.response.status = 410;
+---
+
+<CloseTimeslot {...data} />

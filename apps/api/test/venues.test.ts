@@ -57,7 +57,7 @@ describe("Venues", () => {
     expect((await post({ lat: null, lng: null })).status).toBe(201);
   });
 
-  test("Operator Members cannot list, create or edit Venues, nor move their Activity to another Venue", async () => {
+  test("Operator Members cannot list, create or edit Venues, nor edit their Activity's copy", async () => {
     const w = await world({ listingMode: "hidden" });
     const own = await member("operator", w.operatorId);
     const staff = await member("staff");
@@ -68,13 +68,13 @@ describe("Venues", () => {
     expect((await own.json("PUT", `/ops/venues/${id}`, body)).status).toBe(403);
 
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: id, photos: [unsplash()] };
-    expect((await own.json("PUT", url, copy)).body).toEqual({ code: "forbidden", field: "venueId" });
+    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: id, free: false, setting: null, photos: [unsplash()] };
+    expect((await own.json("PUT", url, copy)).body).toEqual({ code: "forbidden" });
     expect((await staff.json("PUT", url, copy)).status).toBe(204);
-    expect((await own.json("PUT", url, { ...copy, descriptionEn: "Ride the jungle trails" })).status).toBe(204);
+    expect((await own.json("PUT", url, { ...copy, descriptionEn: "Ride the jungle trails" })).body).toEqual({ code: "forbidden" });
     const { body: setup } = await own.json("GET", `/ops/operators/${w.operatorId}/setup`);
     expect(setup.catalogue).toEqual([
-      expect.objectContaining({ id: w.activityId, descriptionEn: "Ride the jungle trails", descriptionMs: "Tunggang denai", venueId: id, photos: [unsplash()] }),
+      expect.objectContaining({ id: w.activityId, descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: id, photos: [unsplash()] }),
     ]);
   });
 
@@ -129,7 +129,7 @@ describe("Publish bar", () => {
     const venueId = await publishable(w);
     const staff = await member("staff");
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    expect((await staff.json("PUT", url, { descriptionEn: "x", descriptionMs: "x", venueId, photos: [] })).body).toEqual({
+    expect((await staff.json("PUT", url, { descriptionEn: "x", descriptionMs: "x", venueId, free: false, setting: null, photos: [] })).body).toEqual({
       code: "publish_bar",
       params: { missing: "photo" },
     });
@@ -138,13 +138,13 @@ describe("Publish bar", () => {
     expect(await d1("SELECT count(*) AS n FROM photos WHERE activity_id = ?", w.activityId)).toEqual([{ n: 1 }]);
   });
 
-  test("an Operator still edits copy of a listed Activity that had gaps before the publish bar", async () => {
+  test("staff still edit copy of a listed Activity that had gaps before the publish bar", async () => {
     const w = await world({ listingMode: "bookable" });
     await db.insert(photos).values({ ...unsplash(), activityId: w.activityId });
-    const own = await member("operator", w.operatorId);
+    const staff = await member("staff");
     const url = `/ops/operators/${w.operatorId}/activities/${w.activityId}/copy`;
-    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: null, photos: [unsplash()] };
-    expect((await own.json("PUT", url, copy)).status).toBe(204);
-    expect((await own.json("PUT", url, { ...copy, photos: [] })).body).toEqual({ code: "publish_bar", params: { missing: "photo" } });
+    const copy = { descriptionEn: "Ride the trails", descriptionMs: "Tunggang denai", venueId: null, free: false, setting: null, photos: [unsplash()] };
+    expect((await staff.json("PUT", url, copy)).status).toBe(204);
+    expect((await staff.json("PUT", url, { ...copy, photos: [] })).body).toEqual({ code: "publish_bar", params: { missing: "photo" } });
   });
 });

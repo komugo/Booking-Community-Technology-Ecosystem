@@ -1,11 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { fixture, newContext, noAxeViolations, shot, signIn } from "./helpers";
 
-test("operator manages Resources, Options, Add-ons and Closed days", async ({ browser, request }) => {
+test("Setup is staff-only", async ({ browser, request }) => {
   const fx = await fixture(request);
   const page = await (await newContext(browser)).newPage();
-  await signIn(page, fx.email);
-  await page.getByRole("link", { name: "Setup" }).click();
+  await signIn(page, fx.email, `/o/${fx.operatorId}/setup`);
+  await expect(page.getByRole("heading", { name: "Nothing here" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Setup" })).toHaveCount(0);
+});
+
+test("staff manage Resources, Options, Add-ons and Closed days", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true });
+  const page = await (await newContext(browser)).newPage();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
 
   await page.getByRole("tab", { name: "Resources" }).click();
   await page.getByRole("button", { name: "New Resource" }).click();
@@ -43,8 +50,6 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await expect(page.locator("[data-row]", { hasText: "Gloves" })).toContainText("RM7.50");
 
   await page.getByRole("tab", { name: "Activity" }).click();
-  await expect(page.locator("[data-listing-mode]")).toHaveText("Hidden");
-  await expect(page.getByLabel("Listing mode")).toHaveCount(0);
   const sentence = page.locator("[data-closed-sentence]");
   await expect(sentence).toHaveText("Closed 1st and 3rd Monday");
   await page.getByRole("button", { name: "Remove 1st Monday" }).click();
@@ -56,10 +61,25 @@ test("operator manages Resources, Options, Add-ons and Closed days", async ({ br
   await page.getByLabel("Closed days", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Add Closed day" }).click();
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save" }).last().click();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await page.reload();
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
+});
+
+test("staff set how many overlapping court bookings a Customer may hold", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true, court: true });
+  const page = await (await newContext(browser)).newPage();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
+  await page.getByRole("tab", { name: "Activity" }).click();
+  const field = page.getByLabel("Courts per Customer at once");
+  await expect(field).toHaveValue("2");
+  await field.fill("3");
+  await page.getByRole("button", { name: "Save" }).last().click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Courts per Customer at once")).toHaveValue("3");
+  await noAxeViolations(page);
 });
 
 test("only staff can set Listing mode, and Bookable needs a Commission", async ({ browser, request }) => {
@@ -118,11 +138,16 @@ test("staff pin a Venue and fill the Activity page before it leaves Hidden", asy
   await sheet.getByLabel("Photographer", { exact: true }).fill("Someone");
   await sheet.getByLabel("Photographer's Unsplash link").fill("https://unsplash.com/@someone");
   await sheet.getByLabel("Photo's Unsplash page").fill("https://unsplash.com/photos/abc");
+  await sheet.getByText("Free to visit").click();
+  await sheet.getByLabel("Indoor or outdoor").selectOption("outdoor");
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await Promise.all([page.waitForResponse((r) => r.url().endsWith("/listing-mode") && r.ok()), page.getByLabel("Listing mode").selectOption("info")]);
   await page.reload();
   await expect(page.getByLabel("Listing mode")).toHaveValue("info");
+  await page.getByRole("button", { name: "Edit page" }).click();
+  await expect(sheet.getByRole("switch", { name: "Free to visit" })).toBeChecked();
+  await expect(sheet.getByLabel("Indoor or outdoor")).toHaveValue("outdoor");
 });
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");

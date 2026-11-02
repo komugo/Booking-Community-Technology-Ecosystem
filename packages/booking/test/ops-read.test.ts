@@ -24,6 +24,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
     id: nine,
     optionId: w.optionId,
     startsAt: kl(`${DAY}T09:00`),
+    endsAt: null,
     closedAt: null,
     closedReason: null,
     horse: true,
@@ -31,11 +32,13 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
     tickets: [
       {
         id: paid.ticketIds[0],
+        timeslotId: nine,
         customerId: w.customerId,
         participantId: people[0],
         bookingId: paid.bookingId,
         packId: null,
         checkedInAt: null,
+        hours: 1,
         resources: [expect.stringMatching(/Bayu|Kilat/)],
       },
     ],
@@ -75,7 +78,7 @@ test("setup round-trips Activities with Closed days, Options, Add-ons, Resources
   await w.b.upsertSchedule(schedule);
   const s = await w.b.setup();
   expect(s.activities).toEqual([
-    { id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false },
+    { id: w.activityId, freeCancelHours: 12, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 2 },
   ]);
   expect(s.options).toEqual([expect.objectContaining({ id: w.optionId, active: true, needs: [{ kind: "horse", quantity: 1 }] })]);
   expect(s.addOns).toEqual([addOn]);

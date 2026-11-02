@@ -3,7 +3,9 @@ import type { Weekday } from "@komugo/types/rules";
 export type Locale = "en" | "ms";
 export type Named = { nameEn: string; nameMs: string };
 export type Waiver = "signed" | "guardian" | "outdated" | "missing" | "not_required";
-export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane";
+export type ResourceKind = "horse" | "instructor" | "belayer" | "auto_belay_lane" | "court";
+export type BookingUnit = "person" | "court";
+export type TicketType = "timeslot" | "date";
 export type ClosureReason = "weather" | "maintenance" | "event" | "horse_unfit" | "other";
 export type Outcome = "checked_in" | "already" | "not_today" | "closed" | "cancelled" | "not_found" | "ambiguous";
 
@@ -31,8 +33,10 @@ export type Group = {
 export type Timeslot = {
   id: string;
   startsAt: number;
+  endsAt: number | null;
   closedAt: number | null;
   closedReason: string | null;
+  closedBy: string | null;
   horse: boolean;
   spots: number;
   option: Named & { id: string; durationMinutes: number };
@@ -66,6 +70,10 @@ export type Option = Named & {
   requiredCert: string | null;
   minParticipants: number | null;
   maxPerBooking: number | null;
+  bookingUnit: BookingUnit;
+  ticketType: TicketType;
+  dailyLimit: number | null;
+  weekendPriceSen: number | null;
   active: boolean;
   needs: { kind: ResourceKind; quantity: number }[];
 };
@@ -111,6 +119,7 @@ export type RefundRow = {
   customer: { name: string | null; email: string | null; phone: string | null };
 };
 export type ListingMode = "bookable" | "info" | "hidden";
+export type Setting = "indoor" | "outdoor";
 export type Gap = "venue" | "mapPin" | "descriptionEn" | "descriptionMs" | "photo";
 export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
 export type Photo = {
@@ -148,6 +157,21 @@ export type PayoutRow = {
   paidSen: number | null;
   paidAt: number | null;
 };
+export type Holiday = { date: string; name: string };
+export type ContactRole = "counter" | "owner";
+export type Contact = {
+  id: string;
+  name: string;
+  phone: string;
+  role: ContactRole;
+  locale: "ms" | "en";
+  email: string | null;
+  welcome: { status: "sent" | "failed"; at: number } | null;
+};
+export type WhatsAppState = {
+  connected: boolean;
+  failed: { id: string; operatorId: string; operator: string; contact: string | null; phone: string; template: "welcome" | "digest" | "alert" | "closure" | "payout" | "staff"; error: string | null; at: number }[];
+};
 export type InterestRow = {
   activityId: string;
   nameEn: string;
@@ -159,13 +183,21 @@ export type InterestRow = {
   notified: number;
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
+  activities: {
+    id: string;
+    freeCancelHours: number;
+    bookingCutoffMinutes: number;
+    closedDays: string[];
+    requiresWaiver: boolean;
+    maxCourtTickets: number;
+  }[];
   options: Option[];
   addOns: AddOn[];
   resources: Resource[];
   schedules: Schedule[];
   packOffers: PackOffer[];
   commissionBps: number | null;
+  holidaysAsWeekend: boolean;
   catalogue: (Named & {
     id: string;
     slugEn: string;
@@ -174,6 +206,8 @@ export type Setup = {
     descriptionEn: string;
     descriptionMs: string;
     venueId: string | null;
+    free: boolean;
+    setting: Setting | null;
     photos: Photo[];
   })[];
 };

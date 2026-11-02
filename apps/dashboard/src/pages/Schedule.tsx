@@ -1,12 +1,13 @@
-import { isClosedDay, klDate, klWeekday, WEEKDAYS, type Weekday } from "@komugo/types/rules";
+import { isClosedDay, klDate, klWeekday, UNLIMITED_SPOTS, WEEKDAYS, type Weekday } from "@komugo/types/rules";
 import { useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { api, useApi } from "../api";
 import { addDays, today, visible } from "../day";
-import { dateLong, day, errorText, named, time, useT, type Dict } from "../i18n";
+import { dateLong, day, errorText, hours, named, time, useT, type Dict } from "../i18n";
+import { useMe } from "../me";
 import { rm, sen } from "../money";
 import type { Generated, Locale, Schedule, Setup, Timeslot } from "../types";
-import { Field, Icon, Sheet, Spinner, toast, Toggle } from "../ui";
+import { Field, Icon, SignedInAs, Sheet, Spinner, toast, Toggle } from "../ui";
 
 const monday = (d: string) => addDays(d, -WEEKDAYS.indexOf(klWeekday(d)));
 const noon = (d: string) => Date.parse(`${d}T12:00:00+08:00`);
@@ -25,6 +26,8 @@ export default function SchedulePage() {
   const { t, l } = useT();
   const { op } = useParams<{ op: string }>();
   const [, navigate] = useLocation();
+  const me = useMe()!;
+  const staff = me.member.role === "staff";
   const week = monday(new URLSearchParams(useSearch()).get("w") ?? today());
   const setup = useApi<Setup>(`/operators/${op}/setup`);
   const slots = useApi<{ timeslots: Timeslot[] }>(`/operators/${op}/timeslots?from=${week}&days=7`);
@@ -52,10 +55,12 @@ export default function SchedulePage() {
     <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-4xl font-extrabold">{t.schedule}</h1>
-        <button type="button" className="btn btn-quiet" onClick={() => setOneOff(true)}>
-          <Icon name="plus" className="size-5" />
-          {t.addOneOff}
-        </button>
+        {staff && (
+          <button type="button" className="btn btn-quiet" onClick={() => setOneOff(true)}>
+            <Icon name="plus" className="size-5" />
+            {t.addOneOff}
+          </button>
+        )}
       </div>
 
       {kept.length > 0 && (
@@ -124,8 +129,12 @@ export default function SchedulePage() {
                           data-chip
                           className={`num inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-semibold ${x.closedAt ? "border-clay/40 text-clay line-through" : booked ? "border-leaf bg-leaf/10 text-forest" : "border-line bg-white"}`}
                         >
-                          {time(x.startsAt, l)} {named(x.option, l)} ·{" "}
-                          {x.closedAt ? (t.reasons[(x.closedReason ?? "other") as keyof Dict["reasons"]] ?? t.reasons.other) : t.left(x.spots)}
+                          {hours(x, l)} {named(x.option, l)} ·{" "}
+                          {x.closedAt
+                            ? (t.reasons[(x.closedReason ?? "other") as keyof Dict["reasons"]] ?? t.reasons.other)
+                            : x.spots >= UNLIMITED_SPOTS
+                              ? t.noLimit
+                              : t.left(x.spots)}
                         </Link>
                       </li>
                     );
@@ -137,46 +146,50 @@ export default function SchedulePage() {
         })}
       </ol>
 
-      <section className="mt-10" aria-labelledby="schedules">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="schedules" className="text-3xl font-extrabold">
-            {t.schedules}
-          </h2>
-          <button type="button" className="btn btn-primary" onClick={() => setEditing("new")}>
-            <Icon name="plus" className="size-5" />
-            {t.newSchedule}
-          </button>
-        </div>
-        {s.schedules.length === 0 ? (
-          <p className="mt-3 text-muted">{t.noSchedules}</p>
-        ) : (
-          <ul className="mt-4 grid gap-3 lg:grid-cols-2">
-            {s.schedules.map((x) => (
-              <li key={x.id}>
-                <button
-                  type="button"
-                  onClick={() => setEditing(x)}
-                  className={`card w-full p-4 text-left hover:bg-sand/40 ${x.active ? "" : "opacity-60"}`}
-                >
-                  <p className="font-display text-lg font-bold">{x.optionIds.map(optionName).join(", ")}</p>
-                  <p className="num mt-1 text-sm text-muted">
-                    {[
-                      daysText(x.weekdays, t),
-                      x.times.join(", "),
-                      t.fromDate(dateLong(noon(x.startsOn), l)),
-                      x.endsOn && t.untilDate(dateLong(noon(x.endsOn), l)),
-                      x.priceSen !== null && rm(x.priceSen),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  {!x.active && <span className="mt-2 inline-block rounded-full bg-sand px-2.5 py-0.5 text-xs font-semibold">{t.inactive}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {staff ? (
+        <section className="mt-10" aria-labelledby="schedules">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="schedules" className="text-3xl font-extrabold">
+              {t.schedules}
+            </h2>
+            <button type="button" className="btn btn-primary" onClick={() => setEditing("new")}>
+              <Icon name="plus" className="size-5" />
+              {t.newSchedule}
+            </button>
+          </div>
+          {s.schedules.length === 0 ? (
+            <p className="mt-3 text-muted">{t.noSchedules}</p>
+          ) : (
+            <ul className="mt-4 grid gap-3 lg:grid-cols-2">
+              {s.schedules.map((x) => (
+                <li key={x.id}>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(x)}
+                    className={`card w-full p-4 text-left hover:bg-sand/40 ${x.active ? "" : "opacity-60"}`}
+                  >
+                    <p className="font-display text-lg font-bold">{x.optionIds.map(optionName).join(", ")}</p>
+                    <p className="num mt-1 text-sm text-muted">
+                      {[
+                        daysText(x.weekdays, t),
+                        x.times.join(", "),
+                        t.fromDate(dateLong(noon(x.startsOn), l)),
+                        x.endsOn && t.untilDate(dateLong(noon(x.endsOn), l)),
+                        x.priceSen !== null && rm(x.priceSen),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {!x.active && <span className="mt-2 inline-block rounded-full bg-sand px-2.5 py-0.5 text-xs font-semibold">{t.inactive}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+        <SignedInAs me={me} />
+      )}
 
       <Sheet open={editing !== null} onClose={() => setEditing(null)} title={editing === "new" ? t.newSchedule : t.editSchedule} full>
         {editing && (
@@ -228,7 +241,7 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
   const [error, setError] = useState<{ field?: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
-  const options = setup.options.filter((o) => o.activityId === v.activityId);
+  const options = setup.options.filter((o) => o.activityId === v.activityId && o.ticketType === "timeslot");
   const err = (f: string) => (error?.field === f ? error.text : undefined);
 
   async function save() {
@@ -414,7 +427,7 @@ function ScheduleEditor({ op, setup, schedule, onSaved }: { op: string; setup: S
 
 function OneOff({ op, setup, l, onSaved }: { op: string; setup: Setup; l: Locale; onSaved: () => void }) {
   const { t } = useT();
-  const options = setup.options.filter((o) => o.active);
+  const options = setup.options.filter((o) => o.active && o.ticketType === "timeslot");
   const [optionId, setOptionId] = useState(options[0]?.id ?? "");
   const [date, setDate] = useState(today());
   const [at, setAt] = useState("09:00");

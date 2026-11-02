@@ -2,7 +2,9 @@ import { klDate } from "@komugo/types/rules";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import { api, ApiError } from "../api";
-import { dateLong, errorText, named, time, useT } from "../i18n";
+import { dateLong, day, errorText, hours, named, time, useT } from "../i18n";
+import { useMe } from "../me";
+import { MessageSheet } from "../message";
 import type { ClosureReason, Group, Timeslot } from "../types";
 import { Icon, Sheet, Spinner, WaiverChip } from "../ui";
 
@@ -17,6 +19,8 @@ export default function TimeslotPage() {
   const [reason, setReason] = useState<ClosureReason | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messaging, setMessaging] = useState(false);
+  const staff = useMe()?.member.role === "staff";
 
   const load = useCallback(async () => {
     try {
@@ -72,12 +76,25 @@ export default function TimeslotPage() {
       </Link>
       <p className="mt-2 text-sm font-semibold text-muted">{dateLong(slot.startsAt, l)}</p>
       <h1 className="num mt-1 text-4xl font-extrabold">
-        {time(slot.startsAt, l)} · {named(slot.option, l)}
+        {hours(slot, l)} · {named(slot.option, l)}
       </h1>
 
       {slot.closedAt ? (
         <>
-          <p className="mt-4 rounded-xl bg-clay px-4 py-3 font-semibold text-white">{t.closedOn(t.reasons[closedReason], time(slot.closedAt, l))}</p>
+          <p className="mt-4 rounded-xl bg-clay px-4 py-3 font-semibold text-white">{t.closedOn(t.reasons[closedReason], time(slot.closedAt, l), slot.closedBy)}</p>
+          {staff && (
+            <>
+              <button type="button" className="btn btn-quiet mt-3" onClick={() => setMessaging(true)}>
+                {t.messageContacts}
+              </button>
+              <MessageSheet
+                op={op}
+                open={messaging}
+                onClose={() => setMessaging(false)}
+                draft={t.closedDraft(`${named(slot.option, l)}, ${day(slot.startsAt, l)} ${hours(slot, l)}`, new Set(slot.groups.map((g) => g.customerId)).size)}
+              />
+            </>
+          )}
           {slot.groups.length > 0 && (
             <section className="mt-6" aria-labelledby="affected">
               <div className="flex items-center justify-between gap-3">
@@ -155,7 +172,7 @@ export default function TimeslotPage() {
                 setOpen(true);
               }}
             >
-              {t.closeTimeslot}
+              {slot.endsAt === null ? t.closeTimeslot : t.closeDate}
             </button>
           )}
         </>
@@ -164,7 +181,7 @@ export default function TimeslotPage() {
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title={t.closeTimeslot}
+        title={slot.endsAt === null ? t.closeTimeslot : t.closeDate}
         footer={
           <>
             {error && (

@@ -141,6 +141,10 @@ export async function world(
     requiredCert: null,
     minParticipants: null,
     maxPerBooking: null,
+    bookingUnit: "person",
+    ticketType: "timeslot",
+    dailyLimit: null,
+    weekendPriceSen: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
     ...o.option,
@@ -321,6 +325,7 @@ export async function booked(
     locale?: "en" | "ms";
     phone?: string;
     timeslotId?: string;
+    hours?: number;
     customer?: { id: string; email: string | null };
     packId?: string;
   } = {},
@@ -350,6 +355,7 @@ export async function booked(
     timeslotId,
     participantIds: ids,
     addOns: o.addOns ?? [],
+    hours: o.hours,
   });
   const base = { customerId: customer.id, email: customer.email!, participantIds: ids, holdId: hold.holdId };
   if (o.packId) {

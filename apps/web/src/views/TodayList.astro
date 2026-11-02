@@ -1,0 +1,63 @@
+---
+import Checkout from "../layouts/Checkout.astro";
+import { klHours, klLongDay, klTime, t } from "../lib/i18n";
+import type { listStep } from "../lib/manage";
+
+type Props = Exclude<Awaited<ReturnType<typeof listStep>>, Response>;
+const { locale: l, list } = Astro.props;
+const s = t[l].todayList;
+---
+
+<Checkout locale={l} title={s.title} refresh={list ? "60" : undefined}>
+  {
+    list ? (
+      <>
+        <p class="mt-2 text-lg font-semibold">{list.operator}</p>
+        <p class="text-muted">{klLongDay(l, Date.parse(`${list.date}T12:00:00+08:00`))}</p>
+        <p class="mt-1 text-sm text-muted">{s.live}</p>
+        <ul class="mt-6 space-y-3">
+          {list.timeslots.map((slot) => (
+            <li data-slot={slot.id} class="rounded-2xl bg-sand p-4">
+              <h2 class="font-bold">
+                {!slot.date && `${klTime(l, slot.startsAt)} · `}
+                {l === "ms" ? slot.option.nameMs : slot.option.nameEn}
+                {slot.date && !slot.closed && ` · ${s.tickets(slot.groups.reduce((n, g) => n + g.codes.length, 0))}`}
+                {slot.closed && <span class="ml-2 rounded-full bg-clay px-2 py-0.5 text-sm text-white">{slot.closedBy ? s.closedBy(slot.closedBy) : s.closed}</span>}
+              </h2>
+              {!slot.closed &&
+                (slot.groups.length ? (
+                  <ul class="mt-2 space-y-1">
+                    {slot.groups.map((g) => (
+                      <li>
+                        {g.court && `${g.court}, ${klHours(l, { startsAt: slot.startsAt, endsAt: g.endsAt })} · `}
+                        {g.name}:{" "}
+                        {slot.date ? (
+                          g.names.map((n, i) => (
+                            <>
+                              {i > 0 && ", "}
+                              {n} <span class="font-mono font-semibold">{g.codes[i]}</span>
+                            </>
+                          ))
+                        ) : (
+                          <span class="font-mono font-semibold">{g.codes.join(", ")}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="mt-2 text-muted">{s.none}</p>
+                ))}
+              {slot.closeHref && (
+                <a href={slot.closeHref} class="mt-3 inline-flex min-h-11 items-center font-semibold text-clay underline underline-offset-2">
+                  {slot.date ? s.closeDate : s.close}
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </>
+    ) : (
+      <p role="status" class="mt-6 rounded-2xl bg-clay/5 p-4 font-semibold text-clay">{s.expired}</p>
+    )
+  }
+</Checkout>

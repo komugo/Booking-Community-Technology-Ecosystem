@@ -190,6 +190,55 @@ export const migrations: string[][] = [
     `ALTER TABLE timeslots RENAME COLUMN reason TO closed_reason`,
   ],
   [`ALTER TABLE schedules ADD COLUMN price_sen INTEGER CHECK (price_sen >= 0)`],
+  // Resource kinds are validated in code from now on, so a new kind needs no table rebuild. Allocations step aside
+  // while resources is rebuilt, since dropping a parent with live children fails its FOREIGN KEY at commit.
+  [
+    `CREATE TABLE allocations_keep AS SELECT * FROM allocations`,
+    `DELETE FROM allocations`,
+    `CREATE TABLE resources_new (id TEXT PRIMARY KEY, kind TEXT NOT NULL,
+      name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+      active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+      max_sessions_per_day INTEGER CHECK (max_sessions_per_day > 0),
+      rest_minutes INTEGER NOT NULL DEFAULT 0 CHECK (rest_minutes BETWEEN 0 AND 720),
+      max_rider_weight_kg INTEGER CHECK (max_rider_weight_kg > 0),
+      CHECK (kind = 'horse' OR (max_sessions_per_day IS NULL AND rest_minutes = 0 AND max_rider_weight_kg IS NULL))) STRICT`,
+    `INSERT INTO resources_new SELECT id, kind, name, active, max_sessions_per_day, rest_minutes, max_rider_weight_kg FROM resources`,
+    `DROP TABLE resources`,
+    `ALTER TABLE resources_new RENAME TO resources`,
+    `CREATE INDEX resources_kind ON resources(kind, active)`,
+    `INSERT INTO allocations SELECT * FROM allocations_keep`,
+    `DROP TABLE allocations_keep`,
+    `CREATE TABLE option_resources_new (option_id TEXT NOT NULL REFERENCES options(id), kind TEXT NOT NULL,
+      quantity INTEGER NOT NULL CHECK (quantity > 0), PRIMARY KEY (option_id, kind)) STRICT`,
+    `INSERT INTO option_resources_new SELECT option_id, kind, quantity FROM option_resources`,
+    `DROP TABLE option_resources`,
+    `ALTER TABLE option_resources_new RENAME TO option_resources`,
+    `ALTER TABLE options ADD COLUMN booking_unit TEXT NOT NULL DEFAULT 'person' CHECK (booking_unit IN ('person','court'))`,
+  ],
+  // A Date ticket's Timeslot spans that date's opening hours, kept here from D1 as the Activity's, else its Venue's.
+  [
+    `ALTER TABLE activities ADD COLUMN hours TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(hours))`,
+    `ALTER TABLE options ADD COLUMN ticket_type TEXT NOT NULL DEFAULT 'timeslot' CHECK (ticket_type IN ('timeslot','date'))`,
+    `ALTER TABLE options ADD COLUMN daily_limit INTEGER CHECK (daily_limit > 0)`,
+    `ALTER TABLE timeslots ADD COLUMN ends_at INTEGER`,
+  ],
+  // A per-court Ticket (and its Hold) spans `hours` back-to-back Timeslots from its own.
+  [
+    `ALTER TABLE holds ADD COLUMN hours INTEGER NOT NULL DEFAULT 1 CHECK (hours > 0)`,
+    `ALTER TABLE tickets ADD COLUMN hours INTEGER NOT NULL DEFAULT 1 CHECK (hours > 0)`,
+    `ALTER TABLE activities ADD COLUMN max_court_tickets INTEGER NOT NULL DEFAULT 2 CHECK (max_court_tickets > 0)`,
+    `UPDATE meta SET rev = max(rev + 1, unixepoch() * 1000000)`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'timeslot', t.id, (SELECT rev FROM meta)
+     FROM timeslots t JOIN options o ON o.id = t.option_id
+     WHERE o.booking_unit = 'court' AND t.closed_at IS NULL AND t.starts_at > unixepoch() * 1000
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
+  // A Date ticket's Timeslot on a weekend date, or a Public holiday the Operator opts in to, carries its Option's weekend price.
+  [
+    `ALTER TABLE options ADD COLUMN weekend_price_sen INTEGER CHECK (weekend_price_sen >= 0)`,
+    `ALTER TABLE timeslots ADD COLUMN price_sen INTEGER`,
+    `CREATE TABLE holidays (date TEXT PRIMARY KEY) STRICT`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

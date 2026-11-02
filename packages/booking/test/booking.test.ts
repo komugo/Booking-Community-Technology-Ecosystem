@@ -369,6 +369,7 @@ describe("Closure, cancel and Packs", () => {
       refundSen: 0,
       reason: "closure",
       refund: null,
+      replayed: false,
     });
     expect(await w.used()).toBe(0);
   });

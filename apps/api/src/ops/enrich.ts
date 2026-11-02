@@ -1,5 +1,5 @@
 import type { CheckInResult, TimeslotRow } from "@komugo/booking";
-import { checkouts, closureNotices, createDb, customers, participants, projActivities, projAddOns, projOptions, waivers, within } from "@komugo/db";
+import { checkouts, closureNotices, createDb, customers, linkClosures, participants, projActivities, projAddOns, projOptions, waivers, within } from "@komugo/db";
 import { ageOn, klDate, WAIVER } from "@komugo/types";
 import { and, eq } from "drizzle-orm";
 
@@ -34,6 +34,8 @@ async function load(env: Env, operatorId: string, q: Lookup) {
         nameEn: projOptions.nameEn,
         nameMs: projOptions.nameMs,
         durationMinutes: projOptions.durationMinutes,
+        bookingUnit: projOptions.bookingUnit,
+        ticketType: projOptions.ticketType,
         requiresWaiver: projActivities.requiresWaiver,
       })
       .from(projOptions)
@@ -52,14 +54,15 @@ async function load(env: Env, operatorId: string, q: Lookup) {
     contact: by(contacts, (c) => c.bookingId),
     customer: by(buyers, (c) => c.id),
     addOn: by(addOns, (a) => a.id),
-    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0, requiresWaiver: true },
-    participant(id: string, startsAt: number, optionId: string) {
+    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0, bookingUnit: "person" as const, ticketType: "timeslot" as const, requiresWaiver: true },
+    // A per-court Ticket has no Participant, so it shows the Customer's name.
+    participant(id: string, startsAt: number, optionId: string, customerName: string) {
       const p = person.get(id);
       const w = waiver.get(id);
       const status = !w ? "missing" : w.version !== WAIVER.version ? "outdated" : w.guardian ? "guardian" : "signed";
       const required = option.get(optionId)?.requiresWaiver !== false;
       return {
-        participant: { name: p?.name ?? "", age: p ? ageOn(p.birthDate, klDate(startsAt)) : null, weightKg: p?.weightKg ?? null },
+        participant: { name: p?.name ?? customerName, age: p ? ageOn(p.birthDate, klDate(startsAt)) : null, weightKg: p?.weightKg ?? null },
         waiver: !required && (status === "missing" || status === "outdated") ? "not_required" : status,
         signerName: w?.signerName ?? null,
       };
@@ -70,7 +73,16 @@ async function load(env: Env, operatorId: string, q: Lookup) {
 // A closed Timeslot keeps listing a group after its Customer chose, so the Closure list shows the choice.
 export async function enrichTimeslots(env: Env, operatorId: string, rows: TimeslotRow[]) {
   const tickets = rows.flatMap((r) => r.tickets);
-  const notices = await createDb(env.DB)
+  const db = createDb(env.DB);
+  const closedBy = new Map(
+    (
+      await db
+        .select({ timeslotId: linkClosures.timeslotId, name: linkClosures.contactName })
+        .from(linkClosures)
+        .where(within(linkClosures.timeslotId, rows.flatMap((r) => (r.closedAt !== null ? [r.id] : []))))
+    ).map((x) => [x.timeslotId, x.name]),
+  );
+  const notices = await db
     .select({
       timeslotId: closureNotices.timeslotId,
       ref: closureNotices.ref,
@@ -82,7 +94,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
       chosenAt: closureNotices.chosenAt,
     })
     .from(closureNotices)
-    .where(within(closureNotices.timeslotId, rows.map((r) => r.id)));
+    .where(within(closureNotices.timeslotId, [...rows.map((r) => r.id), ...tickets.map((t) => t.timeslotId)]));
   const x = await load(env, operatorId, {
     participantIds: tickets.map((t) => t.participantId),
     customerIds: [...tickets, ...notices].map((t) => t.customerId),
@@ -104,20 +116,25 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
     return {
       id: r.id,
       startsAt: r.startsAt,
+      endsAt: r.endsAt,
       closedAt: r.closedAt,
       closedReason: r.closedReason,
+      closedBy: closedBy.get(r.id) ?? null,
       horse: r.horse,
       spots: r.spots,
       option: x.option(r.optionId),
       groups: [...groups.values()].map(({ bookingId, packId, customerId, tickets: ts }) => {
         const buyer = x.customer.get(customerId);
         const contact = bookingId ? x.contact.get(bookingId) : undefined;
-        const notice = notices.find((n) => n.timeslotId === r.id && n.ref === groupRef({ bookingId, packId, customerId }));
+        const name = contact?.name ?? buyer?.name ?? "";
+        const notice = notices.find(
+          (n) => (n.timeslotId === r.id || ts.some((t) => t.timeslotId === n.timeslotId)) && n.ref === groupRef({ bookingId, packId, customerId }),
+        );
         return {
           bookingId,
           packId,
           customerId,
-          contact: { name: contact?.name ?? buyer?.name ?? "", phone: contact?.phone ?? buyer?.phone ?? null, email: buyer?.email ?? null },
+          contact: { name, phone: contact?.phone ?? buyer?.phone ?? null, email: buyer?.email ?? null },
           addOns: r.addOns
             .filter((a) => a.bookingId === bookingId)
             .map((a) => ({ nameEn: x.addOn.get(a.addOnId)?.nameEn ?? "", nameMs: x.addOn.get(a.addOnId)?.nameMs ?? "", quantity: a.quantity })),
@@ -125,9 +142,11 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
           tickets: ts.map((t) => ({
             id: t.id,
             code: ticketCode(t.id),
+            timeslotId: t.timeslotId,
+            hours: t.hours,
             checkedInAt: t.checkedInAt,
             resources: t.resources,
-            ...x.participant(t.participantId, r.startsAt, r.optionId),
+            ...x.participant(t.participantId, r.startsAt, r.optionId, name),
           })),
         };
       }),
@@ -138,7 +157,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
 export async function enrichCheckIn(env: Env, operatorId: string, r: CheckInResult) {
   if (!r.ticket) return { outcome: r.outcome, ticket: null };
   const t = r.ticket;
-  const x = await load(env, operatorId, { participantIds: [t.participantId], optionIds: [t.optionId] });
+  const x = await load(env, operatorId, { participantIds: [t.participantId], customerIds: [t.customerId], optionIds: [t.optionId] });
   const { nameEn, nameMs } = x.option(t.optionId);
   return {
     outcome: r.outcome,
@@ -150,7 +169,7 @@ export async function enrichCheckIn(env: Env, operatorId: string, r: CheckInResu
       startsAt: t.startsAt,
       checkedInAt: t.checkedInAt,
       option: { nameEn, nameMs },
-      ...x.participant(t.participantId, t.startsAt, t.optionId),
+      ...x.participant(t.participantId, t.startsAt, t.optionId, x.customer.get(t.customerId)?.name ?? ""),
     },
   };
 }

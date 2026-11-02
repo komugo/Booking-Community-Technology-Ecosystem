@@ -3,3 +3,4 @@ APP_SECRET=dev-only-app-secret-change-me
 BILLPLZ_API_KEY=dev-fake-key
 BILLPLZ_X_SIGNATURE_KEY=dev-fake-x-signature-key
 RESEND_API_KEY=
+SENDONTIME_API_KEY=

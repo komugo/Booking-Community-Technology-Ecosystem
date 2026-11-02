@@ -1,8 +1,10 @@
-import { createDb, payouts as payoutsTable } from "@komugo/db";
+import { createDb, operatorContacts, payouts as payoutsTable } from "@komugo/db";
 import { klDate } from "@komugo/types";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
-import { fail } from "../lib";
+import { rm, type Locale } from "../details";
+import { fail, logError } from "../lib";
+import { message } from "../whatsapp";
 import { requireMember, staffOnly, type Ops } from "./auth";
 
 export const payouts = new Hono<Ops>();
@@ -94,10 +96,14 @@ payouts.post("/:operatorId/:month/paid", async (c) => {
   const db = createDb(c.env.DB);
   if (row.paidAt === null) {
     if (body.amountSen !== row.amountSen) return fail(c, 409, { code: "amount_changed" });
-    await db
+    const inserted = await db
       .insert(payoutsTable)
       .values({ operatorId, month, amountSen: row.amountSen, paidAt: Date.now(), paidBy: c.var.member.id })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ operatorId: payoutsTable.operatorId });
+    if (inserted.length) {
+      c.executionCtx.waitUntil(payoutNotice(c.env, row).catch((e) => logError("payout_notice_failed", { operatorId, month, error: String(e) })));
+    }
   }
   const [paid] = await db
     .select({ amountSen: payoutsTable.amountSen, paidAt: payoutsTable.paidAt })
@@ -105,3 +111,27 @@ payouts.post("/:operatorId/:month/paid", async (c) => {
     .where(and(eq(payoutsTable.operatorId, operatorId), eq(payoutsTable.month, month)));
   return c.json(paid);
 });
+
+const monthName = (month: string, l: Locale) =>
+  new Intl.DateTimeFormat(l === "ms" ? "ms-MY" : "en-MY", { timeZone: "Asia/Kuala_Lumpur", month: "long", year: "numeric" }).format(
+    Date.parse(`${month}-01T00:00:00+08:00`),
+  );
+
+async function payoutNotice(env: Env, row: PayoutRow) {
+  const owners = await createDb(env.DB)
+    .select()
+    .from(operatorContacts)
+    .where(and(eq(operatorContacts.operatorId, row.operatorId), eq(operatorContacts.role, "owner")));
+  for (const owner of owners) {
+    const slots = {
+      operator: row.operatorName,
+      month: monthName(row.month, owner.locale),
+      sales: rm(row.salesSen),
+      commission: rm(row.commissionSen),
+      refunds: rm(row.refundsSen),
+      carried: row.carriedSen ? `\n${owner.locale === "ms" ? "Dibawa dari bulan lepas" : "Carried from last month"}: ${rm(row.carriedSen)}` : "",
+      amount: rm(row.amountSen),
+    };
+    await message(env, owner, "payout", slots).catch((e) => logError("payout_notice_whatsapp_failed", { contactId: owner.id, error: String(e) }));
+  }
+}

@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { fixture, newContext, noAxeViolations, shot, signIn } from "./helpers";
 
-test("operator sets up a Pack offer", async ({ browser, request }) => {
-  const fx = await fixture(request);
+test("staff set up a Pack offer", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();
-  await signIn(page, fx.email);
-  await page.getByRole("link", { name: "Setup" }).click();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
   await page.getByRole("tab", { name: "Packs" }).click();
   await page.getByRole("button", { name: "New Pack offer" }).click();
 

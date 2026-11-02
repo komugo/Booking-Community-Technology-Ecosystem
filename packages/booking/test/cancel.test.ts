@@ -65,7 +65,7 @@ test("Add-on shares split 1000 sen as 334/333/333 and cancelling everything refu
   const q = await w.quote(w.customerId, w.group, w.ticketIds);
   expect(q.tickets.map((t) => t.refundSen)).toEqual([10334, 10333, 10333]);
   const r = await w.cancel(w.customerId, w.group, w.ticketIds);
-  expect(r).toEqual({ ...q, refund: { id: expect.any(String), amountSen: 31000, reason: "cancel" } });
+  expect(r).toEqual({ ...q, refund: { id: expect.any(String), amountSen: 31000, reason: "cancel" }, replayed: false });
   expect(r.refundSen).toBe(w.amountSen);
   expect(await w.sql("SELECT bill_id IS NOT NULL AS bill, booking_id, amount_sen FROM refunds")).toEqual([
     { bill: 1, booking_id: w.group.bookingId, amount_sen: 31000 },
@@ -102,7 +102,7 @@ test("a changed outcome is quote_changed and writes nothing", async () => {
   expect(await w.sql("SELECT status FROM tickets")).toEqual([{ status: "issued" }]);
   expect(await w.count("SELECT count(*) AS n FROM refunds")).toBe(0);
   const r = await w.b.cancelTickets({ ...i, expectSen: 10000, expectForfeited: [] });
-  expect(await w.b.cancelTickets({ ...i, expectSen: 10000, expectForfeited: [] })).toEqual(r);
+  expect(await w.b.cancelTickets({ ...i, expectSen: 10000, expectForfeited: [] })).toEqual({ ...r, replayed: true });
   expect(await w.count("SELECT count(*) AS n FROM refunds")).toBe(1);
 });
 

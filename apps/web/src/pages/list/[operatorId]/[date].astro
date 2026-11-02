@@ -1,0 +1,10 @@
+---
+import TodayList from "../../../views/TodayList.astro";
+import { listStep } from "../../../lib/manage";
+
+const data = await listStep(Astro, "en");
+if (data instanceof Response) return data;
+if (!data.list) Astro.response.status = 410;
+---
+
+<TodayList {...data} />

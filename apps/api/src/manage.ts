@@ -3,6 +3,7 @@ import {
   checkouts,
   closureNotices,
   createDb,
+  customers,
   packOrders,
   participants,
   projActivities,
@@ -11,8 +12,9 @@ import {
   projTimeslots,
 } from "@komugo/db";
 import { Hono } from "hono";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
+import { bookingAlert } from "./digest";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
 import { groupRef } from "./ops/enrich";
@@ -67,6 +69,23 @@ function pick(tickets: BookingView["tickets"], t: string | undefined) {
   return tickets.filter((x) => want.has(x.id));
 }
 
+function emailRefund(c: Ctx, a: Access, r: { id: string; amountSen: number; reason: "cancel" | "closure" } | null) {
+  if (!r || !("bookingId" in a.group)) return;
+  const refund = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
+  c.executionCtx.waitUntil(
+    sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
+  );
+}
+
+function alert(c: Ctx, a: Access, x: { ticketIds: string[]; from: string | null; to: string | null }) {
+  const bookingId = "bookingId" in a.group ? a.group.bookingId : null;
+  c.executionCtx.waitUntil(
+    bookingAlert(c.env, a.operatorId, { customerId: a.customerId, bookingId, ...x }).catch((e) =>
+      logError("booking_alert_failed", { ref: a.ref, error: String(e) }),
+    ),
+  );
+}
+
 export function manage(kind: Kind) {
   const app = new Hono<{ Bindings: Env }>();
 
@@ -83,7 +102,7 @@ export function manage(kind: Kind) {
     const v = await view(a);
     const optionId = "optionId" in v ? v.optionId : (v.tickets[0]?.optionId ?? v.optionIds[0] ?? "");
     const addOns = "addOns" in v ? v.addOns : [];
-    const [d, people, closure, offer, options] = await Promise.all([
+    const [d, people, [buyer], closure, offer, options] = await Promise.all([
       optionDetails(
         db,
         optionId,
@@ -94,6 +113,7 @@ export function manage(kind: Kind) {
         .select({ id: participants.id, name: participants.name })
         .from(participants)
         .where(inArray(participants.id, v.tickets.map((t) => t.participantId).concat(""))),
+      db.select({ name: customers.name }).from(customers).where(eq(customers.id, a.customerId)),
       db
         .select({ timeslotId: closureNotices.timeslotId, reason: closureNotices.reason })
         .from(closureNotices)
@@ -116,7 +136,7 @@ export function manage(kind: Kind) {
       activity: { ...d.activity, city: d.city, category: d.category },
       operatorName: d.operatorName,
       freeCancelHours: v.freeCancelHours,
-      tickets: v.tickets.map((t) => ({ ...t, participantName: nameOf.get(t.participantId) ?? "" })),
+      tickets: v.tickets.map((t) => ({ ...t, participantName: nameOf.get(t.participantId) ?? buyer?.name ?? "" })),
       addOns: addOns.map((x) => ({ ...x, nameEn: addOnOf.get(x.addOnId)?.nameEn ?? "", nameMs: addOnOf.get(x.addOnId)?.nameMs ?? "" })),
       closure: closure.map((n) => ({ ...n, choice: choiceOf.get(n.timeslotId)?.choice ?? null, chosenAt: choiceOf.get(n.timeslotId)?.chosenAt ?? null })),
       canChange: a.viaSession,
@@ -157,19 +177,21 @@ export function manage(kind: Kind) {
       .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
       .where(eq(projOptions.id, tickets[0].optionId));
     const last = "expiresAt" in v && !closed ? Math.min(v.expiresAt + 1, now + 60 * DAY) : now + 60 * DAY;
+    // A per-court Ticket (only per-court Timeslots have maxHours) moves whole: one court free for all its hours.
+    const hours = tickets[0].hours;
     const slots = await db
-      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, spots: projTimeslots.spots })
+      .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, endsAt: projTimeslots.endsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
       .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
       .where(
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
-          kind === "booking" && !closed
-            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`, tickets[0].priceSen)
+          kind === "booking"
+            ? (closed ? lte : eq)(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}) * ${hours}`, tickets[0].priceSen)
             : undefined,
           isNull(projTimeslots.closedAt),
-          gte(projTimeslots.spots, tickets.length),
-          gt(projTimeslots.startsAt, now + (cutoff?.minutes ?? 0) * MIN),
+          gte(sql`coalesce(${projTimeslots.maxHours}, ${projTimeslots.spots})`, hours * tickets.length),
+          gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + (cutoff?.minutes ?? 0) * MIN),
           lt(projTimeslots.startsAt, last),
           ne(projTimeslots.id, tickets[0].timeslotId),
         ),
@@ -197,7 +219,7 @@ export function manage(kind: Kind) {
     const x = await change(c);
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
-    const r = await a.b.cancelTickets({
+    const { replayed, ...r } = await a.b.cancelTickets({
       requestId: x.requestId,
       customerId: a.customerId,
       group: a.group,
@@ -206,11 +228,11 @@ export function manage(kind: Kind) {
       expectSen: Number(body.expectSen),
       expectForfeited: Array.isArray(body.expectForfeited) ? body.expectForfeited.map(String) : [],
     });
-    if (r.refund && "bookingId" in a.group) {
-      const refund = { ...r.refund, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
-      c.executionCtx.waitUntil(
-        sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
-      );
+    emailRefund(c, a, r.refund);
+    if (!replayed) {
+      for (const timeslotId of new Set(tickets.map((t) => t.timeslotId))) {
+        alert(c, a, { ticketIds: tickets.filter((t) => t.timeslotId === timeslotId).map((t) => t.id), from: timeslotId, to: null });
+      }
     }
     return c.json(r);
   });
@@ -219,17 +241,19 @@ export function manage(kind: Kind) {
     const x = await change(c);
     if ("res" in x) return x.res;
     const { a, body, tickets } = x;
-    return c.json(
-      await a.b.rescheduleTickets({
-        requestId: x.requestId,
-        customerId: a.customerId,
-        group: a.group,
-        ticketIds: tickets.map((t) => t.id),
-        timeslotId: String(body.timeslotId ?? ""),
-        participantIds: tickets.map((t) => t.participantId),
-        onlyClosed: !a.viaSession,
-      }),
-    );
+    const [o] = await createDb(c.env.DB).select({ bookingUnit: projOptions.bookingUnit }).from(projOptions).where(eq(projOptions.id, tickets[0].optionId));
+    const { replayed, ...r } = await a.b.rescheduleTickets({
+      requestId: x.requestId,
+      customerId: a.customerId,
+      group: a.group,
+      ticketIds: tickets.map((t) => t.id),
+      timeslotId: String(body.timeslotId ?? ""),
+      participantIds: o?.bookingUnit === "court" ? [] : tickets.map((t) => t.participantId),
+      onlyClosed: !a.viaSession,
+    });
+    emailRefund(c, a, r.refund);
+    if (!replayed) alert(c, a, { ticketIds: tickets.map((t) => t.id), from: tickets[0].timeslotId, to: r.timeslotId });
+    return c.json(r);
   });
 
   return app;

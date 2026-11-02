@@ -10,7 +10,10 @@
     "BILLPLZ_BASE": "https://www.billplz.com/api/v3",
     "BILLPLZ_COLLECTION_ID": "",
     "EMAIL_MODE": "resend",
-    "EMAIL_FROM": "Komugo <tickets@komugo.com>"
+    "EMAIL_FROM": "Komugo <tickets@komugo.com>",
+    "WHATSAPP_MODE": "sendontime",
+    "SENDONTIME_URL": "",
+    "SENDONTIME_DEVICE_URL": ""
   },
   "d1_databases": [
     {
@@ -27,7 +30,7 @@
     { "name": "RL_IP", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_CHECKOUT", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
   ],
-  "triggers": { "crons": ["*/5 * * * *", "0 19 * * *"] },
+  "triggers": { "crons": ["*/5 * * * *", "0 13 * * *", "0 19 * * *"] },
   "env": {
     "staging": {
       "workers_dev": false,
@@ -38,7 +41,10 @@
         "BILLPLZ_BASE": "https://www.billplz-sandbox.com/api/v3",
         "BILLPLZ_COLLECTION_ID": "",
         "EMAIL_MODE": "resend",
-        "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>"
+        "EMAIL_FROM": "Komugo Staging <onboarding@resend.dev>",
+        "WHATSAPP_MODE": "sendontime",
+        "SENDONTIME_URL": "",
+        "SENDONTIME_DEVICE_URL": ""
       },
       "d1_databases": [
         {

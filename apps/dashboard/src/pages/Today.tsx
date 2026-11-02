@@ -1,8 +1,10 @@
+import { UNLIMITED_SPOTS } from "@komugo/types/rules";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { scan, useQueue } from "../checkins";
 import { addDays, today, useDay } from "../day";
-import { day, named, time, useT } from "../i18n";
+import { CHECK_IN } from "../flags";
+import { day, hours, named, time, useT } from "../i18n";
 import type { Ticket, Timeslot } from "../types";
 import { Icon, Sheet, WaiverChip } from "../ui";
 
@@ -66,7 +68,7 @@ export default function Today() {
       ) : (
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {data.timeslots.map((slot) => (
-            <SlotCard key={slot.id} op={op} slot={slot} checkable={date === now} onCheckIn={(ticket) => setConfirm({ ticket, slot })} />
+            <SlotCard key={slot.id} op={op} slot={slot} checkable={date === now || (date < now && Date.now() < (slot.endsAt ?? 0))} onCheckIn={(ticket) => setConfirm({ ticket, slot })} />
           ))}
         </div>
       )}
@@ -104,7 +106,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
       <header className="flex items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <h2 id={`ts-${slot.id}`} className="num text-3xl font-extrabold">
-            {time(slot.startsAt, l)} <span className="font-sans text-lg font-semibold tracking-normal">{named(slot.option, l)}</span>
+            {hours(slot, l)} <span className="font-sans text-lg font-semibold tracking-normal">{named(slot.option, l)}</span>
           </h2>
           {resources.length > 0 && <p className="mt-1.5 text-sm text-muted">{resources.join(" · ")}</p>}
         </div>
@@ -115,7 +117,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
         ) : (
           <p className="num shrink-0 text-right text-sm">
             <span className="font-display text-3xl font-extrabold">{tickets.length}</span> <span className="font-semibold">{t.booked}</span>
-            <span className="block text-muted">{t.left(slot.spots)}</span>
+            <span className="block text-muted">{slot.spots >= UNLIMITED_SPOTS ? t.noLimit : t.left(slot.spots)}</span>
           </p>
         )}
       </header>
@@ -156,21 +158,22 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
                     </p>
                     <WaiverChip waiver={x.waiver} signer={x.signerName} />
                   </div>
-                  {at ? (
-                    <span className="num inline-flex shrink-0 items-center gap-1 rounded-full bg-lime px-3 py-1.5 text-sm font-semibold text-forest">
-                      <Icon name="check" className="size-4" />
-                      {t.checkedInAt(time(at, l))}
-                    </span>
-                  ) : queued ? (
-                    <span className="shrink-0 rounded-full bg-sand px-3 py-1.5 text-sm font-semibold">{t.pending}</span>
-                  ) : (
-                    checkable &&
-                    !closed && (
-                      <button type="button" className="btn btn-quiet shrink-0 px-4 text-sm" onClick={() => onCheckIn(x)}>
-                        {t.checkIn}
-                      </button>
-                    )
-                  )}
+                  {CHECK_IN &&
+                    (at ? (
+                      <span className="num inline-flex shrink-0 items-center gap-1 rounded-full bg-lime px-3 py-1.5 text-sm font-semibold text-forest">
+                        <Icon name="check" className="size-4" />
+                        {t.checkedInAt(time(at, l))}
+                      </span>
+                    ) : queued ? (
+                      <span className="shrink-0 rounded-full bg-sand px-3 py-1.5 text-sm font-semibold">{t.pending}</span>
+                    ) : (
+                      checkable &&
+                      !closed && (
+                        <button type="button" className="btn btn-quiet shrink-0 px-4 text-sm" onClick={() => onCheckIn(x)}>
+                          {t.checkIn}
+                        </button>
+                      )
+                    ))}
                 </li>
               );
             })}
@@ -182,7 +185,7 @@ function SlotCard({ op, slot, checkable, onCheckIn }: { op: string; slot: Timesl
           href={`/o/${op}/timeslots/${slot.id}`}
           className="flex min-h-12 items-center justify-center border-t border-line text-sm font-semibold text-clay hover:bg-sand/50"
         >
-          {slot.startsAt > Date.now() ? t.closeTimeslot : t.participants}
+          {slot.startsAt > Date.now() ? (slot.endsAt === null ? t.closeTimeslot : t.closeDate) : t.participants}
         </Link>
       )}
     </article>

@@ -2,7 +2,7 @@
 import Checkout from "../../layouts/Checkout.astro";
 import BottomBar from "../../components/checkout/BottomBar.astro";
 import DateStrip from "../../components/checkout/DateStrip.astro";
-import { klDay, klDeadline, klLongDay, klTime, t } from "../../lib/i18n";
+import { klDay, klDeadline, klHours, klLongDay, t } from "../../lib/i18n";
 import { groupHref, type rescheduleStep } from "../../lib/manage";
 
 type Props = Exclude<Awaited<ReturnType<typeof rescheduleStep>>, Response>;
@@ -25,7 +25,7 @@ const names = new Intl.ListFormat(l === "ms" ? "ms-MY" : "en-MY", { type: "conju
         <p class="mt-3 text-lg">{m.moveSub}</p>
         <p class="mt-4 rounded-2xl bg-white p-4 shadow-[0_1px_0_var(--color-line)]">
           <span class="block text-sm text-muted">{m.current}</span>
-          <span class="font-semibold">{klLongDay(l, tickets[0].startsAt)} · <span class="num">{klTime(l, tickets[0].startsAt)}</span></span>
+          <span class="font-semibold">{klLongDay(l, tickets[0].startsAt)} · <span class="num">{klHours(l, tickets[0])}</span></span>
         </p>
         <form method="post" class="mt-8 space-y-8" data-move>
           <input type="hidden" name="requestId" value={requestId} />
@@ -40,7 +40,7 @@ const names = new Intl.ListFormat(l === "ms" ? "ms-MY" : "en-MY", { type: "conju
                   {times.map((x) => (
                     <label class="flex min-h-14 cursor-pointer items-center justify-center rounded-2xl border border-line bg-white px-3 py-2 has-checked:border-forest has-checked:bg-forest has-checked:text-white has-focus-visible:outline-3 has-focus-visible:outline-lime">
                       <input type="radio" name="timeslotId" value={x.id} checked={x.id === selected?.id} data-label={m.moveTo(klDeadline(l, x.startsAt))} class="sr-only" />
-                      <span class="num font-semibold">{klTime(l, x.startsAt)}</span>
+                      <span class="num font-semibold">{klHours(l, x)}</span>
                     </label>
                   ))}
                 </div>

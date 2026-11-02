@@ -33,7 +33,8 @@ test("affected lists the issued Tickets including a Pack Ticket; a re-close retu
     { id: packTicket, timeslotId: w.ts, customerId: w.customerId, participantId: p2, bookingId: null, packId },
   ]);
   await w.flush();
-  expect(await w.b.closeTimeslot(w.ts, "other")).toEqual(first);
+  expect(first.closed).toBe(true);
+  expect(await w.b.closeTimeslot(w.ts, "other")).toEqual({ ...first, closed: false });
   expect(await w.count("SELECT count(*) AS n FROM outbox")).toBe(0);
   expect(await w.sql("SELECT closed_reason FROM timeslots WHERE id = ?", w.ts)).toEqual([{ closed_reason: "weather" }]);
 });
@@ -53,5 +54,5 @@ test("a rescheduled or cancelled Ticket leaves the affected list", async () => {
   expect(await w.cancel(w.customerId, { bookingId: other.bookingId }, other.ticketIds)).toMatchObject({
     tickets: [{ outcome: "cancelled" }],
   });
-  expect(await w.b.closeTimeslot(w.ts, "weather")).toEqual({ affected: [] });
+  expect(await w.b.closeTimeslot(w.ts, "weather")).toEqual({ affected: [], closed: false });
 });

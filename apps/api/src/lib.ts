@@ -8,7 +8,7 @@ export const MIN = 60_000;
 export const HOUR = 60 * MIN;
 export const DAY = 24 * HOUR;
 
-export const fail = (c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 415 | 429 | 502 | 503, e: ApiError, errors?: ApiError[]) =>
+export const fail = (c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 410 | 415 | 429 | 502 | 503, e: ApiError, errors?: ApiError[]) =>
   c.json({ ...e, ...(errors && errors.length > 1 ? { errors } : {}) }, status);
 
 export const requireJson: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {

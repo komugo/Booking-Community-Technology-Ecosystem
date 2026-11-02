@@ -7,7 +7,7 @@ const klDay = (n: number) => new Date(Date.now() + 8 * 3_600_000 + n * D).toISOS
 describe("ops Setup", () => {
   test("Resources with Welfare Rules, Options, Add-ons and Activity settings round-trip through GET /setup", async () => {
     const w = await world();
-    const m = await member("operator", w.operatorId);
+    const m = await member("staff");
     const base = `/ops/operators/${w.operatorId}`;
     const horse = { kind: "horse", name: "Bayu", active: true, maxSessionsPerDay: 6, restMinutes: 15, maxRiderWeightKg: 90 };
     const r = await m.json<{ id: string }>("POST", `${base}/resources`, horse);
@@ -31,29 +31,30 @@ describe("ops Setup", () => {
     const o = await m.json<{ id: string }>("POST", `${base}/options`, option);
     const a = await m.json<{ id: string }>("POST", `${base}/add-ons`, { activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(
-      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }),
+      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 3 }),
     ).toEqual({ status: 200, body: { generated: expect.anything() } });
 
     const { body } = await m.json("GET", `${base}/setup`);
     expect(body.resources).toContainEqual({ ...horse, id: r.body.id, name: "Bayu II", maxSessionsPerDay: 5 });
-    expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson" });
+    expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson", bookingUnit: "person", ticketType: "timeslot", dailyLimit: null, weekendPriceSen: null });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
-    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }]);
+    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 3 }]);
     expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", listingMode: "bookable" })]);
   });
 
   test("bad fields are 400 invalid_field with the field name", async () => {
     const w = await world();
-    const m = await member("operator", w.operatorId);
+    const m = await member("staff");
     const base = `/ops/operators/${w.operatorId}`;
     const bad = async (method: string, path: string, body: unknown) => (await m.json(method, `${base}${path}`, body)).body;
-    expect(await bad("PUT", `/activities/${w.activityId}`, { freeCancelHours: 721, bookingCutoffMinutes: 0, closedDays: ["Mo#6"] })).toEqual({
+    expect(await bad("PUT", `/activities/${w.activityId}`, { freeCancelHours: 721, bookingCutoffMinutes: 0, closedDays: ["Mo#6"], maxCourtTickets: 0 })).toEqual({
       code: "invalid_field",
       field: "freeCancelHours",
       errors: [
         { code: "invalid_field", field: "freeCancelHours" },
         { code: "invalid_field", field: "closedDays" },
         { code: "invalid_field", field: "requiresWaiver" },
+        { code: "invalid_field", field: "maxCourtTickets" },
       ],
     });
     const schedule = { activityId: w.activityId, optionIds: [w.optionId], weekdays: ["Mo"], times: ["9:00"], startsOn: klDay(1), endsOn: null, active: true };
@@ -73,7 +74,7 @@ describe("ops Setup", () => {
   test("lengthening an Option under a live Booking is 409 invalid_state", async () => {
     const w = await world();
     await booked(w);
-    const m = await member("operator", w.operatorId);
+    const m = await member("staff");
     const { body } = await m.json("GET", `/ops/operators/${w.operatorId}/setup`);
     const { id, ...option } = body.options[0];
     expect(await m.json("PUT", `/ops/operators/${w.operatorId}/options/${id}`, { ...option, durationMinutes: 90 })).toEqual({
@@ -84,7 +85,7 @@ describe("ops Setup", () => {
 
   test("POST /schedules returns the generation summary", async () => {
     const w = await world();
-    const m = await member("operator", w.operatorId);
+    const m = await member("staff");
     const r = await m.json("POST", `/ops/operators/${w.operatorId}/schedules`, {
       activityId: w.activityId,
       optionIds: [w.optionId],
@@ -100,7 +101,7 @@ describe("ops Setup", () => {
   test("Pack offers are created, updated and validated; another Operator's Option is 409", async () => {
     const w = await world();
     const other = await world();
-    const m = await member("operator", w.operatorId);
+    const m = await member("staff");
     const base = `/ops/operators/${w.operatorId}`;
     const offer = { activityId: w.activityId, nameEn: "8 rides", nameMs: "8 tunggangan", sessions: 8, priceSen: 52000, validDays: 90, optionIds: [w.optionId], active: true };
     const r = await m.json<{ id: string }>("POST", `${base}/pack-offers`, offer);

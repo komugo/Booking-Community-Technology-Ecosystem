@@ -1,0 +1,1 @@
+ALTER TABLE `proj_timeslots` ADD `max_hours` integer;

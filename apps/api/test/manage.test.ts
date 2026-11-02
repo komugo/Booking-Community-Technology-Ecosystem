@@ -17,6 +17,13 @@ async function mine(o: { people?: number } = {}) {
   return { w, b, owner, k, base };
 }
 
+async function priced(w: Awaited<ReturnType<typeof world>>, at: number, priceSen: number) {
+  const id = await slotAt(w, at);
+  await w.doSql("UPDATE timeslots SET price_sen = ? WHERE id = ?", priceSen, id);
+  await d1("UPDATE proj_timeslots SET price_sen = ? WHERE id = ?", priceSen, id);
+  return id;
+}
+
 const close = async (w: Awaited<ReturnType<typeof world>>, timeslotId = w.timeslotId) => {
   const m = await member("operator", w.operatorId);
   await m.json("POST", `/ops/operators/${w.operatorId}/timeslots/${timeslotId}/close`, { reason: "weather" });
@@ -75,9 +82,20 @@ describe("cancel and reschedule", () => {
     const next = await slotAt(w, at);
     await slotAt(w, SLOT_AT + DAY_MS);
     const { body } = await owner.json("GET", `${base}/slots?t=${t}`);
-    expect(body).toEqual({ ticketIds: [t], slots: [{ id: next, startsAt: at, spots: 3 }] });
+    expect(body).toEqual({ ticketIds: [t], slots: [{ id: next, startsAt: at, endsAt: null, spots: 3 }] });
     const r = await owner.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: next });
-    expect(r).toEqual({ status: 200, body: { timeslotId: next, startsAt: at } });
+    expect(r).toEqual({ status: 200, body: { timeslotId: next, startsAt: at, refund: null } });
+  });
+
+  test("only same-price Timeslots are listed and accepted", async () => {
+    const { w, b, owner, base } = await mine();
+    const t = b.ticketIds[0];
+    const cheaper = await priced(w, later(72), 6000);
+    expect((await owner.json("GET", `${base}/slots?t=${t}`)).body.slots).toEqual([]);
+    expect(await owner.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: cheaper })).toEqual({
+      status: 409,
+      body: { code: "price_differs" },
+    });
   });
 
   test("after the free-cancel window the slots list is window_passed", async () => {
@@ -109,12 +127,35 @@ describe("Closure choice", () => {
     expect(await d1("SELECT choice FROM closure_notices WHERE ref = ?", b.bookingId)).toEqual([{ choice: "refund" }]);
   });
 
+  test("after a Closure cheaper Timeslots are listed, pricier ones aren't, and the difference is refunded and emailed", async () => {
+    const { w, b, k, base } = await mine();
+    await close(w);
+    const anon = client();
+    const t = `closed:${w.timeslotId}`;
+    const same = await slotAt(w, later(48));
+    const cheaper = await priced(w, later(72), 6000);
+    const pricier = await priced(w, later(96), 12000);
+    expect((await anon.json("GET", `${base}/slots?t=${t}&k=${k}`)).body.slots.map((s: { id: string }) => s.id)).toEqual([same, cheaper]);
+    expect((await anon.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: pricier, k })).body).toEqual({ code: "price_differs" });
+
+    const r = await anon.json("POST", `${base}/reschedule`, { requestId: rid(), t, timeslotId: cheaper, k });
+    expect(r.body).toMatchObject({ timeslotId: cheaper, refund: { amountSen: 4000, reason: "closure" } });
+    await w.flush();
+    expect(await d1("SELECT amount_sen, reason FROM proj_refunds WHERE booking_id = ?", b.bookingId)).toEqual([{ amount_sen: 4000, reason: "closure" }]);
+    expect(await d1("SELECT price_sen FROM proj_tickets WHERE id = ?", b.ticketIds[0])).toEqual([{ price_sen: 6000 }]);
+    await cron(env, () => {}, Date.now() + 3 * 60_000);
+    const due = devInbox.filter((e) => e.to === b.email && e.subject === "Refund on its way: RM 40.00");
+    expect(due).toHaveLength(1);
+    expect(due[0].text).toContain("We moved Rider 0 for Trail Riding – Ride to");
+    expect(due[0].text).toContain("The difference of RM 40.00 goes back");
+  });
+
   test("the k link reschedules closed Tickets and records the choice", async () => {
     const { w, b, k, base } = await mine();
     await close(w);
     const next = await slotAt(w, SLOT_AT + DAY_MS);
     const r = await client().json("POST", `${base}/reschedule`, { requestId: rid(), t: `closed:${w.timeslotId}`, timeslotId: next, k });
-    expect(r.body).toEqual({ timeslotId: next, startsAt: SLOT_AT + DAY_MS });
+    expect(r.body).toEqual({ timeslotId: next, startsAt: SLOT_AT + DAY_MS, refund: null });
     await w.flush();
     expect(await d1("SELECT choice FROM closure_notices WHERE ref = ?", b.bookingId)).toEqual([{ choice: "reschedule" }]);
   });

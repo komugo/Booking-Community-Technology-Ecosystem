@@ -20,6 +20,7 @@ test("a full Ticket id or its first 8 hex chars (any case) checks in", async () 
     outcome: "checked_in",
     ticket: {
       id: w.ticketIds[0],
+      customerId: w.customerId,
       participantId: w.people[0],
       bookingId: w.bookingId,
       timeslotId: w.ts,

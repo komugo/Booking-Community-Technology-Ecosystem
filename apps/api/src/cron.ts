@@ -18,6 +18,7 @@ import {
 } from "@komugo/db";
 import { and, between, eq, exists, gt, inArray, isNotNull, isNull, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
 import { confirmBill, deleteBill, getBill } from "./billplz";
+import { DIGEST, sendDigests } from "./digest";
 import { sendBookedEmail, sendInterestEmail, sendPackEmail, sendRefundDueEmail, sendRefundEmail, sendRefundPaidEmail } from "./email";
 import { DAY, each, HOUR, MIN, type WaitUntil } from "./lib";
 import { sendClosureNotices } from "./ops/closure";
@@ -35,6 +36,7 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
     await each(all, "cron_generate_failed", ({ id }) => booking(env, id).generateTimeslots());
     return;
   }
+  if (schedule === DIGEST) return sendDigests(env, now);
 
   const unsettled = await db
     .select({ id: bills.id })
@@ -142,7 +144,7 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
         eq(projOptions.active, true),
         isNull(projTimeslots.closedAt),
         gt(projTimeslots.spots, 0),
-        gt(projTimeslots.startsAt, sql`${now} + ${projActivities.bookingCutoffMinutes} * 60000`),
+        gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, sql`${now} + ${projActivities.bookingCutoffMinutes} * 60000`),
       ),
     );
   const interested = await db

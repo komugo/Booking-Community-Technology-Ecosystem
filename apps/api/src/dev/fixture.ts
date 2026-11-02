@@ -1,7 +1,8 @@
 import { booking } from "@komugo/booking";
-import { activities, categories, checkouts, cities, createDb, customers, members, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
+import { activities, categories, checkouts, cities, createDb, customers, members, operatorContacts, operators, packOrders, participants, projTimeslots, venues, venueSlugs, waivers } from "@komugo/db";
 import { eq } from "drizzle-orm";
-import { WAIVER } from "@komugo/types";
+import { klDate, WAIVER, WEEKDAYS } from "@komugo/types";
+import { closeLink, listLink } from "../digest";
 import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
 import { groupLink } from "../manage";
 import { recordClosure } from "../ops/closure";
@@ -23,6 +24,11 @@ export async function fixture(
     extraSlots?: unknown;
     close?: unknown;
     info?: unknown;
+    court?: unknown;
+    dateTicket?: unknown;
+    dailyLimit?: unknown;
+    weekendPriceSen?: unknown;
+    listed?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -71,6 +77,10 @@ export async function fixture(
     requiredCert: null,
     minParticipants: null,
     maxPerBooking: null,
+    bookingUnit: "person",
+    ticketType: "timeslot",
+    dailyLimit: null,
+    weekendPriceSen: null,
     active: true,
     needs: [{ kind: "horse", quantity: 1 }],
   });
@@ -180,9 +190,93 @@ export async function fixture(
   if (o.info === true) {
     const names = { nameEn: "Kompleks Sukan Presint 9", nameMs: "Kompleks Sukan Presint 9" };
     const slugs = await venueSlugs(db, city.id, names);
-    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9 }).returning();
+    const [venue] = await db.insert(venues).values({ cityId: city.id, ...names, slugEn: slugs.en, slugMs: slugs.ms, presint: 9, lat: 2.9264, lng: 101.6964 }).returning();
     venueSlug = slugs.en;
-    await db.update(activities).set({ venueId: venue.id, listingMode: "info" }).where(eq(activities.id, activityId));
+    await db.update(activities).set({ venueId: venue.id, listingMode: "info", free: true, setting: "outdoor" }).where(eq(activities.id, activityId));
+  }
+  // A per-court Option with two courts and two back-to-back free hours tomorrow; per-court sells only without a waiver.
+  const courtOptionId = `opt_${rid}_court`;
+  const courtSlotIds: string[] = [];
+  if (o.court === true) {
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    for (const n of ["A", "B"]) {
+      await b.upsertResource({ id: `res_${rid}_court${n}`, kind: "court", name: `Court ${n}`, active: true, maxSessionsPerDay: null, restMinutes: 0, maxRiderWeightKg: null });
+    }
+    await b.upsertOption({
+      id: courtOptionId,
+      activityId,
+      nameEn: "Court hire",
+      nameMs: "Sewa gelanggang",
+      priceSen: 2000,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "court",
+      ticketType: "timeslot",
+      dailyLimit: null,
+      weekendPriceSen: null,
+      active: true,
+      needs: [{ kind: "court", quantity: 1 }],
+    });
+    courtSlotIds.push(...(await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR, minute + DAY + 2 * HOUR] })).ids);
+  }
+  // A Date ticket Option open 06:00–23:30 every day, with no waiver.
+  const dateOptionId = `opt_${rid}_date`;
+  if (o.dateTicket === true) {
+    const hours = [{ days: WEEKDAYS, opens: "06:00", closes: "23:30" }];
+    await db.update(activities).set({ openingHours: hours }).where(eq(activities.id, activityId));
+    await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
+    await b.setHours([{ activityId, hours }], []);
+    await b.upsertOption({
+      id: dateOptionId,
+      activityId,
+      nameEn: "Day pass",
+      nameMs: "Pas harian",
+      priceSen: 1500,
+      durationMinutes: 60,
+      minAge: null,
+      maxAge: null,
+      maxWeightKg: null,
+      requiredCert: null,
+      minParticipants: null,
+      maxPerBooking: null,
+      bookingUnit: "person",
+      ticketType: "date",
+      dailyLimit: Number.isInteger(o.dailyLimit) ? (o.dailyLimit as number) : null,
+      weekendPriceSen: Number.isInteger(o.weekendPriceSen) ? (o.weekendPriceSen as number) : null,
+      active: true,
+      needs: [],
+    });
+  }
+  const [contact] = await db
+    .insert(operatorContacts)
+    .values({ operatorId, name: "Siti", phone: "+60181234567", role: "counter", locale, createdAt: now })
+    .returning();
+  // With court and dateTicket: a paid 2-hour court Ticket and 2 Date tickets on the court day, with that day's list.
+  let listed: { list: string; courtSlotId: string; courtStartsAt: number; dateSlotId: string; courtCode: string; dateCodes: string[] } | undefined;
+  if (o.listed === true && o.court === true && o.dateTicket === true) {
+    const day = klDate(minute + DAY + HOUR);
+    const from = Date.parse(`${day}T00:00:00+08:00`);
+    const [dateSlot] = (await b.timeslots({ from, to: from + DAY })).filter((s) => s.optionId === dateOptionId);
+    const book = async (timeslotId: string, ids: string[], hours: number) => {
+      const h = await b.createHold({ requestId: `fixture:${rid}:${timeslotId}`, customerId: customer.id, replaces: null, timeslotId, participantIds: ids, addOns: [], hours });
+      const paid = await b.confirmHold({ billId: `dev_${rid}_${timeslotId}`, holdId: h.holdId, amountSen: h.amountSen });
+      if (paid.status !== "paid") throw new Error(`fixture_not_paid:${paid.reason}`);
+      return paid.ticketIds.map(ticketCode);
+    };
+    const [courtCode] = await book(courtSlotIds[0], [], 2);
+    listed = {
+      list: await listLink(env, operatorId, day, contact),
+      courtSlotId: courtSlotIds[0],
+      courtStartsAt: minute + DAY + HOUR,
+      dateSlotId: dateSlot.id,
+      courtCode,
+      dateCodes: await book(dateSlot.id, participantIds, 1),
+    };
   }
   return {
     operatorId,
@@ -195,11 +289,16 @@ export async function fixture(
     codes: group.ticketIds.map(ticketCode),
     ...(group.kind === "booking" ? { bookingId: group.id } : { packId: group.id }),
     k: await groupLink(env, group.kind, group.id),
+    list: await listLink(env, operatorId, klDate(now), contact),
+    close: await closeLink(env, operatorId, timeslotId, contact),
     customerEmail: customer.email!,
     activityPath: `/${hub.slugEn}/${hub.slugEn}/${hub.slugEn}`,
     venueSlug,
     email,
     ...(staffEmail ? { staffEmail } : {}),
     ...(o.packOffer === true || viaPack ? { offerId } : {}),
+    ...(o.court === true ? { courtOptionId } : {}),
+    ...(o.dateTicket === true ? { dateOptionId } : {}),
+    ...(listed ? { listed } : {}),
   };
 }

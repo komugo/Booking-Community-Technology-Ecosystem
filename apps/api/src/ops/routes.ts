@@ -1,18 +1,15 @@
-import { BookingError, type ClosureReason, type ResourceKind } from "@komugo/booking";
-import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, venues, type Db, type ListingMode } from "@komugo/db";
+import { BookingError, RESOURCE_KINDS, type BookingUnit, type ClosureReason, type OptionInput, type ResourceKind, type TicketType } from "@komugo/booking";
+import { activities, bills, checkouts, createDb, LISTING_MODES, operators, packOrders, photos, projPackOffers, SETTINGS, venues, type Db, type ListingMode, type Setting } from "@komugo/db";
 import { CLOSED_DAY, HHMM, WEEKDAYS, type Weekday } from "@komugo/types";
 import { Hono } from "hono";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
-import { recordClosure } from "./closure";
+import { REASONS, recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
 import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
-import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, type PhotoInput } from "./venues";
-
-const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
-const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
+import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, syncHours, type PhotoInput } from "./venues";
 
 export const routes = new Hono<Ops>();
 
@@ -30,17 +27,20 @@ async function ownsActivity(env: Env, operatorId: string, id: unknown) {
   return !!row;
 }
 
-async function commissionBps(env: Env, operatorId: string) {
-  const [o] = await createDb(env.DB).select({ bps: operators.commissionBps }).from(operators).where(eq(operators.id, operatorId));
-  return o.bps;
+async function operatorTerms(env: Env, operatorId: string) {
+  const [o] = await createDb(env.DB)
+    .select({ commissionBps: operators.commissionBps, holidaysAsWeekend: operators.holidaysAsWeekend })
+    .from(operators)
+    .where(eq(operators.id, operatorId));
+  return o;
 }
 
 routes.get("/setup", async (c) => {
   const op = c.req.param("operatorId")!;
   const db = createDb(c.env.DB);
-  const [setup, commission, [catalogue, gallery]] = await Promise.all([
+  const [setup, terms, [catalogue, gallery]] = await Promise.all([
     c.var.b.setup(),
-    commissionBps(c.env, op),
+    operatorTerms(c.env, op),
     db.batch([
       db
         .select({
@@ -53,6 +53,8 @@ routes.get("/setup", async (c) => {
           descriptionEn: activities.descriptionEn,
           descriptionMs: activities.descriptionMs,
           venueId: activities.venueId,
+          free: activities.free,
+          setting: activities.setting,
         })
         .from(activities)
         .where(eq(activities.operatorId, op)),
@@ -66,7 +68,7 @@ routes.get("/setup", async (c) => {
   ]);
   return c.json({
     ...setup,
-    commissionBps: commission,
+    ...terms,
     catalogue: catalogue.map((a) => ({ ...a, photos: gallery.filter((p) => p.photo.activityId === a.id).map((p) => photoView(p.photo)) })),
   });
 });
@@ -82,13 +84,25 @@ routes.put("/commission", staffOnly, async (c) => {
   return c.json({ commissionBps: body.commissionBps });
 });
 
-routes.put("/activities/:id", async (c) => {
+routes.put("/holidays-as-weekend", staffOnly, async (c) => {
+  const body = await json(c);
+  if (!bool(body.holidaysAsWeekend)) return fail(c, 400, { code: "invalid_field", field: "holidaysAsWeekend" });
+  const op = c.req.param("operatorId")!;
+  const db = createDb(c.env.DB);
+  await db.update(operators).set({ holidaysAsWeekend: body.holidaysAsWeekend as boolean }).where(eq(operators.id, op));
+  const owned = await db.select({ id: activities.id }).from(activities).where(eq(activities.operatorId, op));
+  await syncHours(c.env, owned.map((a) => a.id));
+  return c.json({ holidaysAsWeekend: body.holidaysAsWeekend });
+});
+
+routes.put("/activities/:id", staffOnly, async (c) => {
   const body = await json(c);
   const errors = invalid([
     [int(body.freeCancelHours, 0, 720), "freeCancelHours"],
     [int(body.bookingCutoffMinutes, 0, 1440), "bookingCutoffMinutes"],
     [list<string>(body.closedDays, 14, (d) => typeof d === "string" && CLOSED_DAY.test(d)), "closedDays"],
     [bool(body.requiresWaiver), "requiresWaiver"],
+    [body.maxCourtTickets === undefined || int(body.maxCourtTickets, 1, 20), "maxCourtTickets"],
   ]);
   if (errors.length) return fail(c, 400, errors[0], errors);
   if (!(await ownsActivity(c.env, c.req.param("operatorId")!, c.req.param("id")))) return fail(c, 404, { code: "not_found" });
@@ -98,19 +112,23 @@ routes.put("/activities/:id", async (c) => {
     bookingCutoffMinutes: body.bookingCutoffMinutes as number,
     closedDays: [...new Set(body.closedDays as string[])],
     requiresWaiver: body.requiresWaiver as boolean,
+    maxCourtTickets: body.maxCourtTickets as number | undefined,
   });
+  await syncHours(c.env, [c.req.param("id")]);
   return c.json({ generated });
 });
 
 const text = (v: unknown) => typeof v === "string" && v.trim().length <= 5000;
 
-// Operators edit their own Activity's copy; only staff move it to another Venue.
-routes.put("/activities/:id/copy", async (c) => {
+// Staff-only while operators' Setup is off (#31); with it on, operators edit their own copy and only staff move it to another Venue.
+routes.put("/activities/:id/copy", staffOnly, async (c) => {
   const body = await json(c);
   const errors = invalid([
     [text(body.descriptionEn), "descriptionEn"],
     [text(body.descriptionMs), "descriptionMs"],
     [body.venueId === null || typeof body.venueId === "string", "venueId"],
+    [bool(body.free), "free"],
+    [body.setting === null || SETTINGS.includes(body.setting as Setting), "setting"],
     [photoList(body.photos), "photos"],
   ]);
   if (errors.length) return fail(c, 400, errors[0], errors);
@@ -125,7 +143,13 @@ routes.put("/activities/:id/copy", async (c) => {
   if (venueId !== a.venueId && c.var.member.role !== "staff") return fail(c, 403, { code: "forbidden", field: "venueId" });
   const [venue] = venueId ? await db.select({ cityId: venues.cityId, lat: venues.lat, lng: venues.lng }).from(venues).where(eq(venues.id, venueId)) : [];
   if (venueId && venue?.cityId !== a.cityId) return fail(c, 400, { code: "invalid_field", field: "venueId" });
-  const copy = { descriptionEn: (body.descriptionEn as string).trim(), descriptionMs: (body.descriptionMs as string).trim(), venueId };
+  const copy = {
+    descriptionEn: (body.descriptionEn as string).trim(),
+    descriptionMs: (body.descriptionMs as string).trim(),
+    venueId,
+    free: body.free as boolean,
+    setting: body.setting as Setting | null,
+  };
   const list = body.photos as PhotoInput[];
   // A listed Activity can't drop below the publish bar; gaps it already had (e.g. pre-Venue data) don't block the edit.
   if (a.listingMode !== "hidden") {
@@ -138,6 +162,7 @@ routes.put("/activities/:id/copy", async (c) => {
     db.delete(photos).where(eq(photos.activityId, id)),
     ...(list.length ? [db.insert(photos).values(photoRows({ activityId: id }, list))] : []),
   ]);
+  if (venueId !== a.venueId) await syncHours(c.env, [id]);
   return c.body(null, 204);
 });
 
@@ -174,11 +199,12 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
   const [row] = await db
-    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps })
+    .select({ listingMode: activities.listingMode, signedUp: operators.signedUp, commissionBps: operators.commissionBps, unknown: operators.unknown })
     .from(activities)
     .innerJoin(operators, eq(operators.id, activities.operatorId))
     .where(and(eq(activities.id, id), eq(activities.operatorId, c.req.param("operatorId")!)));
   if (!row) return fail(c, 404, { code: "not_found" });
+  if (mode !== "hidden" && row.unknown) return fail(c, 409, { code: "operator_unknown", field: "listingMode" });
   if (mode === "bookable" && !row.signedUp) return fail(c, 409, { code: "not_signed_up", field: "listingMode" });
   if (mode === "bookable" && row.commissionBps === null) return fail(c, 409, { code: "commission_unset", field: "listingMode" });
   if (row.listingMode === "hidden" && mode !== "hidden") {
@@ -197,7 +223,13 @@ routes.put("/activities/:id/listing-mode", staffOnly, async (c) => {
 
 function optionInput(body: Body) {
   const needs = body.needs as { kind?: unknown; quantity?: unknown }[];
+  const bookingUnit = (body.bookingUnit ?? "person") as BookingUnit;
+  const ticketType = (body.ticketType ?? "timeslot") as TicketType;
   const errors = invalid([
+    [bookingUnit === "person" || bookingUnit === "court", "bookingUnit"],
+    [ticketType === "timeslot" || (ticketType === "date" && bookingUnit === "person"), "ticketType"],
+    [ticketType === "date" ? intOrNull(body.dailyLimit ?? null, 1, 100_000) : (body.dailyLimit ?? null) === null, "dailyLimit"],
+    [ticketType === "date" ? intOrNull(body.weekendPriceSen ?? null, 0, 10_000_000) : (body.weekendPriceSen ?? null) === null, "weekendPriceSen"],
     [name(body.nameEn), "nameEn"],
     [name(body.nameMs), "nameMs"],
     [int(body.priceSen, 0, 10_000_000), "priceSen"],
@@ -214,7 +246,7 @@ function optionInput(body: Body) {
     ],
     [bool(body.active), "active"],
     [
-      list(body.needs, 4, (n) => KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
+      list(body.needs, 5, (n) => RESOURCE_KINDS.includes((n as { kind: ResourceKind })?.kind) && int((n as { quantity: unknown }).quantity, 1, 10)) &&
         new Set(needs.map((n) => n.kind)).size === needs.length,
       "needs",
     ],
@@ -233,6 +265,10 @@ function optionInput(body: Body) {
       requiredCert: (body.requiredCert as string | null)?.trim() ?? null,
       minParticipants: body.minParticipants as number | null,
       maxPerBooking: body.maxPerBooking as number | null,
+      bookingUnit,
+      ticketType,
+      dailyLimit: (body.dailyLimit ?? null) as number | null,
+      weekendPriceSen: (body.weekendPriceSen ?? null) as number | null,
       active: body.active as boolean,
       needs: needs.map((n) => ({ kind: n.kind as ResourceKind, quantity: n.quantity as number })),
     }),
@@ -261,7 +297,7 @@ function resourceInput(body: Body) {
   const horse = body.kind === "horse";
   return {
     errors: invalid([
-      [KINDS.includes(body.kind as ResourceKind), "kind"],
+      [RESOURCE_KINDS.includes(body.kind as ResourceKind), "kind"],
       [name(body.name), "name"],
       [bool(body.active), "active"],
       [horse ? intOrNull(body.maxSessionsPerDay, 1, 50) : body.maxSessionsPerDay === null, "maxSessionsPerDay"],
@@ -349,18 +385,24 @@ async function save<T>(
   return c.json(kind === "schedules" ? { id: input.id, ...(result as object) } : { id: input.id }, id ? 200 : 201);
 }
 
-routes.post("/options", (c) => save(c, null, "options", optionInput, c.var.b.upsertOption));
-routes.put("/options/:id", (c) => save(c, c.req.param("id"), "options", optionInput, c.var.b.upsertOption));
-routes.post("/add-ons", (c) => save(c, null, "addOns", addOnInput, c.var.b.upsertAddOn));
-routes.put("/add-ons/:id", (c) => save(c, c.req.param("id"), "addOns", addOnInput, c.var.b.upsertAddOn));
-routes.post("/resources", (c) => save(c, null, "resources", resourceInput, c.var.b.upsertResource));
-routes.put("/resources/:id", (c) => save(c, c.req.param("id"), "resources", resourceInput, c.var.b.upsertResource));
-routes.post("/schedules", (c) => save(c, null, "schedules", scheduleInput, c.var.b.upsertSchedule));
-routes.put("/schedules/:id", (c) => save(c, c.req.param("id"), "schedules", scheduleInput, c.var.b.upsertSchedule));
-routes.post("/pack-offers", (c) => save(c, null, "packOffers", packOfferInput, c.var.b.upsertPackOffer));
-routes.put("/pack-offers/:id", (c) => save(c, c.req.param("id"), "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+// A Date ticket Option needs the opening hours in the booking engine before its dates are made.
+const withHours = (env: Env, upsert: (o: OptionInput) => Promise<unknown>) => async (o: OptionInput) => {
+  if (o.ticketType === "date") await syncHours(env, [o.activityId]);
+  return upsert(o);
+};
 
-routes.post("/timeslots", async (c) => {
+routes.post("/options", staffOnly, (c) => save(c, null, "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
+routes.put("/options/:id", staffOnly, (c) => save(c, c.req.param("id"), "options", optionInput, withHours(c.env, c.var.b.upsertOption)));
+routes.post("/add-ons", staffOnly, (c) => save(c, null, "addOns", addOnInput, c.var.b.upsertAddOn));
+routes.put("/add-ons/:id", staffOnly, (c) => save(c, c.req.param("id"), "addOns", addOnInput, c.var.b.upsertAddOn));
+routes.post("/resources", staffOnly, (c) => save(c, null, "resources", resourceInput, c.var.b.upsertResource));
+routes.put("/resources/:id", staffOnly, (c) => save(c, c.req.param("id"), "resources", resourceInput, c.var.b.upsertResource));
+routes.post("/schedules", staffOnly, (c) => save(c, null, "schedules", scheduleInput, c.var.b.upsertSchedule));
+routes.put("/schedules/:id", staffOnly, (c) => save(c, c.req.param("id"), "schedules", scheduleInput, c.var.b.upsertSchedule));
+routes.post("/pack-offers", staffOnly, (c) => save(c, null, "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+routes.put("/pack-offers/:id", staffOnly, (c) => save(c, c.req.param("id"), "packOffers", packOfferInput, c.var.b.upsertPackOffer));
+
+routes.post("/timeslots", staffOnly, async (c) => {
   const body = await json(c);
   if (typeof body.optionId !== "string") return fail(c, 400, { code: "invalid_field", field: "optionId" });
   if (!list<number>(body.startsAt, 50, Number.isInteger) || !(body.startsAt as number[]).length) {

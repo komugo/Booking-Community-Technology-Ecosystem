@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, Redirect, Route, Switch, useLocation, useRoute } from "wouter";
+import { api, useApi } from "./api";
 import { openQueue } from "./checkins";
-import { useT } from "./i18n";
+import { CHECK_IN } from "./flags";
+import { day, errorText, time, useT } from "./i18n";
 import { loadMe, useMe } from "./me";
+import Holidays from "./pages/Holidays";
 import Interests from "./pages/Interests";
 import Payouts from "./pages/Payouts";
 import Scan from "./pages/Scan";
@@ -13,8 +16,8 @@ import SignIn from "./pages/SignIn";
 import Timeslot from "./pages/Timeslot";
 import Today from "./pages/Today";
 import Venues from "./pages/Venues";
-import type { Me } from "./types";
-import { LangPill, Logo, SignedInAs, Spinner, TabBar, Toast } from "./ui";
+import type { Me, WhatsAppState } from "./types";
+import { LangPill, Logo, SignedInAs, Spinner, TabBar, Toast, toast } from "./ui";
 
 export default function App() {
   const { t } = useT();
@@ -60,24 +63,98 @@ export default function App() {
 
 function Signed({ me }: { me: Me }) {
   return (
-    <Switch>
-      <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
-      <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
-      <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
-      <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
-      <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
-      <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      {me.member.role === "staff" && <WhatsAppBanner />}
+      <Switch>
+        <Route path="/">{me.operators.length === 1 ? <Redirect to={`/o/${me.operators[0].id}/today`} replace /> : <Operators me={me} />}</Route>
+        <Route path="/refunds">{me.member.role === "staff" ? <Refunds /> : <NotFound />}</Route>
+        <Route path="/payouts">{me.member.role === "staff" ? <Payouts /> : <NotFound />}</Route>
+        <Route path="/venues">{me.member.role === "staff" ? <Venues /> : <NotFound />}</Route>
+        <Route path="/interests">{me.member.role === "staff" ? <Interests /> : <NotFound />}</Route>
+        <Route path="/holidays">{me.member.role === "staff" ? <Holidays /> : <NotFound />}</Route>
+        <Route path="/o/:op/*">{({ op }) => (me.operators.some((o) => o.id === op) ? <Shell me={me} op={op} /> : <NotFound />)}</Route>
+        <Route component={NotFound} />
+      </Switch>
+    </>
+  );
+}
+
+// Staff phone these contacts themselves until the send goes through (ADR 0006).
+function WhatsAppBanner() {
+  const { t, l } = useT();
+  const state = useApi<WhatsAppState>("/whatsapp");
+  const { reload } = state;
+  const [busy, setBusy] = useState<string>();
+
+  useEffect(() => {
+    const id = setInterval(reload, 60_000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  async function retry(id: string) {
+    setBusy(id);
+    try {
+      const s = await api<WhatsAppState>("POST", `/whatsapp/${id}/retry`, {});
+      if (s.failed.some((m) => m.id === id)) toast(t.stillNotSent, "error");
+    } catch (e) {
+      toast(errorText(e, t), "error");
+    }
+    await reload();
+    setBusy(undefined);
+  }
+
+  const s = state.data;
+  if (!s || (s.connected && s.failed.length === 0)) return null;
+  return (
+    <section role="alert" aria-label="WhatsApp" className="bg-clay px-4 py-3 text-white" data-whatsapp>
+      <div className="mx-auto max-w-5xl space-y-2">
+        {!s.connected && <p className="font-semibold">{t.whatsappDown}</p>}
+        {s.failed.length > 0 && (
+          <>
+            <p className="font-semibold">{t.whatsappFailed(s.failed.length)}</p>
+            <ul className="max-h-60 divide-y divide-white/30 overflow-y-auto">
+              {s.failed.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-3 py-2" data-failed>
+                  <span className="min-w-0 text-sm">
+                    <span className="block font-semibold">
+                      {m.operator} · {m.contact ?? t.removedContact}
+                    </span>
+                    <a href={`tel:${m.phone}`} className="num underline">
+                      {m.phone}
+                    </a>{" "}
+                    · {t.whatsappTemplates[m.template]} ·{" "}
+                    <span className="num">
+                      {day(m.at, l)} {time(m.at, l)}
+                    </span>
+                  </span>
+                  {m.contact && (
+                    <button
+                      type="button"
+                      className="btn min-h-11 shrink-0 bg-white px-4 text-clay"
+                      aria-label={t.retrySendTo(m.phone)}
+                      disabled={busy === m.id}
+                      onClick={() => retry(m.id)}
+                    >
+                      {t.retrySend}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
 function Shell({ me, op }: { me: Me; op: string }) {
   const { t } = useT();
   const operator = me.operators.find((o) => o.id === op)!;
+  const staff = me.member.role === "staff";
   const [scanning] = useRoute("/o/:op/scan");
   useEffect(() => openQueue(op), [op]);
-  if (scanning) return <Scan />;
+  if (CHECK_IN && scanning) return <Scan />;
   return (
     <div className="min-h-dvh pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-28">
       <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
@@ -90,8 +167,12 @@ function Shell({ me, op }: { me: Me; op: string }) {
               </Link>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            {me.member.role === "staff" && <StaffLinks />}
+          <div className="flex min-w-0 items-center gap-1">
+            {staff && (
+              <div className="flex min-w-0 overflow-x-auto">
+                <StaffLinks />
+              </div>
+            )}
             <LangPill />
           </div>
         </div>
@@ -101,11 +182,11 @@ function Shell({ me, op }: { me: Me; op: string }) {
           <Route path="/o/:op/today" component={Today} />
           <Route path="/o/:op/timeslots/:id" component={Timeslot} />
           <Route path="/o/:op/schedule" component={Schedule} />
-          <Route path="/o/:op/setup" component={Setup} />
+          <Route path="/o/:op/setup">{staff ? <Setup /> : <NotFound />}</Route>
           <Route component={NotFound} />
         </Switch>
       </main>
-      <TabBar op={op} />
+      <TabBar op={op} staff={staff} />
     </div>
   );
 }
@@ -154,6 +235,7 @@ function StaffLinks() {
           ["/payouts", t.payouts],
           ["/venues", t.venues],
           ["/interests", t.interests],
+          ["/holidays", t.holidays],
         ] as const
       ).map(([href, label]) => (
         <Link key={href} href={href} className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-leaf hover:bg-sand">

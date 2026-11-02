@@ -2,7 +2,7 @@ import { checkouts, createDb, customers, otps } from "@komugo/db";
 import { Hono } from "hono";
 import { and, count, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import { holdReply, holdStep, ownedCheckout, persistDraft } from "./checkout";
+import { holdReply, holdStep, ownedCheckout, perCourt, persistDraft } from "./checkout";
 import { otpEmail, sendEmail } from "./email";
 import type { Locale } from "./details";
 import { DAY, emailRef, fail, HOUR, hmacHex, limited, log, logError, MIN, safeEqual, type Ctx } from "./lib";
@@ -171,6 +171,7 @@ auth.post("/otp/verify", async (c) => {
 
   if (!checkout.draft) {
     await db.update(checkouts).set({ customerId, updatedAt: now }).where(eq(checkouts.id, checkout.id));
+    if (perCourt(checkout)) return holdReply(c, await holdStep(c.env, (p) => c.executionCtx.waitUntil(p), checkout.id));
     return c.json({ next: "who" as const });
   }
   const ids = await persistDraft(db, checkout, customerId, checkout.draft);

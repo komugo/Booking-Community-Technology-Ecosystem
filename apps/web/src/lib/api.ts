@@ -10,6 +10,7 @@ export type Checkout = {
   locale: Locale;
   quantity: number;
   startsAt: number | null;
+  endsAt: number | null;
   timeslotId: string;
   option: Named & {
     id: string;
@@ -21,6 +22,8 @@ export type Checkout = {
     requiredCert: string | null;
     minParticipants: number | null;
     maxPerBooking: number | null;
+    bookingUnit: "person" | "court";
+    ticketType: "timeslot" | "date";
     asksWeight: boolean;
   };
   activity: Named & {
@@ -56,10 +59,12 @@ export type GroupTicket = {
   id: string;
   participantId: string;
   participantName: string;
+  court: string | null;
   status: "issued" | "cancelled" | "forfeited";
   optionId: string;
   timeslotId: string;
   startsAt: number;
+  endsAt: number | null;
   closedAt: number | null;
   refundId: string | null;
   refundSen: number;
@@ -97,6 +102,7 @@ type Visit = {
   k: string;
   timeslotId: string;
   startsAt: number;
+  endsAt: number | null;
   closed: boolean;
   option: Named;
   activity: Named;

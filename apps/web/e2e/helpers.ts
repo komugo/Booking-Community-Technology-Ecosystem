@@ -16,10 +16,15 @@ export type Fixture = {
   bookingId: string;
   packId?: string;
   k: string;
+  list: string;
+  close: string;
   customerEmail: string;
   activityPath: string;
   venueSlug?: string;
   offerId?: string;
+  courtOptionId?: string;
+  dateOptionId?: string;
+  listed?: { list: string; courtSlotId: string; courtStartsAt: number; dateSlotId: string; courtCode: string; dateCodes: string[] };
 };
 
 export async function fixture(
@@ -34,6 +39,11 @@ export async function fixture(
     extraSlots?: number;
     close?: boolean;
     info?: boolean;
+    court?: boolean;
+    dateTicket?: boolean;
+    dailyLimit?: number;
+    weekendPriceSen?: number;
+    listed?: boolean;
   } = {},
 ): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });

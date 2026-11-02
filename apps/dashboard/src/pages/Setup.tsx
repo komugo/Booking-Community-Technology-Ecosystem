@@ -5,14 +5,19 @@ import { api, useApi } from "../api";
 import { Group, Input, num, SaveBar, useSubmit } from "../form";
 import { errorText, named, useT, type Dict } from "../i18n";
 import { useMe } from "../me";
+import { MessageSheet } from "../message";
 import { rm, sen } from "../money";
 import { PhotosEditor } from "../photos";
-import type { AddOn, ListingMode, Option, PackOffer, Resource, ResourceKind, Setup, Venues } from "../types";
+import type { AddOn, BookingUnit, Contact, ContactRole, ListingMode, Option, PackOffer, Resource, ResourceKind, Setting, Setup, TicketType, Venues } from "../types";
 import { Field, Icon, SignedInAs, Sheet, Spinner, Stepper, toast, Toggle } from "../ui";
 
-const TABS = ["activity", "options", "add-ons", "packs", "resources"] as const;
+const TABS = ["activity", "options", "add-ons", "packs", "resources", "contacts"] as const;
 type Tab = (typeof TABS)[number];
-const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane"];
+type ListTab = Exclude<Tab, "activity" | "contacts">;
+const KINDS: ResourceKind[] = ["horse", "instructor", "belayer", "auto_belay_lane", "court"];
+const PERSON_KINDS = KINDS.filter((k) => k !== "court");
+const UNITS: BookingUnit[] = ["person", "court"];
+const TICKET_TYPES: TicketType[] = ["timeslot", "date"];
 const MODES: ListingMode[] = ["bookable", "info", "hidden"];
 
 const str = (n: number | null) => (n === null ? "" : String(n));
@@ -37,8 +42,15 @@ export default function SetupPage() {
   const [, navigate] = useLocation();
   const tab = (new URLSearchParams(useSearch()).get("tab") ?? "activity") as Tab;
   const setup = useApi<Setup>(`/operators/${op}/setup`);
-  const [editing, setEditing] = useState<{ kind: Exclude<Tab, "activity">; item: Item | null } | null>(null);
-  const labels: Record<Tab, string> = { activity: t.activity, options: t.options, "add-ons": t.addOns, packs: t.packs, resources: t.resources };
+  const [editing, setEditing] = useState<{ kind: ListTab; item: Item | null } | null>(null);
+  const labels: Record<Tab, string> = {
+    activity: t.activity,
+    options: t.options,
+    "add-ons": t.addOns,
+    packs: t.packs,
+    resources: t.resources,
+    contacts: t.contacts,
+  };
 
   if (!setup.data) return setup.error ? <p className="py-16 text-center text-muted">{errorText(setup.error, t)}</p> : <Spinner label={t.loading} />;
   const s = setup.data;
@@ -68,9 +80,11 @@ export default function SetupPage() {
 
       <div role="tabpanel" aria-label={labels[tab]} className="mt-5">
         {tab === "activity" && me.member.role === "staff" && <CommissionCard op={op} setup={s} onSaved={setup.reload} />}
+        {tab === "activity" && me.member.role === "staff" && <HolidaysCard op={op} setup={s} onSaved={setup.reload} />}
         {tab === "activity" &&
           s.catalogue.map((a) => <ActivityCard key={a.id} op={op} setup={s} id={a.id} staff={me.member.role === "staff"} onSaved={setup.reload} />)}
-        {tab !== "activity" && (
+        {tab === "contacts" && <Contacts op={op} />}
+        {tab !== "activity" && tab !== "contacts" && (
           <List setup={s} kind={tab} onNew={() => setEditing({ kind: tab, item: null })} onEdit={(item) => setEditing({ kind: tab, item })} />
         )}
       </div>
@@ -117,7 +131,7 @@ function List({
   onEdit,
 }: {
   setup: Setup;
-  kind: Exclude<Tab, "activity">;
+  kind: ListTab;
   onNew: () => void;
   onEdit: (x: Item) => void;
 }) {
@@ -132,7 +146,12 @@ function List({
       ? setup.options.map((o) => ({
           item: o,
           title: named(o, l),
-          detail: [rm(o.priceSen), `${o.durationMinutes} ${t.min}`, ...o.needs.map((n) => `${n.quantity}× ${t.kinds[n.kind]}`)].join(" · "),
+          detail: [
+            rm(o.priceSen),
+            ...(o.weekendPriceSen === null ? [] : [`${t.weekend} ${rm(o.weekendPriceSen)}`]),
+            `${o.durationMinutes} ${t.min}`,
+            ...o.needs.map((n) => `${n.quantity}× ${t.kinds[n.kind]}`),
+          ].join(" · "),
         }))
       : kind === "add-ons"
         ? setup.addOns.map((a) => ({ item: a, title: named(a, l), detail: rm(a.priceSen) }))
@@ -187,6 +206,125 @@ function List({
   );
 }
 
+function Contacts({ op }: { op: string }) {
+  const { t } = useT();
+  const list = useApi<{ contacts: Contact[] }>(`/operators/${op}/contacts`);
+  const [editing, setEditing] = useState<{ item: Contact | null } | null>(null);
+  const [messaging, setMessaging] = useState(false);
+  const done = () => {
+    setEditing(null);
+    toast(t.saved);
+    list.reload();
+  };
+
+  if (!list.data) return list.error ? <p className="py-16 text-center text-muted">{errorText(list.error, t)}</p> : <Spinner label={t.loading} />;
+  return (
+    <>
+      <p className="mb-4 text-muted">{t.contactsHint}</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primary" onClick={() => setEditing({ item: null })}>
+          <Icon name="plus" className="size-5" />
+          {t.newContact}
+        </button>
+        {list.data.contacts.length > 0 && (
+          <button type="button" className="btn btn-quiet" onClick={() => setMessaging(true)}>
+            {t.messageContacts}
+          </button>
+        )}
+      </div>
+      {list.data.contacts.length === 0 ? (
+        <p className="mt-4 rounded-2xl bg-sand p-4">{t.noContacts}</p>
+      ) : (
+        <ul className="mt-4 grid gap-3 lg:grid-cols-2" aria-label={t.contacts}>
+          {list.data.contacts.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => setEditing({ item: c })}
+                data-row
+                className="card flex min-h-16 w-full items-center justify-between gap-3 p-4 text-left hover:bg-sand/40"
+              >
+                <span className="min-w-0">
+                  <span className="block font-display text-lg font-bold">{c.name}</span>
+                  <span className="num block text-sm text-muted">
+                    {[c.phone, t.contactRoles[c.role], t.contactLanguages[c.locale], ...(c.email ? [c.email] : [])].join(" · ")}
+                  </span>
+                </span>
+                {c.welcome && (
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.welcome.status === "sent" ? "bg-lime text-forest" : "bg-sand text-clay"}`}>
+                    {t.welcomeStatus[c.welcome.status]}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Sheet open={!!editing} onClose={() => setEditing(null)} full title={editing?.item ? t.editContact : t.newContact}>
+        {editing && <ContactEditor op={op} item={editing.item} onSaved={done} />}
+      </Sheet>
+      <MessageSheet op={op} open={messaging} onClose={() => setMessaging(false)} />
+    </>
+  );
+}
+
+function ContactEditor({ op, item, onSaved }: { op: string; item: Contact | null; onSaved: () => void }) {
+  const { t } = useT();
+  const [v, setV] = useState({
+    name: item?.name ?? "",
+    phone: item?.phone ?? "",
+    role: item?.role ?? ("counter" as ContactRole),
+    locale: item?.locale ?? ("ms" as Contact["locale"]),
+    email: item?.email ?? "",
+  });
+  const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
+  const { busy, error, submit, err } = useSubmit(t);
+  const path = `/operators/${op}/contacts${item ? `/${item.id}` : ""}`;
+
+  const save = async () => {
+    if (await submit(() => api(item ? "PUT" : "POST", path, v))) onSaved();
+  };
+  const remove = async () => {
+    if (await submit(() => api("POST", `${path}/remove`, {}))) onSaved();
+  };
+
+  return (
+    <div className="space-y-4">
+      <Input label={t.name} value={v.name} onChange={(name) => set({ name })} error={err("name")} />
+      <Input label={t.whatsappNumber} value={v.phone} onChange={(phone) => set({ phone })} error={err("phone")} hint={t.whatsappNumberHint} />
+      <Field label={t.contactRole} hint={t.contactRoleHint} error={err("role")}>
+        {(id, note) => (
+          <select id={id} className="input" value={v.role} aria-describedby={note} onChange={(e) => set({ role: e.target.value as ContactRole })}>
+            {(["counter", "owner"] as const).map((r) => (
+              <option key={r} value={r}>
+                {t.contactRoles[r]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {v.role === "owner" && <Input label={t.ownerEmail} value={v.email} onChange={(email) => set({ email })} error={err("email")} />}
+      <Field label={t.contactLanguage} error={err("locale")}>
+        {(id, note) => (
+          <select id={id} className="input" value={v.locale} aria-describedby={note} onChange={(e) => set({ locale: e.target.value as Contact["locale"] })}>
+            {(["ms", "en"] as const).map((l) => (
+              <option key={l} value={l}>
+                {t.contactLanguages[l]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {item && (
+        <button type="button" className="btn btn-quiet" disabled={busy} onClick={remove}>
+          {t.removeContact}
+        </button>
+      )}
+      <SaveBar busy={busy} error={error} onSave={save} />
+    </div>
+  );
+}
+
 function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSaved: () => void }) {
   const { t } = useT();
   const [pct, setPct] = useState(setup.commissionBps === null ? "" : String(setup.commissionBps / 100));
@@ -208,14 +346,39 @@ function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSa
   );
 }
 
+function HolidaysCard({ op, setup, onSaved }: { op: string; setup: Setup; onSaved: () => void }) {
+  const { t } = useT();
+  const { error, submit } = useSubmit(t);
+  const save = async (holidaysAsWeekend: boolean) => {
+    if (await submit(() => api("PUT", `/operators/${op}/holidays-as-weekend`, { holidaysAsWeekend }))) {
+      toast(t.saved);
+      onSaved();
+    }
+  };
+  return (
+    <section className="card mb-4 p-4" aria-label={t.holidaysAsWeekend}>
+      <Toggle label={t.holidaysAsWeekend} checked={setup.holidaysAsWeekend} onChange={save} />
+      <p className="text-sm text-muted">{error?.text ?? t.holidaysAsWeekendHint}</p>
+    </section>
+  );
+}
+
 function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Setup; id: string; staff: boolean; onSaved: () => void }) {
   const { t, l } = useT();
   const a = setup.catalogue.find((x) => x.id === id)!;
-  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 0, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
+  const settings = setup.activities.find((x) => x.id === id) ?? {
+    freeCancelHours: 0,
+    bookingCutoffMinutes: 60,
+    closedDays: [],
+    requiresWaiver: true,
+    maxCourtTickets: 2,
+  };
+  const courts = setup.options.some((o) => o.activityId === id && o.bookingUnit === "court");
   const [hours, setHours] = useState(String(settings.freeCancelHours));
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);
   const [waiver, setWaiver] = useState(settings.requiresWaiver);
+  const [maxCourts, setMaxCourts] = useState(String(settings.maxCourtTickets));
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
   const [mode, setMode] = useState(a.listingMode);
   const [editingPage, setEditingPage] = useState(false);
@@ -229,6 +392,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
         bookingCutoffMinutes: num(cutoff),
         closedDays: closed,
         requiresWaiver: waiver,
+        maxCourtTickets: num(maxCourts),
       }),
     );
     if (ok) {
@@ -310,6 +474,9 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           )}
         </Field>
       </div>
+      {courts && (
+        <Input label={t.maxCourtTickets} value={maxCourts} onChange={setMaxCourts} error={err("maxCourtTickets")} hint={t.maxCourtTicketsHint} numeric />
+      )}
       <Toggle label={t.requiresWaiver} checked={waiver} onChange={setWaiver} />
       <fieldset>
         <legend className="label">{t.closedDays}</legend>
@@ -378,6 +545,8 @@ function CopyEditor({ op, activity, staff, onSaved }: { op: string; activity: Se
     descriptionEn: activity.descriptionEn,
     descriptionMs: activity.descriptionMs,
     venueId: activity.venueId,
+    free: activity.free,
+    setting: activity.setting,
     photos: activity.photos,
   });
   const { busy, error, submit, err } = useSubmit(t);
@@ -403,6 +572,25 @@ function CopyEditor({ op, activity, staff, onSaved }: { op: string; activity: Se
         </Field>
       ))}
       <PhotosEditor photos={v.photos} onChange={(fn) => setV((x) => ({ ...x, photos: fn(x.photos) }))} error={err("photos")} />
+      <Toggle label={t.free} checked={v.free} onChange={(free) => setV({ ...v, free })} />
+      <Field label={t.setting} error={err("setting")}>
+        {(id, note) => (
+          <select
+            id={id}
+            className="input"
+            value={v.setting ?? ""}
+            aria-describedby={note}
+            onChange={(e) => setV({ ...v, setting: (e.target.value || null) as Setting | null })}
+          >
+            <option value="">{t.settingUnset}</option>
+            {(["indoor", "outdoor"] as const).map((s) => (
+              <option key={s} value={s}>
+                {t.settings[s]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
       <SaveBar busy={busy} error={error} onSave={save} />
     </div>
   );
@@ -459,11 +647,17 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
     requiredCert: item?.requiredCert ?? "",
     minParticipants: item?.minParticipants ?? 1,
     maxPerBooking: item?.maxPerBooking ?? 10,
+    bookingUnit: item?.bookingUnit ?? ("person" as BookingUnit),
+    ticketType: item?.ticketType ?? ("timeslot" as TicketType),
+    dailyLimit: str(item?.dailyLimit ?? null),
+    weekendPrice: item?.weekendPriceSen == null ? "" : String(item.weekendPriceSen / 100),
     active: item?.active ?? true,
-    needs: Object.fromEntries(KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
+    needs: Object.fromEntries(PERSON_KINDS.map((k) => [k, item?.needs.find((n) => n.kind === k)?.quantity ?? 0])) as Record<ResourceKind, number>,
   });
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
   const { busy, error, submit, err } = useSubmit(t);
+  const court = v.bookingUnit === "court";
+  const dated = v.ticketType === "date";
 
   const save = async () => {
     const body = {
@@ -471,15 +665,32 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
       nameEn: v.nameEn,
       nameMs: v.nameMs,
       priceSen: sen(v.price),
-      durationMinutes: num(v.duration),
-      minAge: num(v.minAge),
-      maxAge: num(v.maxAge),
-      maxWeightKg: num(v.maxWeightKg),
-      requiredCert: v.requiredCert.trim() || null,
-      minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
-      maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
+      bookingUnit: v.bookingUnit,
+      ticketType: v.ticketType,
+      dailyLimit: dated ? num(v.dailyLimit) : null,
+      weekendPriceSen: dated ? sen(v.weekendPrice) : null,
       active: v.active,
-      needs: KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
+      ...(court
+        ? {
+            durationMinutes: 60,
+            minAge: null,
+            maxAge: null,
+            maxWeightKg: null,
+            requiredCert: null,
+            minParticipants: null,
+            maxPerBooking: null,
+            needs: [{ kind: "court", quantity: 1 }],
+          }
+        : {
+            durationMinutes: dated ? 60 : num(v.duration),
+            minAge: num(v.minAge),
+            maxAge: num(v.maxAge),
+            maxWeightKg: num(v.maxWeightKg),
+            requiredCert: v.requiredCert.trim() || null,
+            minParticipants: v.minParticipants > 1 ? v.minParticipants : null,
+            maxPerBooking: v.maxPerBooking !== 10 ? v.maxPerBooking : null,
+            needs: dated ? [] : PERSON_KINDS.filter((k) => v.needs[k] > 0).map((k) => ({ kind: k, quantity: v.needs[k] })),
+          }),
     };
     if (await submit(() => api(item ? "PUT" : "POST", `/operators/${op}/options${item ? `/${item.id}` : ""}`, body), t.lengthenBlocked)) onSaved();
   };
@@ -492,41 +703,99 @@ function OptionEditor({ op, setup, item, onSaved }: { op: string; setup: Setup; 
           <Input label={t.nameEn} value={v.nameEn} onChange={(nameEn) => set({ nameEn })} error={err("nameEn")} />
           <Input label={t.nameMs} value={v.nameMs} onChange={(nameMs) => set({ nameMs })} error={err("nameMs")} />
         </div>
+        <Field label={t.ticketType} hint={dated ? t.dateHint : undefined}>
+          {(id, note) => (
+            <select
+              id={id}
+              className="input"
+              value={v.ticketType}
+              disabled={!!item}
+              aria-describedby={note}
+              onChange={(e) => set({ ticketType: e.target.value as TicketType, bookingUnit: "person" })}
+            >
+              {TICKET_TYPES.map((x) => (
+                <option key={x} value={x}>
+                  {t.ticketTypes[x]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        {!dated && (
+          <Field label={t.bookingUnit} hint={court ? t.courtHint : undefined}>
+            {(id, note) => (
+              <select
+                id={id}
+                className="input"
+                value={v.bookingUnit}
+                disabled={!!item}
+                aria-describedby={note}
+                onChange={(e) => set({ bookingUnit: e.target.value as BookingUnit })}
+              >
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {t.bookingUnits[u]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <Input label={t.priceRm} value={v.price} onChange={(price) => set({ price })} error={err("priceSen")} numeric />
-          <Input label={t.duration} value={v.duration} onChange={(duration) => set({ duration })} error={err("durationMinutes")} numeric />
+          {dated ? (
+            <Input label={t.dailyLimit} value={v.dailyLimit} onChange={(dailyLimit) => set({ dailyLimit })} error={err("dailyLimit")} hint={t.dailyLimitHint} numeric />
+          ) : (
+            !court && <Input label={t.duration} value={v.duration} onChange={(duration) => set({ duration })} error={err("durationMinutes")} numeric />
+          )}
+          {dated && (
+            <Input
+              label={t.weekendPriceRm}
+              value={v.weekendPrice}
+              onChange={(weekendPrice) => set({ weekendPrice })}
+              error={err("weekendPriceSen")}
+              hint={t.weekendPriceHint}
+              numeric
+            />
+          )}
         </div>
       </div>
-      <Group title={t.requirements}>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label={t.minAge} value={v.minAge} onChange={(minAge) => set({ minAge })} error={err("minAge")} hint={t.optional} numeric />
-          <Input label={t.maxAge} value={v.maxAge} onChange={(maxAge) => set({ maxAge })} error={err("maxAge")} hint={t.optional} numeric />
-          <Input
-            label={t.maxWeight}
-            value={v.maxWeightKg}
-            onChange={(maxWeightKg) => set({ maxWeightKg })}
-            error={err("maxWeightKg")}
-            hint={t.optional}
-            numeric
-          />
-          <Input
-            label={t.cert}
-            value={v.requiredCert}
-            onChange={(requiredCert) => set({ requiredCert })}
-            error={err("requiredCert")}
-            hint={t.optional}
-          />
-        </div>
-        <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
-        <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
-        {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
-      </Group>
-      <Group title={t.resourceNeeds}>
-        {KINDS.map((k) => (
-          <Stepper key={k} label={t.kinds[k]} value={v.needs[k]} min={0} max={10} onChange={(n) => set({ needs: { ...v.needs, [k]: n } })} />
-        ))}
-        {err("needs") && <p className="text-sm font-semibold text-clay">{err("needs")}</p>}
-      </Group>
+      {!court && (
+        <>
+          <Group title={t.requirements}>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label={t.minAge} value={v.minAge} onChange={(minAge) => set({ minAge })} error={err("minAge")} hint={t.optional} numeric />
+              <Input label={t.maxAge} value={v.maxAge} onChange={(maxAge) => set({ maxAge })} error={err("maxAge")} hint={t.optional} numeric />
+              <Input
+                label={t.maxWeight}
+                value={v.maxWeightKg}
+                onChange={(maxWeightKg) => set({ maxWeightKg })}
+                error={err("maxWeightKg")}
+                hint={t.optional}
+                numeric
+              />
+              <Input
+                label={t.cert}
+                value={v.requiredCert}
+                onChange={(requiredCert) => set({ requiredCert })}
+                error={err("requiredCert")}
+                hint={t.optional}
+              />
+            </div>
+            <Stepper label={t.minParticipants} value={v.minParticipants} min={1} max={10} onChange={(minParticipants) => set({ minParticipants })} />
+            <Stepper label={t.maxPerBooking} value={v.maxPerBooking} min={v.minParticipants} max={50} onChange={(maxPerBooking) => set({ maxPerBooking })} />
+            {err("maxPerBooking") && <p className="text-sm font-semibold text-clay">{err("maxPerBooking")}</p>}
+          </Group>
+          {!dated && (
+            <Group title={t.resourceNeeds}>
+              {PERSON_KINDS.map((k) => (
+                <Stepper key={k} label={t.kinds[k]} value={v.needs[k]} min={0} max={10} onChange={(n) => set({ needs: { ...v.needs, [k]: n } })} />
+              ))}
+              {err("needs") && <p className="text-sm font-semibold text-clay">{err("needs")}</p>}
+            </Group>
+          )}
+        </>
+      )}
       <Toggle label={t.active} checked={v.active} onChange={(active) => set({ active })} />
       <SaveBar busy={busy} error={error} onSave={save} />
     </div>
@@ -655,7 +924,7 @@ function PackOfferEditor({ op, setup, item, onSaved }: { op: string; setup: Setu
   });
   const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
   const { busy, error, submit, err } = useSubmit(t);
-  const options = setup.options.filter((o) => o.activityId === v.activityId);
+  const options = setup.options.filter((o) => o.activityId === v.activityId && o.bookingUnit === "person" && o.ticketType === "timeslot");
 
   const save = async () => {
     const body = {

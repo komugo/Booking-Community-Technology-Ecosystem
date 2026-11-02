@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { Weekday } from "@komugo/types";
+import type { OpeningHours, Weekday } from "@komugo/types";
 
-export type { Weekday };
-export type OpeningHours = { days: Weekday[]; opens: string; closes: string };
+export type { OpeningHours, Weekday };
 export type Faq = { q: string; a: string };
 
 const json = <T>() => text({ mode: "json" }).$type<T>().notNull().default(sql`'[]'`);
@@ -18,6 +17,8 @@ export const operators = sqliteTable("operators", {
   name: text().notNull(),
   signedUp: integer({ mode: "boolean" }).notNull().default(false),
   commissionBps: integer(),
+  unknown: integer({ mode: "boolean" }).notNull().default(false),
+  holidaysAsWeekend: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 const hub = () => ({
@@ -64,6 +65,8 @@ export const venues = sqliteTable(
 export const LISTING_MODES = ["bookable", "info", "hidden"] as const;
 export type ListingMode = (typeof LISTING_MODES)[number];
 export const HOW_TO_BOOK = ["walk_in", "external", "unknown"] as const;
+export const SETTINGS = ["indoor", "outdoor"] as const;
+export type Setting = (typeof SETTINGS)[number];
 
 export const activities = sqliteTable(
   "activities",
@@ -89,6 +92,8 @@ export const activities = sqliteTable(
     venueId: text().references(() => venues.id),
     listingMode: text({ enum: LISTING_MODES }).notNull().default("hidden"),
     howToBook: text({ enum: HOW_TO_BOOK }).notNull().default("unknown"),
+    free: integer({ mode: "boolean" }).notNull().default(false),
+    setting: text({ enum: SETTINGS }),
     bookUrl: text(),
     priceNoteEn: text(),
     priceNoteMs: text(),
@@ -212,6 +217,9 @@ export const projOptions = sqliteTable(
     requiredCert: text(),
     minParticipants: integer(),
     maxPerBooking: integer(),
+    bookingUnit: text({ enum: ["person", "court"] }).notNull().default("person"),
+    ticketType: text({ enum: ["timeslot", "date"] }).notNull().default("timeslot"),
+    dailyLimit: integer(),
     active: integer({ mode: "boolean" }).notNull(),
     asksWeight: integer({ mode: "boolean" }).notNull().default(false),
     version: integer().notNull(),
@@ -234,8 +242,8 @@ export const projAddOns = sqliteTable(
   (t) => [index("proj_add_ons_activity").on(t.activityId)],
 );
 
-// spots is not re-projected as time passes: readers must also filter starts_at - booking_cutoff_minutes > now.
-// price_sen is the Schedule's price; null means the Option's.
+// spots is not re-projected as time passes: readers must also filter coalesce(ends_at, starts_at) - booking_cutoff_minutes > now.
+// price_sen is the Schedule's price; null means the Option's. Only a Date ticket's Timeslot has ends_at: that date's closing time.
 export const projTimeslots = sqliteTable(
   "proj_timeslots",
   {
@@ -243,8 +251,10 @@ export const projTimeslots = sqliteTable(
     operatorId: text().notNull(),
     optionId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     spots: integer().notNull(),
+    maxHours: integer(),
     priceSen: integer(),
     version: integer().notNull(),
   },
@@ -263,6 +273,7 @@ export const projTickets = sqliteTable(
     optionId: text().notNull(),
     timeslotId: text().notNull(),
     startsAt: integer().notNull(),
+    endsAt: integer(),
     closedAt: integer(),
     priceSen: integer().notNull(),
     commissionBps: integer(),
@@ -541,3 +552,57 @@ export const interests = sqliteTable(
   },
   (t) => [uniqueIndex("interests_activity_email").on(t.activityId, t.email), index("interests_unsent").on(t.emailedAt, t.unsubscribedAt)],
 );
+
+// Komugo's staff-kept Malaysian and Putrajaya Public holidays (KL dates).
+export const publicHolidays = sqliteTable("public_holidays", {
+  date: text().primaryKey(),
+  name: text().notNull(),
+});
+
+// Staff-kept WhatsApp numbers that get an Operator's messages; never Members.
+export const operatorContacts = sqliteTable(
+  "operator_contacts",
+  {
+    id: id(),
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    name: text().notNull(),
+    phone: text().notNull(),
+    role: text({ enum: ["counter", "owner"] }).notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull().default("ms"),
+    email: text(),
+    createdAt: integer().notNull(),
+  },
+  (t) => [uniqueIndex("operator_contacts_phone").on(t.operatorId, t.phone)],
+);
+
+// Every WhatsApp message sent, kept after its contact is removed.
+export const whatsappMessages = sqliteTable(
+  "whatsapp_messages",
+  {
+    id: id(),
+    operatorId: text()
+      .notNull()
+      .references(() => operators.id),
+    contactId: text().notNull(),
+    phone: text().notNull(),
+    template: text({ enum: ["welcome", "digest", "alert", "closure", "payout", "staff"] }).notNull(),
+    text: text().notNull(),
+    status: text({ enum: ["sent", "failed"] }).notNull(),
+    error: text(),
+    createdAt: integer().notNull(),
+  },
+  (t) => [index("whatsapp_messages_contact").on(t.contactId, t.createdAt), index("whatsapp_messages_status").on(t.status, t.createdAt)],
+);
+
+// A Closure made from a close Operator link, with the contact who made it; one per Timeslot, so the link works once.
+export const linkClosures = sqliteTable("link_closures", {
+  timeslotId: text().primaryKey(),
+  operatorId: text()
+    .notNull()
+    .references(() => operators.id),
+  contactId: text().notNull(),
+  contactName: text().notNull(),
+  createdAt: integer().notNull(),
+});

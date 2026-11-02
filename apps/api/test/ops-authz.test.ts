@@ -39,7 +39,7 @@ async function routesFor(w: World) {
   return [
     ["GET", "/setup", 200],
     ["PUT", `/activities/${w.activityId}`, 200, { freeCancelHours: 24, bookingCutoffMinutes: 60, closedDays: ["Mo"], requiresWaiver: true }],
-    ["PUT", `/activities/${w.activityId}/copy`, 204, { descriptionEn: "x", descriptionMs: "x", venueId, photos: [unsplash()] }],
+    ["PUT", `/activities/${w.activityId}/copy`, 204, { descriptionEn: "x", descriptionMs: "x", venueId, free: false, setting: null, photos: [unsplash()] }],
     ["POST", "/options", 201, option(w.activityId)],
     ["PUT", `/options/${w.optionId}`, 200, { ...option(w.activityId), durationMinutes: 60, maxWeightKg: 90, minAge: 7 }],
     ["POST", "/add-ons", 201, addOn(w.activityId)],
@@ -77,6 +77,17 @@ describe("ops authorization", () => {
     expect((await staff.call("GET", `/ops/operators/op_missing/setup`)).status).toBe(404);
   });
 
+  test("an Operator Member keeps Today, Timeslot and Closures; Setup and Schedule writes are staff-only", async () => {
+    const w = await world();
+    const own = await member("operator", w.operatorId);
+    for (const [method, path, ok, body] of await routesFor(w)) {
+      const kept = method === "GET" || path.endsWith("/close") || path === "/check-ins";
+      const r = await own.json(method, `/ops/operators/${w.operatorId}${path}`, body);
+      expect([method, path, r.status]).toEqual([method, path, kept ? ok : 403]);
+      if (!kept) expect(r.body).toEqual({ code: "forbidden" });
+    }
+  });
+
   test("Listing mode and Commission are staff-only, and Bookable needs a Commission", async () => {
     const w = await world({ listingMode: "hidden", signedUp: false, commissionBps: null });
     const own = await member("operator", w.operatorId);
@@ -103,15 +114,15 @@ describe("ops authorization", () => {
   test("ids from another Operator are 404 and leave its rows untouched", async () => {
     const a = await world();
     const b = await world();
-    const m = await member("operator", a.operatorId);
+    const m = await member("staff");
     const base = `/ops/operators/${a.operatorId}`;
     expect((await m.call("PUT", `${base}/options/${b.optionId}`, option(a.activityId))).status).toBe(404);
     expect((await m.call("PUT", `${base}/add-ons/${b.helmetId}`, addOn(a.activityId))).status).toBe(404);
     expect((await m.call("POST", `${base}/options`, option(b.activityId))).status).toBe(404);
     expect((await m.call("PUT", `${base}/activities/${b.activityId}`, { freeCancelHours: 0, bookingCutoffMinutes: 0, closedDays: [], requiresWaiver: true })).status).toBe(404);
-    const copy = { descriptionEn: "Mine", descriptionMs: "Saya", venueId: null, photos: [] };
+    const copy = { descriptionEn: "Mine", descriptionMs: "Saya", venueId: null, free: false, setting: null, photos: [] };
     expect((await m.call("PUT", `${base}/activities/${b.activityId}/copy`, copy)).status).toBe(404);
-    expect((await m.call("PUT", `/ops/operators/${b.operatorId}/activities/${b.activityId}/copy`, copy)).status).toBe(404);
+    expect((await (await member("operator", a.operatorId)).call("PUT", `/ops/operators/${b.operatorId}/activities/${b.activityId}/copy`, copy)).status).toBe(404);
     expect(await d1("SELECT description_en FROM activities WHERE id = ?", b.activityId)).toEqual([{ description_en: "x" }]);
     await a.flush();
     await b.flush();

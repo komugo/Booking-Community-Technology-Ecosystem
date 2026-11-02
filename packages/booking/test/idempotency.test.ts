@@ -64,7 +64,7 @@ test("cancelTickets and rescheduleTickets replays return the original response",
   await w.b.closeTimeslot(closed, "weather");
   const move = rid();
   const moved = await w.reschedule(w.customerId, { bookingId }, ticketIds, next, [p], move);
-  expect(await w.reschedule(w.customerId, { bookingId }, ticketIds, next, [p], move)).toEqual(moved);
+  expect(await w.reschedule(w.customerId, { bookingId }, ticketIds, next, [p], move)).toEqual({ ...moved, replayed: true });
   expect(await w.allocationCount()).toBe(1);
 
   const i = {
@@ -78,6 +78,6 @@ test("cancelTickets and rescheduleTickets replays return the original response",
   };
   const q = await w.quote(w.customerId, { bookingId }, ticketIds);
   const first = await w.b.cancelTickets({ ...i, expectSen: q.refundSen });
-  expect(await w.b.cancelTickets({ ...i, expectSen: q.refundSen })).toEqual(first);
+  expect(await w.b.cancelTickets({ ...i, expectSen: q.refundSen })).toEqual({ ...first, replayed: true });
   expect(await w.count("SELECT count(*) AS n FROM refunds")).toBe(1);
 });

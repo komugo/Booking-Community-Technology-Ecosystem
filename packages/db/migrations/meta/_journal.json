@@ -113,6 +113,62 @@
       "when": 1793314759470,
       "tag": "0016_interest_failed",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793343569663,
+      "tag": "0018_activity_free_setting",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793343907542,
+      "tag": "0019_per_court",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793348124923,
+      "tag": "0020_date_ticket",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793370741925,
+      "tag": "0021_operator_unknown",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1793607599870,
+      "tag": "0022_court_hours",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793609602964,
+      "tag": "0023_public_holidays",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793610354025,
+      "tag": "0024_operator_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793612029673,
+      "tag": "0025_link_closures",
+      "breakpoints": true
     }
   ]
 }

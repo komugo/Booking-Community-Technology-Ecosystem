@@ -1,4 +1,4 @@
-import { getActivityPage, getCategoryHub, getCityHub, getHome, getVenuePage, type ActivityCard, type Locale, type Slugs } from "@komugo/db";
+import { getActivityPage, getCategoryHub, getCityHub, getHome, getVenuePage, SETTINGS, type ActivityCard, type CityFilters, type Locale, type Slugs } from "@komugo/db";
 import { api, errorsOf, see, type ApiError } from "./api";
 import { form } from "./checkout";
 import { db, sells, showDrafts } from "./db";
@@ -19,11 +19,23 @@ export async function loadHome(locale: Locale) {
   return { locale, alternates: { en: path("en"), ms: path("ms") }, ...(await getHome(db, query(locale))) };
 }
 
+function cityFilters(q: URLSearchParams): CityFilters {
+  const presint = Number(q.get("presint"));
+  return {
+    bookable: q.has("bookable"),
+    free: q.has("free"),
+    setting: SETTINGS.find((x) => x === q.get("setting")) ?? null,
+    presint: Number.isInteger(presint) && presint >= 1 && presint <= 20 ? presint : null,
+  };
+}
+
 export async function loadCity(p: Params, locale: Locale, search: string) {
-  const data = await getCityHub(db, { ...query(locale), city: p.city! });
+  const q = new URLSearchParams(search);
+  const filters = cityFilters(q);
+  const data = await getCityHub(db, { ...query(locale), city: p.city!, filters });
   if (!data) return notFound();
   const alt = alternates(locale, search, [p.city], [data.city.slugs]);
-  return alt instanceof Response ? alt : { locale, alternates: alt, ...data };
+  return alt instanceof Response ? alt : { locale, alternates: alt, ...data, filters, map: q.get("view") === "map" };
 }
 
 export async function loadCategory(p: Params, locale: Locale, search: string) {

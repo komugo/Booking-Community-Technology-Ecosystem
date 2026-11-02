@@ -1,3 +1,4 @@
+import type { OpeningHours } from "@komugo/types";
 import { DurableObject } from "cloudflare:workers";
 import * as engine from "./engine";
 import {
@@ -33,6 +34,10 @@ export class OperatorBooking extends DurableObject<Env> {
 
   upsertActivity(op: string, a: ActivityInput) {
     return this.#mutate(op, null, (sql, now) => engine.upsertActivity(sql, now, a));
+  }
+
+  setHours(op: string, list: { activityId: string; hours: OpeningHours[] }[], holidays: string[]) {
+    return this.#mutate(op, null, (sql, now) => engine.setHours(sql, now, list, holidays));
   }
 
   upsertOption(op: string, o: OptionInput) {
@@ -100,6 +105,7 @@ export class OperatorBooking extends DurableObject<Env> {
       customerId: string;
       replaces: string | null;
       timeslotId: string;
+      hours?: number;
       participants: ParticipantFacts[];
       addOns: AddOnPick[];
     },
@@ -111,6 +117,7 @@ export class OperatorBooking extends DurableObject<Env> {
         i.customerId,
         i.replaces,
         i.timeslotId,
+        i.hours ?? 1,
         i.participants.map((p) => p.id),
         [...i.addOns].sort((a, b) => (a.id < b.id ? -1 : 1)).map((a) => [a.id, a.qty]),
       ],
@@ -229,6 +236,7 @@ export class OperatorBooking extends DurableObject<Env> {
   ): Promise<Result<T>> {
     if (!this.env.BOOKING.idFromName(op).equals(this.ctx.id)) throw new Error("wrong_operator");
     const now = Date.now();
+    let replayed = false;
     try {
       const value = tx<T>(this.ctx.storage, () => {
         const sql = this.ctx.storage.sql;
@@ -236,13 +244,16 @@ export class OperatorBooking extends DurableObject<Env> {
         engine.expireDue(sql, now);
         if (idem) {
           const prior = engine.replay(sql, idem);
-          if (prior !== undefined) return prior as NotPromise<T>;
+          if (prior !== undefined) {
+            replayed = true;
+            return prior as NotPromise<T>;
+          }
         }
         const v = fn(sql, now);
         if (idem) engine.record(sql, idem, v, now);
         return v;
       });
-      return { ok: true, value };
+      return { ok: true, value, replayed };
     } catch (e) {
       if (e instanceof BookingError) return { ok: false, error: e.code };
       throw e;

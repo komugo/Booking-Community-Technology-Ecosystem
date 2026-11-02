@@ -9,7 +9,7 @@ import type { groupStep } from "../../lib/manage";
 import type { Pack } from "../../lib/api";
 
 type Props = Exclude<Awaited<ReturnType<typeof groupStep>>, Response> & { g: Pack };
-const { locale: l, g: p, visits, closures, fresh, booked, cancelled, moved } = Astro.props;
+const { locale: l, g: p, visits, closures, fresh, booked, cancelled, moved, refunded } = Astro.props;
 const s = t[l];
 const m = s.manage;
 const name = p.offer ? named(p.offer, l) : s.me.pack;
@@ -28,7 +28,7 @@ const usable = left > 0 && p.expiresAt > Date.now();
     <p class="num mt-3 text-sm text-white/80">{(p.expiresAt > Date.now() ? s.me.useBy : s.me.expiredOn)(klDayYear(l, p.expiresAt))}</p>
   </section>
 
-  <Notices locale={l} g={p} closures={closures} cancelled={cancelled} moved={moved} />
+  <Notices locale={l} g={p} closures={closures} cancelled={cancelled} moved={moved} refunded={refunded} />
 
   {
     usable && (
