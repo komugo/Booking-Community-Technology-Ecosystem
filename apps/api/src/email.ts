@@ -91,7 +91,7 @@ export async function sendBookedEmail(env: Env, checkoutId: string) {
   const { what, when } = summary(d, l);
   const people =
     d.option.bookingUnit === "court"
-      ? [l === "ms" ? `1 gelanggang · ${rm(c.amountSen ?? 0)}` : `1 court · ${rm(c.amountSen ?? 0)}`]
+      ? [l === "ms" ? `1 gelanggang · ${c.quantity} jam · ${rm(c.amountSen ?? 0)}` : `1 court · ${c.quantity} ${c.quantity === 1 ? "hour" : "hours"} · ${rm(c.amountSen ?? 0)}`]
       : c.bookingId
         ? l === "ms"
           ? [`${c.quantity} orang · ${rm(c.amountSen ?? 0)}`]

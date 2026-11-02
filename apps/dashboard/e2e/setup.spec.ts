@@ -67,6 +67,21 @@ test("staff manage Resources, Options, Add-ons and Closed days", async ({ browse
   await expect(sentence).toHaveText("Closed 2nd Monday, every Sunday");
 });
 
+test("staff set how many overlapping court bookings a Customer may hold", async ({ browser, request }) => {
+  const fx = await fixture(request, { staff: true, court: true });
+  const page = await (await newContext(browser)).newPage();
+  await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup`);
+  await page.getByRole("tab", { name: "Activity" }).click();
+  const field = page.getByLabel("Courts per Customer at once");
+  await expect(field).toHaveValue("2");
+  await field.fill("3");
+  await page.getByRole("button", { name: "Save" }).last().click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Courts per Customer at once")).toHaveValue("3");
+  await noAxeViolations(page);
+});
+
 test("only staff can set Listing mode, and Bookable needs a Commission", async ({ browser, request }) => {
   const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();

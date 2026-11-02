@@ -214,11 +214,19 @@ function CommissionCard({ op, setup, onSaved }: { op: string; setup: Setup; onSa
 function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Setup; id: string; staff: boolean; onSaved: () => void }) {
   const { t, l } = useT();
   const a = setup.catalogue.find((x) => x.id === id)!;
-  const settings = setup.activities.find((x) => x.id === id) ?? { freeCancelHours: 0, bookingCutoffMinutes: 60, closedDays: [], requiresWaiver: true };
+  const settings = setup.activities.find((x) => x.id === id) ?? {
+    freeCancelHours: 0,
+    bookingCutoffMinutes: 60,
+    closedDays: [],
+    requiresWaiver: true,
+    maxCourtTickets: 2,
+  };
+  const courts = setup.options.some((o) => o.activityId === id && o.bookingUnit === "court");
   const [hours, setHours] = useState(String(settings.freeCancelHours));
   const [cutoff, setCutoff] = useState(String(settings.bookingCutoffMinutes));
   const [closed, setClosed] = useState<string[]>(settings.closedDays);
   const [waiver, setWaiver] = useState(settings.requiresWaiver);
+  const [maxCourts, setMaxCourts] = useState(String(settings.maxCourtTickets));
   const [pick, setPick] = useState<{ day: Weekday; nth: string }>({ day: "Mo", nth: "" });
   const [mode, setMode] = useState(a.listingMode);
   const [editingPage, setEditingPage] = useState(false);
@@ -232,6 +240,7 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
         bookingCutoffMinutes: num(cutoff),
         closedDays: closed,
         requiresWaiver: waiver,
+        maxCourtTickets: num(maxCourts),
       }),
     );
     if (ok) {
@@ -313,6 +322,9 @@ function ActivityCard({ op, setup, id, staff, onSaved }: { op: string; setup: Se
           )}
         </Field>
       </div>
+      {courts && (
+        <Input label={t.maxCourtTickets} value={maxCourts} onChange={setMaxCourts} error={err("maxCourtTickets")} hint={t.maxCourtTicketsHint} numeric />
+      )}
       <Toggle label={t.requiresWaiver} checked={waiver} onChange={setWaiver} />
       <fieldset>
         <legend className="label">{t.closedDays}</legend>

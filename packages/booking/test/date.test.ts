@@ -2,7 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { klDate, klWeekday, WEEKDAYS, type OpeningHours } from "@komugo/types";
 import { expect, test } from "vitest";
 import { migrate } from "../src/migrations";
-import { customer, HOUR, kl, operator, rid, UNDO_V15 } from "./helpers";
+import { customer, HOUR, kl, operator, rid, UNDO_V15, UNDO_V16 } from "./helpers";
 
 const d1 = (q: string, ...p: unknown[]) =>
   env.DB.prepare(q)
@@ -167,7 +167,7 @@ test("the Date ticket migration keeps Options as Timeslot tickets with no Daily 
   const optionId = await w.option();
   await runInDurableObject(w.stub, (_, s) => {
     const sql = s.storage.sql;
-    for (const q of UNDO_V15) sql.exec(q);
+    for (const q of [...UNDO_V16, ...UNDO_V15]) sql.exec(q);
     sql.exec("UPDATE meta SET schema_version = 14");
     migrate(s.storage);
     expect(sql.exec("SELECT id, ticket_type, daily_limit FROM options").toArray()).toEqual([{ id: optionId, ticket_type: "timeslot", daily_limit: null }]);

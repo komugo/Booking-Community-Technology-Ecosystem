@@ -200,6 +200,12 @@ export async function operator(freeCancelHours = 24) {
 
 const KIND_CHECK = "CHECK (kind IN ('horse','instructor','belayer','auto_belay_lane'))";
 
+export const UNDO_V16 = [
+  "ALTER TABLE holds DROP COLUMN hours",
+  "ALTER TABLE tickets DROP COLUMN hours",
+  "ALTER TABLE activities DROP COLUMN max_court_tickets",
+];
+
 export const UNDO_V15 = [
   "ALTER TABLE activities DROP COLUMN hours",
   "ALTER TABLE options DROP COLUMN ticket_type",

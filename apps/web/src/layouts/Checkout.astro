@@ -83,7 +83,8 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
     const update = () => {
       const slot = pick.querySelector<HTMLInputElement>("[data-spots]:checked");
       const spots = Number(slot?.dataset.spots);
-      if (spots) qty.max = String(Math.min(Number(pick.dataset.max), spots));
+      const most = Number(slot?.dataset.most);
+      if (most) qty.max = String(Math.min(Number(pick.dataset.max), most));
       const low = pick.querySelector<HTMLElement>("[data-low]")!;
       low.hidden = !spots || spots > 3;
       low.textContent = slot?.dataset.lowText ?? "";
@@ -91,9 +92,10 @@ const alternates = { en: bare + search, ms: "/ms" + bare + search };
       const price = Number(slot?.dataset.price ?? pick.dataset.pick);
       pick.querySelector("[data-each]")!.textContent = rm(price);
       let sen = num(qty) * price;
+      const each = pick.dataset.addonMax ?? qty.value;
       for (const a of $$("[data-addon]", pick)) {
-        a.max = qty.value;
-        if (num(a) > num(qty)) a.value = qty.value;
+        a.max = each;
+        if (num(a) > Number(each)) a.value = each;
         sen += num(a) * Number(a.dataset.addon);
       }
       for (const b of $$<HTMLButtonElement>("[data-by]", pick)) {

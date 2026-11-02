@@ -166,7 +166,14 @@ export type InterestRow = {
   notified: number;
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
+  activities: {
+    id: string;
+    freeCancelHours: number;
+    bookingCutoffMinutes: number;
+    closedDays: string[];
+    requiresWaiver: boolean;
+    maxCourtTickets: number;
+  }[];
   options: Option[];
   addOns: AddOn[];
   resources: Resource[];

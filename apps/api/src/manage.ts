@@ -159,6 +159,8 @@ export function manage(kind: Kind) {
       .innerJoin(projActivities, eq(projActivities.id, projOptions.activityId))
       .where(eq(projOptions.id, tickets[0].optionId));
     const last = "expiresAt" in v && !closed ? Math.min(v.expiresAt + 1, now + 60 * DAY) : now + 60 * DAY;
+    // A per-court Ticket (only per-court Timeslots have maxHours) moves whole: one court free for all its hours.
+    const hours = tickets[0].hours;
     const slots = await db
       .select({ id: projTimeslots.id, startsAt: projTimeslots.startsAt, endsAt: projTimeslots.endsAt, spots: projTimeslots.spots })
       .from(projTimeslots)
@@ -167,10 +169,10 @@ export function manage(kind: Kind) {
         and(
           eq(projTimeslots.optionId, tickets[0].optionId),
           kind === "booking" && !closed
-            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen})`, tickets[0].priceSen)
+            ? eq(sql`coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}) * ${hours}`, tickets[0].priceSen)
             : undefined,
           isNull(projTimeslots.closedAt),
-          gte(projTimeslots.spots, tickets.length),
+          gte(sql`coalesce(${projTimeslots.maxHours}, ${projTimeslots.spots})`, hours * tickets.length),
           gt(sql`coalesce(${projTimeslots.endsAt}, ${projTimeslots.startsAt})`, now + (cutoff?.minutes ?? 0) * MIN),
           lt(projTimeslots.startsAt, last),
           ne(projTimeslots.id, tickets[0].timeslotId),

@@ -253,6 +253,7 @@ export const projTimeslots = sqliteTable(
     endsAt: integer(),
     closedAt: integer(),
     spots: integer().notNull(),
+    maxHours: integer(),
     priceSen: integer(),
     version: integer().notNull(),
   },

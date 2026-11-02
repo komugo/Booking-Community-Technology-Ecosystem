@@ -105,6 +105,7 @@ export class OperatorBooking extends DurableObject<Env> {
       customerId: string;
       replaces: string | null;
       timeslotId: string;
+      hours?: number;
       participants: ParticipantFacts[];
       addOns: AddOnPick[];
     },
@@ -116,6 +117,7 @@ export class OperatorBooking extends DurableObject<Env> {
         i.customerId,
         i.replaces,
         i.timeslotId,
+        i.hours ?? 1,
         i.participants.map((p) => p.id),
         [...i.addOns].sort((a, b) => (a.id < b.id ? -1 : 1)).map((a) => [a.id, a.qty]),
       ],

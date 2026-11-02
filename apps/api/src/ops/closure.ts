@@ -7,19 +7,20 @@ import { each, logError, MIN, type WaitUntil } from "../lib";
 
 export async function recordClosure(env: Env, waitUntil: WaitUntil, operatorId: string, timeslotId: string, reason: ClosureReason) {
   const { affected } = await booking(env, operatorId).closeTimeslot(timeslotId, reason);
+  // A per-court Ticket's notice is on its first hour, so closing more of its hours still sends one.
   const groups = new Map(affected.map((t) => [groupRef(t), t]));
   const db = createDb(env.DB);
   const now = Date.now();
   const rows = [...groups].map(([ref, t]) =>
     db
       .insert(closureNotices)
-      .values({ timeslotId, ref, customerId: t.customerId, bookingId: t.bookingId, packId: t.packId, reason, createdAt: now })
+      .values({ timeslotId: t.timeslotId, ref, customerId: t.customerId, bookingId: t.bookingId, packId: t.packId, reason, createdAt: now })
       .onConflictDoNothing(),
   );
   if (rows.length) await db.batch(rows as [(typeof rows)[number], ...typeof rows]);
-  waitUntil(
-    sendClosureNotices(env, timeslotId).catch((e) => logError("closure_notices_failed", { timeslotId, error: String(e) })),
-  );
+  for (const id of new Set([timeslotId, ...affected.map((t) => t.timeslotId)])) {
+    waitUntil(sendClosureNotices(env, id).catch((e) => logError("closure_notices_failed", { timeslotId: id, error: String(e) })));
+  }
 }
 
 export async function sendClosureNotices(env: Env, timeslotId: string | null, now = Date.now()) {

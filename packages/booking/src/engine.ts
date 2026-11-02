@@ -1,5 +1,5 @@
 import { ageOn, klDate, klWeekday, packExpiry, UNLIMITED_SPOTS, type OpeningHours, type Weekday } from "@komugo/types";
-import { mark, markWindow } from "./outbox";
+import { mark, markWindow, TICKET_CLOSED_AT, TICKET_ENDS_AT } from "./outbox";
 import { dates, expand } from "./schedule";
 
 export type BookingErrorCode =
@@ -19,7 +19,8 @@ export type BookingErrorCode =
   | "window_passed"
   | "started"
   | "quote_changed"
-  | "price_differs";
+  | "price_differs"
+  | "court_limit";
 
 export class BookingError extends Error {
   constructor(readonly code: BookingErrorCode) {
@@ -48,6 +49,7 @@ export type ActivityInput = {
   bookingCutoffMinutes?: number;
   closedDays?: string[];
   requiresWaiver?: boolean;
+  maxCourtTickets?: number;
 };
 export type OptionInput = {
   id: string;
@@ -73,6 +75,7 @@ export type ViewTicket = {
   id: string;
   participantId: string;
   court: string | null;
+  hours: number;
   status: string;
   optionId: string;
   timeslotId: string;
@@ -182,6 +185,7 @@ export type TimeslotRow = {
   spots: number;
   tickets: {
     id: string;
+    timeslotId: string;
     customerId: string;
     participantId: string;
     bookingId: string | null;
@@ -192,7 +196,14 @@ export type TimeslotRow = {
   addOns: { bookingId: string; addOnId: string; quantity: number }[];
 };
 export type Setup = {
-  activities: { id: string; freeCancelHours: number; bookingCutoffMinutes: number; closedDays: string[]; requiresWaiver: boolean }[];
+  activities: {
+    id: string;
+    freeCancelHours: number;
+    bookingCutoffMinutes: number;
+    closedDays: string[];
+    requiresWaiver: boolean;
+    maxCourtTickets: number;
+  }[];
   options: OptionInput[];
   addOns: AddOnInput[];
   resources: ResourceInput[];
@@ -211,6 +222,7 @@ const HOLD_MS = 15 * MIN;
 const DEFAULT_MAX_PER_BOOKING = 10;
 const MAX_PER_BOOKING = 50;
 const MAX_ACTIVE_HOLDS = 3;
+const MAX_COURT_HOURS = 24;
 
 export const klDayStart = (t: number) => Math.floor((t + KL_OFFSET) / DAY) * DAY - KL_OFFSET;
 type Slot = { id: string; option_id: string; starts_at: number; ends_at: number | null; closed_at: number | null };
@@ -233,6 +245,7 @@ type Option = {
   active: number;
   booking_cutoff_minutes: number;
   requires_waiver: number;
+  max_court_tickets: number;
 };
 type Need = { kind: string; quantity: number };
 type Candidate = {
@@ -248,10 +261,12 @@ type Hold = {
   id: string;
   customer_id: string;
   timeslot_id: string;
+  hours: number;
   price_sen: number;
   amount_sen: number | null;
   status: string;
 };
+const HOLD = "SELECT id, customer_id, timeslot_id, hours, price_sen, amount_sen, status FROM holds";
 
 const first = <T extends Record<string, SqlStorageValue>>(c: SqlStorageCursor<T>): T | undefined => c.toArray()[0];
 const ids = (xs: string[]) => JSON.stringify(xs);
@@ -266,7 +281,8 @@ function loadOption(sql: SqlStorage, id: string) {
       `SELECT id, activity_id, price_sen, duration_minutes, min_age, max_age, max_weight_kg, required_cert,
          min_participants, max_per_booking, booking_unit, ticket_type, daily_limit, active,
          (SELECT booking_cutoff_minutes FROM activities WHERE id = options.activity_id) AS booking_cutoff_minutes,
-         (SELECT requires_waiver FROM activities WHERE id = options.activity_id) AS requires_waiver
+         (SELECT requires_waiver FROM activities WHERE id = options.activity_id) AS requires_waiver,
+         (SELECT max_court_tickets FROM activities WHERE id = options.activity_id) AS max_court_tickets
        FROM options WHERE id = ?`,
       id,
     )
@@ -300,6 +316,82 @@ const isCourt = (sql: SqlStorage, timeslotId: string) =>
     sql.exec("SELECT 1 FROM timeslots t JOIN options o ON o.id = t.option_id WHERE t.id = ? AND o.booking_unit = 'court'", timeslotId),
   );
 
+// slot and the Timeslots right after it, hour by hour while open and at its price, up to `hours` in all.
+// One price per hour keeps a run's price its hourly price times its hours.
+function backToBack(sql: SqlStorage, slot: Slot, hours: number) {
+  if (hours === 1) return [slot];
+  const run: (Slot & { price_sen: number })[] = [];
+  for (const s of sql.exec<Slot & { price_sen: number }>(
+    `SELECT t.id, t.option_id, t.starts_at, t.ends_at, t.closed_at, coalesce(sc.price_sen, o.price_sen) AS price_sen
+     FROM timeslots t JOIN options o ON o.id = t.option_id LEFT JOIN schedules sc ON sc.id = t.schedule_id
+     WHERE t.option_id = ? AND t.starts_at >= ? AND t.starts_at < ? ORDER BY t.starts_at`,
+    slot.option_id,
+    slot.starts_at,
+    slot.starts_at + hours * HOUR,
+  )) {
+    if (s.starts_at !== slot.starts_at + run.length * HOUR || s.closed_at !== null || s.price_sen !== (run[0] ?? s).price_sen) break;
+    run.push(s);
+  }
+  return run;
+}
+
+// Ticket or Hold x, on its first Timeslot f, takes Timeslot s: f itself or, per court, one of its later hours.
+const TAKES = `f.option_id = s.option_id AND f.starts_at > s.starts_at - ${DAY} AND f.starts_at <= s.starts_at
+  AND (f.id = s.id OR (x.hours > 1 AND s.starts_at < f.starts_at + x.hours * ${HOUR} AND (s.starts_at - f.starts_at) % ${HOUR} = 0))`;
+
+// The most back-to-back hours one court is free for from this Timeslot; null if it isn't per court.
+export function courtHours(sql: SqlStorage, now: number, slotId: string) {
+  const slot = loadSlot(sql, slotId);
+  if (!slot) return null;
+  const option = loadOption(sql, slot.option_id);
+  if (option.booking_unit !== "court") return null;
+  if (!option.active || slot.starts_at <= now) return 0;
+  const run = backToBack(sql, slot, MAX_COURT_HOURS).length;
+  let hours = 0;
+  while (hours < run && freeCandidates(sql, slot, option, ["court"], hours + 1).length) hours++;
+  return hours;
+}
+
+// A per-court Timeslot's max hours count the hours after it, so adding or removing one changes the day before it.
+function markCourtHours(sql: SqlStorage, now: number, slotIds: string[]) {
+  const before = sql
+    .exec<{ id: string }>(
+      `SELECT DISTINCT p.id FROM timeslots s JOIN options o ON o.id = s.option_id AND o.booking_unit = 'court'
+       JOIN timeslots p ON p.option_id = s.option_id AND p.starts_at < s.starts_at AND p.starts_at > s.starts_at - ${DAY}
+       WHERE s.id IN (SELECT value FROM json_each(?)) AND p.closed_at IS NULL AND p.starts_at > ?`,
+      ids(slotIds),
+      now,
+    )
+    .toArray();
+  mark(sql, "timeslot", before.map((p) => p.id));
+}
+
+// A Customer holds at most the Activity's limit of per-court Tickets (and Holds) at any one moment.
+function courtLimit(sql: SqlStorage, customerId: string, option: Option, startsAt: number, hours: number, except: string[] = []) {
+  const endsAt = startsAt + hours * HOUR;
+  const mine = sql
+    .exec<{ from: number; to: number }>(
+      `WITH mine AS (
+         SELECT timeslot_id, hours FROM tickets WHERE customer_id = ?1 AND status = 'issued' AND id NOT IN (SELECT value FROM json_each(?5))
+         UNION ALL
+         SELECT timeslot_id, hours FROM holds WHERE customer_id = ?1 AND status = 'active')
+       SELECT s.starts_at AS "from", s.starts_at + m.hours * ${HOUR} AS "to" FROM mine m JOIN timeslots s ON s.id = m.timeslot_id
+       JOIN options o ON o.id = s.option_id
+       WHERE o.activity_id = ?2 AND o.booking_unit = 'court' AND s.closed_at IS NULL
+         AND s.starts_at < ?4 AND s.starts_at + m.hours * ${HOUR} > ?3`,
+      customerId,
+      option.activity_id,
+      startsAt,
+      endsAt,
+      ids(except),
+    )
+    .toArray();
+  const moments = [startsAt, ...mine.map((m) => m.from).filter((t) => t > startsAt)];
+  if (moments.some((t) => mine.filter((m) => m.from <= t && t < m.to).length >= option.max_court_tickets)) {
+    throw new BookingError("court_limit");
+  }
+}
+
 const loadNeeds = (sql: SqlStorage, optionId: string) =>
   sql.exec<Need>("SELECT kind, quantity FROM option_resources WHERE option_id = ? ORDER BY kind", optionId).toArray();
 
@@ -314,7 +406,7 @@ const sold = (sql: SqlStorage, slotId: string, except: string[] = []) =>
     )
     .one().n;
 
-function freeCandidates(sql: SqlStorage, slot: Slot, option: Option, kinds: string[]): Candidate[] {
+function freeCandidates(sql: SqlStorage, slot: Slot, option: Option, kinds: string[], hours = 1): Candidate[] {
   const day = klDayStart(slot.starts_at);
   const resources = sql
     .exec<{
@@ -342,7 +434,7 @@ function freeCandidates(sql: SqlStorage, slot: Slot, option: Option, kinds: stri
   return resources
     .flatMap((r) => {
       const blockStart = slot.starts_at;
-      const blockEnd = blockStart + (option.duration_minutes + r.rest_minutes) * MIN;
+      const blockEnd = blockStart + (option.duration_minutes * hours + r.rest_minutes) * MIN;
       const mine = byResource.get(r.id) ?? [];
       const busy = mine.some((a) => a.block_start < blockEnd && blockStart < a.block_end);
       const dayCount = mine.filter((a) => a.block_start >= day && a.block_start < day + DAY).length;
@@ -373,6 +465,7 @@ function allocate(
   people: ParticipantFacts[],
   customerId: string,
   except: string[] = [],
+  hours = 1,
 ) {
   if (
     people.length === 0 ||
@@ -390,6 +483,9 @@ function allocate(
   if (!option.active || (!dated && needs.length === 0) || until(slot) - option.booking_cutoff_minutes * MIN <= now) {
     throw new BookingError("not_bookable");
   }
+  if (!Number.isInteger(hours) || hours < 1 || hours > MAX_COURT_HOURS || (hours > 1 && option.booking_unit !== "court")) throw new BookingError("invalid_state");
+  const run = backToBack(sql, slot, hours);
+  if (run.length < hours) throw new BookingError("no_availability");
 
   const date = klDate(slot.starts_at);
   for (const p of people) {
@@ -432,7 +528,7 @@ function allocate(
     if (option.daily_limit !== null && sold(sql, slot.id, except) + people.length > option.daily_limit) {
       throw new BookingError("no_availability");
     }
-    return { slot, option, picks: [] as Pick[] };
+    return { slot, option, run, picks: [] as Pick[] };
   }
 
   const free = freeCandidates(
@@ -440,6 +536,7 @@ function allocate(
     slot,
     option,
     needs.map((n) => n.kind),
+    hours,
   );
   const chosen = new Set<string>();
   const picks: Pick[] = [];
@@ -462,7 +559,7 @@ function allocate(
       }
     }
   }
-  return { slot, option, picks };
+  return { slot, option, run, picks };
 }
 
 function insertAllocations(sql: SqlStorage, picks: Pick[], owner: { holdId: string } | Map<string, string>) {
@@ -484,20 +581,21 @@ function insertAllocations(sql: SqlStorage, picks: Pick[], owner: { holdId: stri
 function insertTickets(
   sql: SqlStorage,
   now: number,
-  t: { customerId: string; bookingId: string | null; packId: string | null; timeslotId: string; priceSen: number },
+  t: { customerId: string; bookingId: string | null; packId: string | null; timeslotId: string; hours: number; priceSen: number },
   participantIds: string[],
 ) {
   const ticketOf = new Map(participantIds.map((p) => [p, crypto.randomUUID()]));
   for (const [participantId, id] of ticketOf) {
     sql.exec(
-      `INSERT INTO tickets (id, customer_id, booking_id, pack_id, participant_id, timeslot_id, price_sen, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tickets (id, customer_id, booking_id, pack_id, participant_id, timeslot_id, hours, price_sen, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       t.customerId,
       t.bookingId,
       t.packId,
       participantId,
       t.timeslotId,
+      t.hours,
       t.priceSen,
       now,
     );
@@ -577,16 +675,17 @@ const closedDaysOf = (sql: SqlStorage, activityId: string) =>
 export function upsertActivity(sql: SqlStorage, now: number, a: ActivityInput) {
   const before = closedDaysOf(sql, a.id);
   sql.exec(
-    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver)
-     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'), coalesce(?5, 1))
+    `INSERT INTO activities (id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver, max_court_tickets)
+     VALUES (?1, ?2, coalesce(?3, 60), coalesce(?4, '[]'), coalesce(?5, 1), coalesce(?6, 2))
      ON CONFLICT(id) DO UPDATE SET free_cancel_hours = excluded.free_cancel_hours,
        booking_cutoff_minutes = coalesce(?3, booking_cutoff_minutes), closed_days = coalesce(?4, closed_days),
-       requires_waiver = coalesce(?5, requires_waiver)`,
+       requires_waiver = coalesce(?5, requires_waiver), max_court_tickets = coalesce(?6, max_court_tickets)`,
     a.id,
     a.freeCancelHours,
     a.bookingCutoffMinutes ?? null,
     a.closedDays ? JSON.stringify(a.closedDays) : null,
     a.requiresWaiver === undefined ? null : Number(a.requiresWaiver),
+    a.maxCourtTickets ?? null,
   );
   mark(sql, "activity", [a.id]);
   return before !== undefined && before !== closedDaysOf(sql, a.id) ? generate(sql, now, a.id) : null;
@@ -690,8 +789,8 @@ export function generate(sql: SqlStorage, now: number, activityId: string | null
     const stale = sql
       .exec<{ id: string; option_id: string; starts_at: number; busy: number }>(
         `SELECT s.id, s.option_id, s.starts_at,
-           EXISTS (SELECT 1 FROM tickets WHERE timeslot_id = s.id AND status = 'issued')
-           OR EXISTS (SELECT 1 FROM holds WHERE timeslot_id = s.id AND status = 'active') AS busy
+           EXISTS (SELECT 1 FROM timeslots f JOIN tickets x ON x.timeslot_id = f.id WHERE x.status = 'issued' AND ${TAKES})
+           OR EXISTS (SELECT 1 FROM timeslots f JOIN holds x ON x.timeslot_id = f.id WHERE x.status = 'active' AND ${TAKES}) AS busy
          FROM timeslots s WHERE s.schedule_id IN (SELECT id FROM schedules WHERE activity_id = ?)
            AND s.starts_at > ? AND s.closed_at IS NULL`,
         a.id,
@@ -721,6 +820,7 @@ export function generate(sql: SqlStorage, now: number, activityId: string | null
     }
   }
   mark(sql, "timeslot", [...created, ...removed]);
+  markCourtHours(sql, now, [...created, ...removed]);
   return { created: created.length, removed: removed.length, kept };
 }
 
@@ -936,50 +1036,51 @@ export function createTimeslots(sql: SqlStorage, now: number, i: { optionId: str
       .one().id;
   });
   mark(sql, "timeslot", result);
+  markCourtHours(sql, now, result);
   return { ids: result };
 }
 
+// Tickets or Holds that take the Timeslot, including per-court ones that started an hour or more before it.
+const taking = (x: "tickets" | "holds", cols: string) =>
+  `SELECT ${cols} FROM timeslots s JOIN timeslots f ON f.option_id = s.option_id JOIN ${x} x ON x.timeslot_id = f.id
+   WHERE s.id = ? AND ${TAKES} ORDER BY x.rowid`;
+
 // Idempotent by state: closing an already closed Timeslot writes nothing and returns the current affected list.
+// Closing any hour of a per-court Ticket closes the whole Ticket, listed under its first hour's Timeslot.
 export function closeTimeslot(sql: SqlStorage, now: number, timeslotId: string, reason: ClosureReason) {
   const slot = loadSlot(sql, timeslotId);
   if (!slot) throw new BookingError("invalid_state");
   if (slot.closed_at === null) {
     if (slot.starts_at <= now) throw new BookingError("invalid_state");
     sql.exec("UPDATE timeslots SET closed_at = ?, closed_reason = ? WHERE id = ?", now, reason, timeslotId);
-    sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT id FROM tickets WHERE timeslot_id = ?)", timeslotId);
-    for (const h of sql
-      .exec<{ id: string }>("SELECT id FROM holds WHERE timeslot_id = ? AND status = 'active'", timeslotId)
-      .toArray()) {
-      releaseHold(sql, h.id, "released");
+    const tickets = sql
+      .exec<{ id: string }>(taking("tickets", "x.id"), timeslotId)
+      .toArray()
+      .map((t) => t.id);
+    sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT value FROM json_each(?))", ids(tickets));
+    for (const h of sql.exec<{ id: string; status: string }>(taking("holds", "x.id, x.status"), timeslotId).toArray()) {
+      if (h.status === "active") releaseHold(sql, h.id, "released");
     }
     mark(sql, "timeslot", [timeslotId]);
-    mark(
-      sql,
-      "ticket",
-      sql
-        .exec<{ id: string }>("SELECT id FROM tickets WHERE timeslot_id = ?", timeslotId)
-        .toArray()
-        .map((t) => t.id),
-    );
+    mark(sql, "ticket", tickets);
     markWindow(sql, now, slot.starts_at);
   }
   const affected = sql
     .exec<{
       id: string;
+      timeslot_id: string;
       customer_id: string;
       participant_id: string;
       booking_id: string | null;
       pack_id: string | null;
-    }>(
-      `SELECT id, customer_id, participant_id, booking_id, pack_id FROM tickets
-       WHERE timeslot_id = ? AND status = 'issued' ORDER BY rowid`,
-      timeslotId,
-    )
+      status: string;
+    }>(taking("tickets", "x.id, x.timeslot_id, x.customer_id, x.participant_id, x.booking_id, x.pack_id, x.status"), timeslotId)
     .toArray()
+    .filter((t) => t.status === "issued")
     .map(
       (t): Affected => ({
         id: t.id,
-        timeslotId,
+        timeslotId: t.timeslot_id,
         customerId: t.customer_id,
         participantId: t.participant_id,
         bookingId: t.booking_id,
@@ -995,7 +1096,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function checkIn(sql: SqlStorage, now: number, code: string): CheckInResult {
   const c = code.trim().toLowerCase();
   const select = `SELECT t.id, t.status, t.customer_id, t.participant_id, t.booking_id, t.timeslot_id, t.checked_in_at,
-      s.option_id, s.starts_at, s.ends_at, s.closed_at
+      s.option_id, s.starts_at, ${TICKET_ENDS_AT} AS ends_at, ${TICKET_CLOSED_AT} AS closed_at
     FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id`;
   type Row = {
     id: string;
@@ -1074,9 +1175,14 @@ export function setup(sql: SqlStorage): Setup {
   }
   return {
     activities: sql
-      .exec<{ id: string; free_cancel_hours: number; booking_cutoff_minutes: number; closed_days: string; requires_waiver: number }>(
-        "SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver FROM activities ORDER BY rowid",
-      )
+      .exec<{
+        id: string;
+        free_cancel_hours: number;
+        booking_cutoff_minutes: number;
+        closed_days: string;
+        requires_waiver: number;
+        max_court_tickets: number;
+      }>("SELECT id, free_cancel_hours, booking_cutoff_minutes, closed_days, requires_waiver, max_court_tickets FROM activities ORDER BY rowid")
       .toArray()
       .map((a) => ({
         id: a.id,
@@ -1084,6 +1190,7 @@ export function setup(sql: SqlStorage): Setup {
         bookingCutoffMinutes: a.booking_cutoff_minutes,
         closedDays: JSON.parse(a.closed_days),
         requiresWaiver: !!a.requires_waiver,
+        maxCourtTickets: a.max_court_tickets,
       })),
     options: sql
       .exec<{
@@ -1228,8 +1335,10 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       ...("from" in q ? [q.from, q.to] : [ids(q.ids)]),
     )
     .toArray();
+  // A per-court Ticket is listed under each of its hours.
   const tickets = sql
     .exec<{
+      slot_id: string;
       id: string;
       timeslot_id: string;
       customer_id: string;
@@ -1238,8 +1347,9 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       pack_id: string | null;
       checked_in_at: number | null;
     }>(
-      `SELECT id, timeslot_id, customer_id, participant_id, booking_id, pack_id, checked_in_at FROM tickets
-       WHERE timeslot_id IN (SELECT value FROM json_each(?)) AND status = 'issued' ORDER BY rowid`,
+      `SELECT s.id AS slot_id, x.id, x.timeslot_id, x.customer_id, x.participant_id, x.booking_id, x.pack_id, x.checked_in_at
+       FROM timeslots s JOIN timeslots f ON f.option_id = s.option_id JOIN tickets x ON x.timeslot_id = f.id
+       WHERE s.id IN (SELECT value FROM json_each(?)) AND x.status = 'issued' AND ${TAKES} ORDER BY x.rowid`,
       ids(slots.map((s) => s.id)),
     )
     .toArray();
@@ -1247,7 +1357,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
   for (const r of sql.exec<{ ticket_id: string; name: string }>(
     `SELECT a.ticket_id, r.name FROM allocations a JOIN resources r ON r.id = a.resource_id
      WHERE a.ticket_id IN (SELECT value FROM json_each(?)) ORDER BY r.kind, r.name`,
-    ids(tickets.map((t) => t.id)),
+    ids([...new Set(tickets.map((t) => t.id))]),
   )) {
     resources.set(r.ticket_id, [...(resources.get(r.ticket_id) ?? []), r.name]);
   }
@@ -1259,7 +1369,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
     )
     .toArray();
   return slots.map((s) => {
-    const mine = tickets.filter((t) => t.timeslot_id === s.id);
+    const mine = tickets.filter((t) => t.slot_id === s.id);
     const bookings = new Set(mine.map((t) => t.booking_id));
     return {
       id: s.id,
@@ -1272,6 +1382,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       spots: spots(sql, now, s.id),
       tickets: mine.map((t) => ({
         id: t.id,
+        timeslotId: t.timeslot_id,
         customerId: t.customer_id,
         participantId: t.participant_id,
         bookingId: t.booking_id,
@@ -1344,17 +1455,19 @@ export function createHold(
     customerId: string;
     replaces: string | null;
     timeslotId: string;
+    hours?: number;
     participants: ParticipantFacts[];
     addOns: AddOnPick[];
   },
 ) {
   const holdId = crypto.randomUUID();
+  const hours = i.hours ?? 1;
   const court = isCourt(sql, i.timeslotId);
   if (court && i.participants.length) throw new BookingError("invalid_participant");
   const who = court ? [party(holdId, i.customerId)] : i.participants;
   const n = who.length;
   const released = supersede(sql, now, { ...i, participantIds: i.participants.map((p) => p.id) });
-  const { slot, option, picks } = allocate(sql, now, i.timeslotId, who, i.customerId);
+  const { slot, option, run, picks } = allocate(sql, now, i.timeslotId, who, i.customerId, [], hours);
   if (n < (option.min_participants ?? 1)) throw new BookingError("below_min_participants");
   const max = option.max_per_booking ?? DEFAULT_MAX_PER_BOOKING;
   if (n > max) throw new BookingError("invalid_participant");
@@ -1374,15 +1487,17 @@ export function createHold(
   // There is no group Waiver yet, so a per-court Option sells only where its Activity doesn't ask for one.
   if (option.requires_waiver && court) throw new BookingError("not_bookable");
   if (option.requires_waiver && i.participants.some((p) => !p.waiverSigned)) throw new BookingError("waiver_missing");
+  if (court) courtLimit(sql, i.customerId, option, slot.starts_at, hours);
   const expiresAt = now + HOLD_MS;
-  const priceSen = slotsPriceSen(sql, [slot.id]);
+  const priceSen = slotsPriceSen(sql, run.map((s) => s.id));
   const amountSen = priceSen * n + addOns.reduce((sum, a) => sum + a.qty * a.priceSen, 0);
   sql.exec(
-    `INSERT INTO holds (id, customer_id, timeslot_id, price_sen, amount_sen, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO holds (id, customer_id, timeslot_id, hours, price_sen, amount_sen, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     holdId,
     i.customerId,
     slot.id,
+    hours,
     priceSen,
     amountSen,
     now,
@@ -1435,6 +1550,7 @@ function ticketsFromHold(sql: SqlStorage, now: number, hold: Hold, owner: Group,
       bookingId: "bookingId" in owner ? owner.bookingId : null,
       packId: "packId" in owner ? owner.packId : null,
       timeslotId: hold.timeslot_id,
+      hours: hold.hours,
       priceSen,
     },
     participantIds,
@@ -1457,8 +1573,7 @@ function successor(sql: SqlStorage, hold: Hold, participantIds: string[], amount
   const want = [...participantIds].sort().join();
   return sql
     .exec<Hold>(
-      `SELECT id, customer_id, timeslot_id, price_sen, amount_sen, status FROM holds
-       WHERE customer_id = ? AND timeslot_id = ? AND status = 'active' AND id <> ?`,
+      `${HOLD} WHERE customer_id = ? AND timeslot_id = ? AND status = 'active' AND id <> ?`,
       hold.customer_id,
       hold.timeslot_id,
       hold.id,
@@ -1476,7 +1591,7 @@ function successor(sql: SqlStorage, hold: Hold, participantIds: string[], amount
 function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: number }): ConfirmResult {
   const refund = (reason: PaymentRefundReason): ConfirmResult => ({ status: "refund_due", reason });
   const hold = first(
-    sql.exec<Hold>("SELECT id, customer_id, timeslot_id, price_sen, amount_sen, status FROM holds WHERE id = ?", i.holdId),
+    sql.exec<Hold>(`${HOLD} WHERE id = ?`, i.holdId),
   );
   if (!hold) return refund("unknown_hold");
   const people = sql
@@ -1515,7 +1630,7 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
       : [party(hold.id, hold.customer_id)];
     let picks: Pick[];
     try {
-      picks = allocate(sql, now, slot.id, facts, hold.customer_id).picks;
+      picks = allocate(sql, now, slot.id, facts, hold.customer_id, [], hold.hours).picks;
     } catch (e) {
       if (e instanceof BookingError) return refund("unavailable");
       throw e;
@@ -1524,7 +1639,7 @@ function settle(sql: SqlStorage, now: number, i: { holdId: string; amountSen: nu
     insertAllocations(sql, picks, insertTickets(
         sql,
         now,
-        { customerId: hold.customer_id, bookingId, packId: null, timeslotId: hold.timeslot_id, priceSen: hold.price_sen },
+        { customerId: hold.customer_id, bookingId, packId: null, timeslotId: hold.timeslot_id, hours: hold.hours, priceSen: hold.price_sen },
         facts.map((p) => p.id),
       ));
   }
@@ -1713,7 +1828,7 @@ export function confirmPackBill(
 // Consumes the Checkout's Hold: Requirements, Waivers and party size were checked when it was made.
 export function redeemPack(sql: SqlStorage, now: number, i: { customerId: string; packId: string; holdId: string }) {
   const hold = first(
-    sql.exec<Hold>("SELECT id, customer_id, timeslot_id, price_sen, amount_sen, status FROM holds WHERE id = ?", i.holdId),
+    sql.exec<Hold>(`${HOLD} WHERE id = ?`, i.holdId),
   );
   if (!hold || hold.status !== "active" || hold.customer_id !== i.customerId) throw new BookingError("invalid_state");
   if (first(sql.exec("SELECT 1 FROM hold_add_ons WHERE hold_id = ?", hold.id))) throw new BookingError("invalid_add_on");
@@ -1748,6 +1863,7 @@ type GroupTicket = {
   participant_id: string;
   price_sen: number;
   timeslot_id: string;
+  hours: number;
   option_id: string;
   starts_at: number;
   closed_at: number | null;
@@ -1759,8 +1875,8 @@ function groupTickets(sql: SqlStorage, customerId: string, group: Group, ticketI
   const o = owner(group);
   const rows = sql
     .exec<GroupTicket & { status: string; customer_id: string }>(
-      `SELECT t.id, t.status, t.customer_id, t.booking_id, t.pack_id, t.participant_id, t.price_sen, t.timeslot_id,
-         s.option_id, s.starts_at, s.closed_at, a.free_cancel_hours, t.checked_in_at
+      `SELECT t.id, t.status, t.customer_id, t.booking_id, t.pack_id, t.participant_id, t.price_sen, t.timeslot_id, t.hours,
+         s.option_id, s.starts_at, ${TICKET_CLOSED_AT} AS closed_at, a.free_cancel_hours, t.checked_in_at
        FROM tickets t
        JOIN timeslots s ON s.id = t.timeslot_id
        JOIN options op ON op.id = s.option_id
@@ -1911,7 +2027,8 @@ export function rescheduleTickets(
   const rows = groupTickets(sql, i.customerId, i.group, i.ticketIds);
   const current = rows[0];
   const target = loadSlot(sql, i.timeslotId);
-  const people = isCourt(sql, current.timeslot_id) ? rows.map((t) => party(t.participant_id, i.customerId)) : i.participants;
+  const court = isCourt(sql, current.timeslot_id);
+  const people = court ? rows.map((t) => party(t.participant_id, i.customerId)) : i.participants;
   if (
     rows.some((t) => t.timeslot_id !== current.timeslot_id) ||
     !target ||
@@ -1921,6 +2038,10 @@ export function rescheduleTickets(
   ) {
     throw new BookingError("invalid_state");
   }
+  // A per-court Ticket moves whole, to the same number of back-to-back hours on one court.
+  const run = backToBack(sql, target, current.hours);
+  if (run.length < current.hours) throw new BookingError("no_availability");
+  if (court) courtLimit(sql, i.customerId, loadOption(sql, target.option_id), target.starts_at, current.hours, i.ticketIds);
   const open = current.closed_at === null;
   if (open) {
     if (i.onlyClosed) throw new BookingError("invalid_state");
@@ -1929,7 +2050,7 @@ export function rescheduleTickets(
     if (current.pack_id) {
       const pack = sql.exec<{ expires_at: number }>("SELECT expires_at FROM packs WHERE id = ?", current.pack_id).one();
       if (target.starts_at > pack.expires_at) throw new BookingError("pack_expired");
-    } else if (slotsPriceSen(sql, [target.id]) !== current.price_sen) {
+    } else if (slotsPriceSen(sql, run.map((s) => s.id)) !== current.price_sen) {
       throw new BookingError("price_differs");
     }
   } else {
@@ -1937,7 +2058,7 @@ export function rescheduleTickets(
     choose(sql, now, i.group, current.timeslot_id, "reschedule");
   }
   sql.exec("DELETE FROM allocations WHERE ticket_id IN (SELECT value FROM json_each(?))", ids(i.ticketIds));
-  const { picks } = allocate(sql, now, target.id, people, i.customerId, i.ticketIds);
+  const { picks } = allocate(sql, now, target.id, people, i.customerId, i.ticketIds, current.hours);
   sql.exec("UPDATE tickets SET timeslot_id = ? WHERE id IN (SELECT value FROM json_each(?))", target.id, ids(i.ticketIds));
   insertAllocations(sql, picks, new Map(rows.map((t) => [t.participant_id, t.id])));
   mark(sql, "ticket", i.ticketIds);
@@ -1961,8 +2082,10 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
       price_sen: number;
       refund_id: string | null;
       court: string | null;
+      hours: number;
     }>(
-      `SELECT t.id, t.participant_id, t.status, s.option_id, t.timeslot_id, s.starts_at, s.ends_at, s.closed_at, t.price_sen, t.refund_id,
+      `SELECT t.id, t.participant_id, t.status, s.option_id, t.timeslot_id, s.starts_at, ${TICKET_ENDS_AT} AS ends_at,
+         ${TICKET_CLOSED_AT} AS closed_at, t.price_sen, t.refund_id, t.hours,
          (SELECT r.name FROM allocations a JOIN resources r ON r.id = a.resource_id WHERE a.ticket_id = t.id AND r.kind = 'court') AS court
        FROM tickets t JOIN timeslots s ON s.id = t.timeslot_id
        WHERE t.${o.col} = ? ORDER BY ${o.col === "pack_id" ? "s.starts_at, " : ""}t.rowid`,
@@ -1973,6 +2096,7 @@ function viewTickets(sql: SqlStorage, group: Group, shares: Map<string, number>)
       id: t.id,
       participantId: t.participant_id,
       court: t.court,
+      hours: t.hours,
       status: t.status,
       optionId: t.option_id,
       timeslotId: t.timeslot_id,

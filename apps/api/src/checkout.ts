@@ -19,7 +19,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm"
 import { checkoutState, createBill, deleteBill } from "./billplz";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
 import { sendBookedEmail } from "./email";
-import { fail, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
+import { fail, HOUR, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
 import { bookingLink, groupLink } from "./manage";
 import { ensureSession, owns, readSession, type Session } from "./session";
 
@@ -178,6 +178,7 @@ export async function holdStep(
       customerId: c.customerId,
       replaces: c.holdId,
       timeslotId: c.timeslotId,
+      hours: perCourt(c) ? c.quantity : 1,
       participantIds: people,
       addOns: c.addOns.map(({ id, qty }) => ({ id, qty })),
     });
@@ -331,15 +332,17 @@ checkout.post("/", async (c) => {
   if (!Number.isInteger(quantity) || quantity < min) {
     return fail(c, 400, { code: "below_min_participants", field: "quantity", params: { min } });
   }
-  const max = court ? 1 : (d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING);
-  if (quantity > max) return fail(c, 400, { code: "above_max_per_booking", field: "quantity", params: { max } });
-  if (quantity > d.slot.spots) return fail(c, 409, { code: "no_availability", params: { spots: d.slot.spots } });
+  const max = d.option.maxPerBooking ?? DEFAULT_MAX_PER_BOOKING;
+  if (!court && quantity > max) return fail(c, 400, { code: "above_max_per_booking", field: "quantity", params: { max } });
+  // A per-court quantity is its back-to-back hours, sold only while one court is free for all of them.
+  const free = court ? (d.slot.maxHours ?? 0) : d.slot.spots;
+  if (quantity > free) return fail(c, 409, { code: "no_availability", params: { spots: free } });
   const addOnOf = new Map(d.addOns.map((a) => [a.id, a]));
   if (
     new Set(picks.map((a) => a.id)).size !== picks.length ||
     picks.some((a) => {
       const x = addOnOf.get(a.id);
-      return !x || !x.active || x.activityId !== d.option.activityId || !Number.isInteger(a.qty) || a.qty < 1 || a.qty > quantity;
+      return !x || !x.active || x.activityId !== d.option.activityId || !Number.isInteger(a.qty) || a.qty < 1 || a.qty > (court ? 1 : quantity);
     })
   ) {
     return fail(c, 400, { code: "invalid_add_on", field: "addOns" });
@@ -413,7 +416,7 @@ checkout.get("/:id", async (c) => {
     locale: co.locale,
     quantity: co.quantity,
     startsAt: d.slot?.startsAt ?? null,
-    endsAt: d.slot?.endsAt ?? null,
+    endsAt: d.option.bookingUnit === "court" && d.slot ? d.slot.startsAt + co.quantity * HOUR : (d.slot?.endsAt ?? null),
     timeslotId: co.timeslotId,
     option: {
       id: d.option.id,

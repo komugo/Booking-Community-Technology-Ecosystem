@@ -190,7 +190,7 @@ export async function fixture(
     venueSlug = slugs.en;
     await db.update(activities).set({ venueId: venue.id, listingMode: "info", free: true, setting: "outdoor" }).where(eq(activities.id, activityId));
   }
-  // A per-court Option with two courts and one free hour tomorrow; per-court sells only without a waiver.
+  // A per-court Option with two courts and two back-to-back free hours tomorrow; per-court sells only without a waiver.
   const courtOptionId = `opt_${rid}_court`;
   if (o.court === true) {
     await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
@@ -216,7 +216,7 @@ export async function fixture(
       active: true,
       needs: [{ kind: "court", quantity: 1 }],
     });
-    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR] });
+    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR, minute + DAY + 2 * HOUR] });
   }
   // A Date ticket Option open 06:00–23:30 every day, with no waiver.
   const dateOptionId = `opt_${rid}_date`;

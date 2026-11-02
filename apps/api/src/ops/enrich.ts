@@ -83,7 +83,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
       chosenAt: closureNotices.chosenAt,
     })
     .from(closureNotices)
-    .where(within(closureNotices.timeslotId, rows.map((r) => r.id)));
+    .where(within(closureNotices.timeslotId, [...rows.map((r) => r.id), ...tickets.map((t) => t.timeslotId)]));
   const x = await load(env, operatorId, {
     participantIds: tickets.map((t) => t.participantId),
     customerIds: [...tickets, ...notices].map((t) => t.customerId),
@@ -115,7 +115,9 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
         const buyer = x.customer.get(customerId);
         const contact = bookingId ? x.contact.get(bookingId) : undefined;
         const name = contact?.name ?? buyer?.name ?? "";
-        const notice = notices.find((n) => n.timeslotId === r.id && n.ref === groupRef({ bookingId, packId, customerId }));
+        const notice = notices.find(
+          (n) => (n.timeslotId === r.id || ts.some((t) => t.timeslotId === n.timeslotId)) && n.ref === groupRef({ bookingId, packId, customerId }),
+        );
         return {
           bookingId,
           packId,

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { devInbox } from "../src/email";
-import { client, customer, fake, member, pay, returnPath, rid, signedIn, signIn, start, world } from "./helpers";
+import { client, customer, d1, fake, HOUR, later, member, pay, returnPath, rid, signedIn, signIn, SLOT_AT, slotAt, start, world } from "./helpers";
 
 const COURT = {
   nameEn: "Court hire",
@@ -39,15 +39,23 @@ test("a Customer books a court for 1 hour with no Who step and gets one QR Ticke
   const booking = await cl.json("GET", `/bookings/${r.body.bookingId}`);
   expect(booking.body.tickets).toEqual([expect.objectContaining({ participantName: "Aiman", court: "Court 1", priceSen: 2000, status: "issued" })]);
   expect((await cl.json("GET", "/me")).body.upcoming).toEqual([expect.objectContaining({ participants: ["Aiman"] })]);
-  expect(devInbox.find((e) => e.to === email && e.subject.startsWith("Booking confirmed"))?.text).toContain("1 court · RM 20.00");
+  expect(devInbox.find((e) => e.to === email && e.subject.startsWith("Booking confirmed"))?.text).toContain("1 court · 1 hour · RM 20.00");
 });
 
-test("a signed-in Customer goes straight to Pay; a court Option sells one court and only without a waiver", async () => {
+test("a signed-in Customer goes straight to Pay for as many back-to-back hours as one court is free; only without a waiver", async () => {
   const w = await courts(1);
+  await slotAt(w, SLOT_AT + HOUR);
   const cl = await signedIn(`${rid()}@example.com`);
   const post = (quantity: number) => cl.json("POST", "/checkouts", { optionId: w.optionId, timeslotId: w.timeslotId, quantity, addOns: [] });
-  expect((await post(2)).body).toEqual({ code: "above_max_per_booking", field: "quantity", params: { max: 1 } });
-  expect((await post(1)).body).toEqual({ id: expect.any(String), next: "pay" });
+  expect((await post(3)).body).toEqual({ code: "no_availability", params: { spots: 2 } });
+  const started = await post(2);
+  expect(started.body).toEqual({ id: expect.any(String), next: "pay" });
+  expect((await cl.json("GET", `/checkouts/${started.body.id}`)).body).toMatchObject({
+    quantity: 2,
+    amountSen: 4000,
+    startsAt: SLOT_AT,
+    endsAt: SLOT_AT + 2 * HOUR,
+  });
 
   const waived = await courts(1, true);
   expect((await client().json("POST", "/checkouts", { optionId: waived.optionId, timeslotId: waived.timeslotId, quantity: 1, addOns: [] })).body).toEqual({
@@ -99,4 +107,34 @@ test("ops saves a per-court Option and Court Resources, but not a Pack offer wit
   expect((await m.json("POST", `${base}/options`, { ...option, bookingUnit: "team" })).body).toMatchObject({ field: "bookingUnit" });
   const offer = { activityId: w.activityId, nameEn: "4 hours", nameMs: "4 jam", sessions: 4, priceSen: 7000, validDays: 90, optionIds: [w.optionId], active: true };
   expect(await m.json("POST", `${base}/pack-offers`, offer)).toEqual({ status: 409, body: { code: "invalid_state" } });
+});
+
+test("closing the second hour of a 2-hour court Ticket sends one Closure notice for the whole Ticket on its first hour", async () => {
+  const w = await courts(1);
+  const second = await slotAt(w, SLOT_AT + HOUR);
+  const email = `${rid()}@example.com`;
+  const cl = await signedIn(email);
+  const id = (await cl.json("POST", "/checkouts", { optionId: w.optionId, timeslotId: w.timeslotId, quantity: 2, addOns: [] })).body.id;
+  const { billId } = await pay(cl, id);
+  const { bookingId } = (await cl.json("GET", returnPath((await fake(billId, "pay"))!))).body;
+  const [ticket] = (await cl.json("GET", `/bookings/${bookingId}`)).body.tickets;
+  expect(ticket).toMatchObject({ hours: 2, priceSen: 4000, startsAt: SLOT_AT, endsAt: SLOT_AT + 2 * HOUR });
+  const m = await member("operator", w.operatorId);
+  const close = (id: string, reason: string) => m.json("POST", `/ops/operators/${w.operatorId}/timeslots/${id}/close`, { reason });
+  const r = await close(second, "maintenance");
+  expect(r.body.affected).toEqual([expect.objectContaining({ bookingId, notice: expect.objectContaining({ choice: null }) })]);
+  await close(w.timeslotId, "weather");
+  expect(await d1("SELECT timeslot_id, reason FROM closure_notices WHERE booking_id = ?", bookingId)).toEqual([
+    { timeslot_id: w.timeslotId, reason: "maintenance" },
+  ]);
+  expect(devInbox.filter((e) => e.to === email && e.subject.startsWith("Timeslot closed"))).toHaveLength(1);
+  await w.flush();
+  expect(await d1("SELECT closed_at IS NOT NULL AS closed, ends_at FROM proj_tickets WHERE id = ?", ticket.id)).toEqual([
+    { closed: 1, ends_at: SLOT_AT + 2 * HOUR },
+  ]);
+
+  const at = later(72);
+  const [free] = [await slotAt(w, at), await slotAt(w, at + HOUR), await slotAt(w, at + 3 * HOUR)];
+  const { body } = await cl.json("GET", `/bookings/${bookingId}/slots?t=${ticket.id}`);
+  expect(body.slots.map((s: { id: string }) => s.id)).toEqual([free]);
 });

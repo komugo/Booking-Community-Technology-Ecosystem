@@ -22,7 +22,7 @@ export type Fixture = {
 };
 type Email = { to: string; subject: string; text: string };
 
-export async function fixture(request: APIRequestContext, o: { locale?: "en" | "ms"; staff?: boolean; inWindow?: boolean } = {}): Promise<Fixture> {
+export async function fixture(request: APIRequestContext, o: { locale?: "en" | "ms"; staff?: boolean; inWindow?: boolean; court?: boolean } = {}): Promise<Fixture> {
   const res = await request.post(`${API}/dev/fixture`, { data: o });
   expect(res.ok()).toBe(true);
   return res.json();

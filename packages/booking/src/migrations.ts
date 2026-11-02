@@ -222,6 +222,17 @@ export const migrations: string[][] = [
     `ALTER TABLE options ADD COLUMN daily_limit INTEGER CHECK (daily_limit > 0)`,
     `ALTER TABLE timeslots ADD COLUMN ends_at INTEGER`,
   ],
+  // A per-court Ticket (and its Hold) spans `hours` back-to-back Timeslots from its own.
+  [
+    `ALTER TABLE holds ADD COLUMN hours INTEGER NOT NULL DEFAULT 1 CHECK (hours > 0)`,
+    `ALTER TABLE tickets ADD COLUMN hours INTEGER NOT NULL DEFAULT 1 CHECK (hours > 0)`,
+    `ALTER TABLE activities ADD COLUMN max_court_tickets INTEGER NOT NULL DEFAULT 2 CHECK (max_court_tickets > 0)`,
+    `UPDATE meta SET rev = max(rev + 1, unixepoch() * 1000000)`,
+    `INSERT INTO outbox (entity, entity_id, rev) SELECT 'timeslot', t.id, (SELECT rev FROM meta)
+     FROM timeslots t JOIN options o ON o.id = t.option_id
+     WHERE o.booking_unit = 'court' AND t.closed_at IS NULL AND t.starts_at > unixepoch() * 1000
+     ON CONFLICT(entity, entity_id) DO UPDATE SET rev = excluded.rev`,
+  ],
 ];
 
 export function migrate(storage: DurableObjectStorage) {

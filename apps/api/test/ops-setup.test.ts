@@ -31,14 +31,14 @@ describe("ops Setup", () => {
     const o = await m.json<{ id: string }>("POST", `${base}/options`, option);
     const a = await m.json<{ id: string }>("POST", `${base}/add-ons`, { activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
     expect(
-      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }),
+      await m.json("PUT", `${base}/activities/${w.activityId}`, { freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 3 }),
     ).toEqual({ status: 200, body: { generated: expect.anything() } });
 
     const { body } = await m.json("GET", `${base}/setup`);
     expect(body.resources).toContainEqual({ ...horse, id: r.body.id, name: "Bayu II", maxSessionsPerDay: 5 });
     expect(body.options).toContainEqual({ ...option, id: o.body.id, nameEn: "Group lesson", bookingUnit: "person", ticketType: "timeslot", dailyLimit: null });
     expect(body.addOns).toContainEqual({ id: a.body.id, activityId: w.activityId, nameEn: "Photos", nameMs: "Foto", priceSen: 2000, active: true });
-    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false }]);
+    expect(body.activities).toEqual([{ id: w.activityId, freeCancelHours: 48, bookingCutoffMinutes: 30, closedDays: ["Mo#1", "Mo#3"], requiresWaiver: false, maxCourtTickets: 3 }]);
     expect(body.catalogue).toEqual([expect.objectContaining({ id: w.activityId, nameEn: "Trail Riding", listingMode: "bookable" })]);
   });
 
@@ -47,13 +47,14 @@ describe("ops Setup", () => {
     const m = await member("staff");
     const base = `/ops/operators/${w.operatorId}`;
     const bad = async (method: string, path: string, body: unknown) => (await m.json(method, `${base}${path}`, body)).body;
-    expect(await bad("PUT", `/activities/${w.activityId}`, { freeCancelHours: 721, bookingCutoffMinutes: 0, closedDays: ["Mo#6"] })).toEqual({
+    expect(await bad("PUT", `/activities/${w.activityId}`, { freeCancelHours: 721, bookingCutoffMinutes: 0, closedDays: ["Mo#6"], maxCourtTickets: 0 })).toEqual({
       code: "invalid_field",
       field: "freeCancelHours",
       errors: [
         { code: "invalid_field", field: "freeCancelHours" },
         { code: "invalid_field", field: "closedDays" },
         { code: "invalid_field", field: "requiresWaiver" },
+        { code: "invalid_field", field: "maxCourtTickets" },
       ],
     });
     const schedule = { activityId: w.activityId, optionIds: [w.optionId], weekdays: ["Mo"], times: ["9:00"], startsOn: klDay(1), endsOn: null, active: true };

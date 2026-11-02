@@ -115,6 +115,7 @@ export function booking(env: Env, operatorId: string) {
       customerId: string;
       replaces: string | null;
       timeslotId: string;
+      hours?: number;
       participantIds: string[];
       addOns: AddOnPick[];
     }) {
