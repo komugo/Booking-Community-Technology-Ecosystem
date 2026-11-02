@@ -272,6 +272,19 @@ export const t = {
       closed: "Closed",
       none: "No bookings",
       expired: "This link has expired. Open today's list from the latest Digest.",
+      close: "Close this time",
+      closedBy: (name: string) => `Closed by ${name}`,
+    },
+    closeLink: {
+      title: "Close a time",
+      reason: "Reason",
+      reasons: { weather: "Weather", maintenance: "Maintenance", event: "Event", horse_unfit: "Horse unfit", other: "Other" } as Record<string, string>,
+      customers: (n: number) =>
+        n ? `${n === 1 ? "1 Customer" : `${n} Customers`} will be emailed to choose a refund or a new time.` : "No one has booked this time.",
+      send: "Close and email customers",
+      done: (name: string | null) => (name ? `Closed by ${name}. Customers are being emailed.` : "This time is already closed."),
+      expired: "This time has started, so it can no longer be closed here. Message Komugo staff on WhatsApp.",
+      invalid: "Choose a reason.",
     },
     signIn: {
       title: "Sign in",
@@ -640,6 +653,18 @@ export const t = {
       closed: "Ditutup",
       none: "Tiada tempahan",
       expired: "Pautan ini telah tamat. Buka senarai hari ini dari Digest terbaharu.",
+      close: "Tutup masa ini",
+      closedBy: (name: string) => `Ditutup oleh ${name}`,
+    },
+    closeLink: {
+      title: "Tutup satu masa",
+      reason: "Sebab",
+      reasons: { weather: "Cuaca", maintenance: "Penyelenggaraan", event: "Acara", horse_unfit: "Kuda tidak sihat", other: "Lain-lain" } as Record<string, string>,
+      customers: (n: number) => (n ? `${n} pelanggan akan dihantar e-mel untuk memilih bayaran balik atau masa baharu.` : "Tiada siapa menempah masa ini."),
+      send: "Tutup dan e-mel pelanggan",
+      done: (name: string | null) => (name ? `Ditutup oleh ${name}. Pelanggan sedang dihantar e-mel.` : "Masa ini sudah ditutup."),
+      expired: "Masa ini sudah bermula, jadi tidak boleh ditutup di sini lagi. Hantar mesej WhatsApp kepada staf Komugo.",
+      invalid: "Pilih sebab.",
     },
     signIn: {
       title: "Log masuk",

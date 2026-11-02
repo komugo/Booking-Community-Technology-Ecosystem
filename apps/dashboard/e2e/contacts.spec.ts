@@ -5,7 +5,7 @@ test("staff add an Operator contact, who gets the Welcome in their language, the
   const fx = await fixture(request, { staff: true });
   const page = await (await newContext(browser)).newPage();
   await signIn(page, fx.staffEmail!, `/o/${fx.operatorId}/setup?tab=contacts`);
-  await expect(page.getByText("No contacts yet.")).toBeVisible();
+  await expect(page.locator("[data-row]")).toHaveText([/Siti/]);
 
   const number = `01${String(Date.now()).slice(-8)}`;
   await page.getByRole("button", { name: "New contact" }).click();
@@ -36,5 +36,5 @@ test("staff add an Operator contact, who gets the Welcome in their language, the
 
   await row.click();
   await sheet.getByRole("button", { name: "Remove contact" }).click();
-  await expect(page.getByText("No contacts yet.")).toBeVisible();
+  await expect(row).toHaveCount(0);
 });

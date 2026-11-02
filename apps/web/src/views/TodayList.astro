@@ -20,7 +20,7 @@ const s = t[l].todayList;
             <li data-slot={slot.id} class="rounded-2xl bg-sand p-4">
               <h2 class="font-bold">
                 {klTime(l, slot.startsAt)} · {l === "ms" ? slot.option.nameMs : slot.option.nameEn}
-                {slot.closed && <span class="ml-2 rounded-full bg-clay px-2 py-0.5 text-sm text-white">{s.closed}</span>}
+                {slot.closed && <span class="ml-2 rounded-full bg-clay px-2 py-0.5 text-sm text-white">{slot.closedBy ? s.closedBy(slot.closedBy) : s.closed}</span>}
               </h2>
               {!slot.closed &&
                 (slot.groups.length ? (
@@ -34,6 +34,11 @@ const s = t[l].todayList;
                 ) : (
                   <p class="mt-2 text-muted">{s.none}</p>
                 ))}
+              {slot.closeHref && (
+                <a href={slot.closeHref} class="mt-3 inline-flex min-h-11 items-center font-semibold text-clay underline underline-offset-2">
+                  {s.close}
+                </a>
+              )}
             </li>
           ))}
         </ul>

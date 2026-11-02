@@ -5,8 +5,10 @@ import { sendClosureEmail } from "../email";
 import { groupRef } from "./enrich";
 import { each, logError, MIN, type WaitUntil } from "../lib";
 
+export const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
+
 export async function recordClosure(env: Env, waitUntil: WaitUntil, operatorId: string, timeslotId: string, reason: ClosureReason) {
-  const { affected } = await booking(env, operatorId).closeTimeslot(timeslotId, reason);
+  const { affected, closed } = await booking(env, operatorId).closeTimeslot(timeslotId, reason);
   // A per-court Ticket's notice is on its first hour, so closing more of its hours still sends one.
   const groups = new Map(affected.map((t) => [groupRef(t), t]));
   const db = createDb(env.DB);
@@ -21,6 +23,7 @@ export async function recordClosure(env: Env, waitUntil: WaitUntil, operatorId: 
   for (const id of new Set([timeslotId, ...affected.map((t) => t.timeslotId)])) {
     waitUntil(sendClosureNotices(env, id).catch((e) => logError("closure_notices_failed", { timeslotId: id, error: String(e) })));
   }
+  return closed;
 }
 
 export async function sendClosureNotices(env: Env, timeslotId: string | null, now = Date.now()) {

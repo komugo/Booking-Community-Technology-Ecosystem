@@ -213,12 +213,43 @@ export async function unsubscribeStep({ request, params, url }: Ctx, l: Locale) 
 type DayList = {
   operator: string;
   date: string;
-  timeslots: { id: string; startsAt: number; closed: boolean; option: { nameEn: string; nameMs: string }; groups: { name: string; codes: string[] }[] }[];
+  timeslots: {
+    id: string;
+    startsAt: number;
+    closed: boolean;
+    closedBy: string | null;
+    closeK: string | null;
+    option: { nameEn: string; nameMs: string };
+    groups: { name: string; codes: string[] }[];
+  }[];
 };
 
 export async function listStep({ request, params, url }: Ctx, l: Locale) {
-  const res = await api<DayList>(request, "GET", `/lists/${q(params.operatorId!)}/${q(params.date!)}?k=${q(url.searchParams.get("k") ?? "")}`);
+  const c = url.searchParams.get("c") ?? "";
+  const res = await api<DayList>(request, "GET", `/lists/${q(params.operatorId!)}/${q(params.date!)}?c=${q(c)}&k=${q(url.searchParams.get("k") ?? "")}`);
   if (res.status === 410) return { locale: l, list: null };
   if (!res.data) return notFound();
-  return { locale: l, list: res.data };
+  const timeslots = res.data.timeslots.map((s) => ({ ...s, closeHref: s.closeK && `${path(l, "close", params.operatorId!, s.id)}?c=${q(c)}&k=${q(s.closeK)}` }));
+  return { locale: l, list: { ...res.data, timeslots } };
+}
+
+type CloseView = {
+  operator: string;
+  timeslot: { id: string; startsAt: number; horse: boolean; option: { nameEn: string; nameMs: string }; closedAt: number | null; closedBy: string | null };
+  customers: number;
+};
+
+export async function closeStep({ request, params, url }: Ctx, l: Locale) {
+  const at = `/closes/${q(params.operatorId!)}/${q(params.timeslotId!)}?c=${q(url.searchParams.get("c") ?? "")}&k=${q(url.searchParams.get("k") ?? "")}`;
+  let invalid = false;
+  if (request.method === "POST") {
+    const res = await api(request, "POST", at, { reason: (await form(request))("reason") });
+    if (res.status === 204 || res.status === 409) return see(url.pathname + url.search);
+    if (res.status === 404) return notFound();
+    invalid = res.status === 400;
+  }
+  const res = await api<CloseView>(request, "GET", at);
+  if (res.status === 410) return { locale: l, view: null, invalid };
+  if (!res.data) return notFound();
+  return { locale: l, view: res.data, invalid };
 }

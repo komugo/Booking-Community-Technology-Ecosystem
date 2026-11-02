@@ -1087,7 +1087,8 @@ const taking = (x: "tickets" | "holds", cols: string) =>
 export function closeTimeslot(sql: SqlStorage, now: number, timeslotId: string, reason: ClosureReason) {
   const slot = loadSlot(sql, timeslotId);
   if (!slot) throw new BookingError("invalid_state");
-  if (slot.closed_at === null) {
+  const closed = slot.closed_at === null;
+  if (closed) {
     if (slot.starts_at <= now) throw new BookingError("invalid_state");
     sql.exec("UPDATE timeslots SET closed_at = ?, closed_reason = ? WHERE id = ?", now, reason, timeslotId);
     const tickets = sql
@@ -1124,7 +1125,7 @@ export function closeTimeslot(sql: SqlStorage, now: number, timeslotId: string, 
         packId: t.pack_id,
       }),
     );
-  return { affected };
+  return { affected, closed };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

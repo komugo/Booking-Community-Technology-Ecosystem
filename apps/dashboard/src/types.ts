@@ -36,6 +36,7 @@ export type Timeslot = {
   endsAt: number | null;
   closedAt: number | null;
   closedReason: string | null;
+  closedBy: string | null;
   horse: boolean;
   spots: number;
   option: Named & { id: string; durationMinutes: number };

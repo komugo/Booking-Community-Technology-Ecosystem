@@ -595,3 +595,14 @@ export const whatsappMessages = sqliteTable(
   },
   (t) => [index("whatsapp_messages_contact").on(t.contactId, t.createdAt), index("whatsapp_messages_status").on(t.status, t.createdAt)],
 );
+
+// A Closure made from a close Operator link, with the contact who made it; one per Timeslot, so the link works once.
+export const linkClosures = sqliteTable("link_closures", {
+  timeslotId: text().primaryKey(),
+  operatorId: text()
+    .notNull()
+    .references(() => operators.id),
+  contactId: text().notNull(),
+  contactName: text().notNull(),
+  createdAt: integer().notNull(),
+});

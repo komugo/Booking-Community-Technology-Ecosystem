@@ -162,6 +162,13 @@
       "when": 1793610354025,
       "tag": "0024_operator_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793612029673,
+      "tag": "0025_link_closures",
+      "breakpoints": true
     }
   ]
 }

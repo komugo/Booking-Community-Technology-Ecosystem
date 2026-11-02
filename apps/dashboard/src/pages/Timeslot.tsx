@@ -77,7 +77,7 @@ export default function TimeslotPage() {
 
       {slot.closedAt ? (
         <>
-          <p className="mt-4 rounded-xl bg-clay px-4 py-3 font-semibold text-white">{t.closedOn(t.reasons[closedReason], time(slot.closedAt, l))}</p>
+          <p className="mt-4 rounded-xl bg-clay px-4 py-3 font-semibold text-white">{t.closedOn(t.reasons[closedReason], time(slot.closedAt, l), slot.closedBy)}</p>
           {slot.groups.length > 0 && (
             <section className="mt-6" aria-labelledby="affected">
               <div className="flex items-center justify-between gap-3">

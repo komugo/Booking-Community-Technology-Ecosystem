@@ -6,12 +6,10 @@ import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { validDate } from "../checkout";
 import { DAY, fail, UUID, type ApiError, type Ctx } from "../lib";
 import { staffOnly, type Ops } from "./auth";
-import { recordClosure } from "./closure";
+import { REASONS, recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
 import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
 import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, syncHours, type PhotoInput } from "./venues";
-
-const REASONS: ClosureReason[] = ["weather", "maintenance", "event", "horse_unfit", "other"];
 
 export const routes = new Hono<Ops>();
 

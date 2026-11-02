@@ -1,5 +1,5 @@
 import type { CheckInResult, TimeslotRow } from "@komugo/booking";
-import { checkouts, closureNotices, createDb, customers, participants, projActivities, projAddOns, projOptions, waivers, within } from "@komugo/db";
+import { checkouts, closureNotices, createDb, customers, linkClosures, participants, projActivities, projAddOns, projOptions, waivers, within } from "@komugo/db";
 import { ageOn, klDate, WAIVER } from "@komugo/types";
 import { and, eq } from "drizzle-orm";
 
@@ -71,7 +71,16 @@ async function load(env: Env, operatorId: string, q: Lookup) {
 // A closed Timeslot keeps listing a group after its Customer chose, so the Closure list shows the choice.
 export async function enrichTimeslots(env: Env, operatorId: string, rows: TimeslotRow[]) {
   const tickets = rows.flatMap((r) => r.tickets);
-  const notices = await createDb(env.DB)
+  const db = createDb(env.DB);
+  const closedBy = new Map(
+    (
+      await db
+        .select({ timeslotId: linkClosures.timeslotId, name: linkClosures.contactName })
+        .from(linkClosures)
+        .where(within(linkClosures.timeslotId, rows.flatMap((r) => (r.closedAt !== null ? [r.id] : []))))
+    ).map((x) => [x.timeslotId, x.name]),
+  );
+  const notices = await db
     .select({
       timeslotId: closureNotices.timeslotId,
       ref: closureNotices.ref,
@@ -108,6 +117,7 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
       endsAt: r.endsAt,
       closedAt: r.closedAt,
       closedReason: r.closedReason,
+      closedBy: closedBy.get(r.id) ?? null,
       horse: r.horse,
       spots: r.spots,
       option: x.option(r.optionId),

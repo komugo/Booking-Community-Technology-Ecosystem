@@ -1,24 +1,26 @@
 import { env } from "cloudflare:test";
 import { operatorContacts } from "@komugo/db";
+import { eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { cron } from "../src/cron";
-import { DIGEST, listLink } from "../src/digest";
+import { closeLink, DIGEST, listLink } from "../src/digest";
 import { devOutbox } from "../src/whatsapp";
 import { booked, client, db, kl, slotAt, world, type World } from "./helpers";
 
 const phone = () => `+6018${String(Math.floor(Math.random() * 1e7)).padStart(7, "0")}`;
 
 async function contacts(w: World) {
-  const en = phone();
-  const ms = phone();
-  await db.insert(operatorContacts).values([
-    { operatorId: w.operatorId, name: "Siti", phone: en, role: "counter", locale: "en", createdAt: Date.now() },
-    { operatorId: w.operatorId, name: "Aminah", phone: ms, role: "owner", locale: "ms", createdAt: Date.now() },
-  ]);
+  const [en, ms] = await db
+    .insert(operatorContacts)
+    .values([
+      { operatorId: w.operatorId, name: "Siti", phone: phone(), role: "counter", locale: "en", createdAt: Date.now() },
+      { operatorId: w.operatorId, name: "Aminah", phone: phone(), role: "owner", locale: "ms", createdAt: Date.now() },
+    ])
+    .returning();
   return { en, ms };
 }
 
-const sent = (to: string) => devOutbox.filter((m) => m.to === to).map((m) => m.text);
+const sent = (c: { phone: string }) => devOutbox.filter((m) => m.to === c.phone).map((m) => m.text);
 const apiPath = (link: string) => {
   const u = new URL(link);
   return `/lists${u.pathname.replace(/^(\/ms)?\/list/, "")}${u.search}`;
@@ -37,10 +39,12 @@ test("at 9pm KL every contact gets tomorrow's Tickets in their language, with a 
   const [ms] = sent(to.ms);
   expect(ms).toContain("Tiket untuk esok");
   expect(ms).toContain("09:00 Tunggang");
+  expect(en).toContain(`Close this time: ${await closeLink(env, w.operatorId, w.timeslotId, to.en)}`);
+  expect(ms).toContain(`Tutup masa ini: ${await closeLink(env, w.operatorId, w.timeslotId, to.ms)}`);
 
   const link = en.match(/https:\/\/web\.test\/list\/\S+/)![0];
-  expect(link).toBe(await listLink(env, w.operatorId, "2030-01-15", "en"));
-  expect(ms).toContain(await listLink(env, w.operatorId, "2030-01-15", "ms"));
+  expect(link).toBe(await listLink(env, w.operatorId, "2030-01-15", to.en));
+  expect(ms).toContain(await listLink(env, w.operatorId, "2030-01-15", to.ms));
 
   const cl = client();
   const list = await cl.json("GET", apiPath(link));
@@ -49,12 +53,20 @@ test("at 9pm KL every contact gets tomorrow's Tickets in their language, with a 
     operator: "Test Stable",
     date: "2030-01-15",
     timeslots: [
-      { id: w.timeslotId, startsAt: kl("2030-01-15T09:00"), closed: false, option: { nameEn: "Ride", nameMs: "Tunggang" }, groups: [{ name: "Aiman Rahman", codes }] },
+      {
+        id: w.timeslotId,
+        startsAt: kl("2030-01-15T09:00"),
+        closed: false,
+        closedBy: null,
+        option: { nameEn: "Ride", nameMs: "Tunggang" },
+        groups: [{ name: "Aiman Rahman", codes }],
+        closeK: new URL(await closeLink(env, w.operatorId, w.timeslotId, to.en)).searchParams.get("k"),
+      },
     ],
   });
 
   await w.b.closeTimeslot(w.timeslotId, "weather");
-  expect((await cl.json("GET", apiPath(link))).body.timeslots[0]).toMatchObject({ closed: true, groups: [] });
+  expect((await cl.json("GET", apiPath(link))).body.timeslots[0]).toMatchObject({ closed: true, groups: [], closeK: null });
 });
 
 test("an empty day sends the one-liner; a Closed day sends nothing", async () => {
@@ -79,16 +91,21 @@ test("an empty day sends the one-liner; a Closed day sends nothing", async () =>
   expect(sent(to.en)[0]).not.toContain("11:00");
 });
 
-test("a tampered or expired today's list link is refused", async () => {
+test("a tampered, expired or removed contact's today's list link is refused", async () => {
   const w = await world();
+  const to = await contacts(w);
   const cl = client();
-  const path = apiPath(await listLink(env, w.operatorId, "2030-01-15", "en"));
+  const path = apiPath(await listLink(env, w.operatorId, "2030-01-15", to.en));
   expect((await cl.json("GET", path)).status).toBe(200);
   expect((await cl.json("GET", path.replace("2030-01-15", "2030-01-16"))).status).toBe(404);
   expect((await cl.json("GET", path.replace("k=", "k=zz"))).status).toBe(404);
-  expect((await cl.json("GET", path.replace(/\?k=.*/, ""))).status).toBe(404);
+  expect((await cl.json("GET", path.replace(/&k=.*/, ""))).status).toBe(404);
 
   const yesterday = new Date(Date.now() + 8 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
-  const expired = await cl.json("GET", apiPath(await listLink(env, w.operatorId, yesterday, "en")));
+  const expired = await cl.json("GET", apiPath(await listLink(env, w.operatorId, yesterday, to.en)));
   expect(expired).toMatchObject({ status: 410, body: { code: "link_expired" } });
+
+  expect((await cl.json("GET", path.replace(to.en.id, to.ms.id))).status).toBe(404);
+  await db.delete(operatorContacts).where(eq(operatorContacts.id, to.en.id));
+  expect((await cl.json("GET", path)).status).toBe(404);
 });

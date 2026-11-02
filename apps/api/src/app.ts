@@ -5,7 +5,7 @@ import { billplz } from "./billplz";
 import { checkout } from "./checkout";
 import { fakeBillplz } from "./dev/billplz";
 import { fixture } from "./dev/fixture";
-import { lists } from "./digest";
+import { closes, lists } from "./digest";
 import { devInbox } from "./email";
 import { interests } from "./interests";
 import { manage } from "./manage";
@@ -36,6 +36,7 @@ app.route("/pack-orders", packs);
 app.route("/me", me);
 app.route("/interests", interests);
 app.route("/lists", lists);
+app.route("/closes", closes);
 app.route("/dev/billplz", fakeBillplz);
 
 ops.use("/operators/:operatorId/*", requireMember, forOperator);

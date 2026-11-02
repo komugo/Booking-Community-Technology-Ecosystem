@@ -18,6 +18,7 @@ export type Fixture = {
   staffEmail?: string;
   bookingId: string;
   k: string;
+  close: string;
   customerEmail: string;
 };
 type Email = { to: string; subject: string; text: string };

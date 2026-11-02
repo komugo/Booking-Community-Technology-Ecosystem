@@ -17,6 +17,7 @@ export type Fixture = {
   packId?: string;
   k: string;
   list: string;
+  close: string;
   customerEmail: string;
   activityPath: string;
   venueSlug?: string;
