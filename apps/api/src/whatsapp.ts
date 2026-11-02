@@ -29,6 +29,10 @@ const TEMPLATES = {
     en: "{operator}: Booking alert for {date}\n\n{change}\n\nToday's list, always up to date: {link}",
     ms: "{operator}: Makluman tempahan untuk {date}\n\n{change}\n\nSenarai hari ini, sentiasa terkini: {link}",
   },
+  closure: {
+    en: "{operator}: Closure done\n\n{option}, {when}\nReason: {reason}\nCustomers notified: {customers}",
+    ms: "{operator}: Penutupan selesai\n\n{option}, {when}\nSebab: {reason}\nPelanggan dimaklumkan: {customers}",
+  },
 } satisfies Record<string, Record<Locale, string>>;
 
 type Template = keyof typeof TEMPLATES;
@@ -83,8 +87,8 @@ async function attempt(env: Env, to: string, text: string) {
   }
 }
 
-// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); each Booking alert counts for a day. A removed contact's message is shown but never resent.
-export const current = sql`case ${whatsappMessages.template} when 'alert' then ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} else not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR}) end`;
+// Only the newest message per contact and template is theirs, and a Digest only until its day starts (3h after 9pm KL); each Booking alert and Closure done counts for a day. A removed contact's message is shown but never resent.
+export const current = sql`case when ${whatsappMessages.template} in ('alert', 'closure') then ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${24 * HOUR} else not exists (select 1 from whatsapp_messages n where n.contact_id = ${whatsappMessages.contactId} and n.template = ${whatsappMessages.template} and n.created_at > ${whatsappMessages.createdAt}) and (${whatsappMessages.template} != 'digest' or ${whatsappMessages.createdAt} > unixepoch() * 1000 - ${3 * HOUR}) end`;
 const live = sql`exists (select 1 from operator_contacts c where c.id = ${whatsappMessages.contactId})`;
 
 type Contact = { id: string; operatorId: string; phone: string; locale: Locale };
