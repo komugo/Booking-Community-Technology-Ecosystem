@@ -28,6 +28,7 @@ export async function fixture(
     dateTicket?: unknown;
     dailyLimit?: unknown;
     weekendPriceSen?: unknown;
+    listed?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -195,6 +196,7 @@ export async function fixture(
   }
   // A per-court Option with two courts and two back-to-back free hours tomorrow; per-court sells only without a waiver.
   const courtOptionId = `opt_${rid}_court`;
+  const courtSlotIds: string[] = [];
   if (o.court === true) {
     await b.upsertActivity({ id: activityId, freeCancelHours: 24, requiresWaiver: false });
     for (const n of ["A", "B"]) {
@@ -220,7 +222,7 @@ export async function fixture(
       active: true,
       needs: [{ kind: "court", quantity: 1 }],
     });
-    await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR, minute + DAY + 2 * HOUR] });
+    courtSlotIds.push(...(await b.createTimeslots({ optionId: courtOptionId, startsAt: [minute + DAY + HOUR, minute + DAY + 2 * HOUR] })).ids);
   }
   // A Date ticket Option open 06:00–23:30 every day, with no waiver.
   const dateOptionId = `opt_${rid}_date`;
@@ -254,6 +256,28 @@ export async function fixture(
     .insert(operatorContacts)
     .values({ operatorId, name: "Siti", phone: "+60181234567", role: "counter", locale, createdAt: now })
     .returning();
+  // With court and dateTicket: a paid 2-hour court Ticket and 2 Date tickets on the court day, with that day's list.
+  let listed: { list: string; courtSlotId: string; courtStartsAt: number; dateSlotId: string; courtCode: string; dateCodes: string[] } | undefined;
+  if (o.listed === true && o.court === true && o.dateTicket === true) {
+    const day = klDate(minute + DAY + HOUR);
+    const from = Date.parse(`${day}T00:00:00+08:00`);
+    const [dateSlot] = (await b.timeslots({ from, to: from + DAY })).filter((s) => s.optionId === dateOptionId);
+    const book = async (timeslotId: string, ids: string[], hours: number) => {
+      const h = await b.createHold({ requestId: `fixture:${rid}:${timeslotId}`, customerId: customer.id, replaces: null, timeslotId, participantIds: ids, addOns: [], hours });
+      const paid = await b.confirmHold({ billId: `dev_${rid}_${timeslotId}`, holdId: h.holdId, amountSen: h.amountSen });
+      if (paid.status !== "paid") throw new Error(`fixture_not_paid:${paid.reason}`);
+      return paid.ticketIds.map(ticketCode);
+    };
+    const [courtCode] = await book(courtSlotIds[0], [], 2);
+    listed = {
+      list: await listLink(env, operatorId, day, contact),
+      courtSlotId: courtSlotIds[0],
+      courtStartsAt: minute + DAY + HOUR,
+      dateSlotId: dateSlot.id,
+      courtCode,
+      dateCodes: await book(dateSlot.id, participantIds, 1),
+    };
+  }
   return {
     operatorId,
     cityId: city.id,
@@ -275,5 +299,6 @@ export async function fixture(
     ...(o.packOffer === true || viaPack ? { offerId } : {}),
     ...(o.court === true ? { courtOptionId } : {}),
     ...(o.dateTicket === true ? { dateOptionId } : {}),
+    ...(listed ? { listed } : {}),
   };
 }

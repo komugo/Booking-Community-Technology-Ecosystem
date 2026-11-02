@@ -273,10 +273,13 @@ export const t = {
       none: "No bookings",
       expired: "This link has expired. Open today's list from the latest Digest.",
       close: "Close this time",
+      closeDate: "Close this date",
+      tickets: (n: number) => `${n} ticket${n === 1 ? "" : "s"}`,
       closedBy: (name: string) => `Closed by ${name}`,
     },
     closeLink: {
       title: "Close a time",
+      titleDate: "Close a date",
       reason: "Reason",
       reasons: { weather: "Weather", maintenance: "Maintenance", event: "Event", horse_unfit: "Horse unfit", other: "Other" } as Record<string, string>,
       customers: (n: number) =>
@@ -654,10 +657,13 @@ export const t = {
       none: "Tiada tempahan",
       expired: "Pautan ini telah tamat. Buka senarai hari ini dari Digest terbaharu.",
       close: "Tutup masa ini",
+      closeDate: "Tutup tarikh ini",
+      tickets: (n: number) => `${n} tiket`,
       closedBy: (name: string) => `Ditutup oleh ${name}`,
     },
     closeLink: {
       title: "Tutup satu masa",
+      titleDate: "Tutup satu tarikh",
       reason: "Sebab",
       reasons: { weather: "Cuaca", maintenance: "Penyelenggaraan", event: "Acara", horse_unfit: "Kuda tidak sihat", other: "Lain-lain" } as Record<string, string>,
       customers: (n: number) => (n ? `${n} pelanggan akan dihantar e-mel untuk memilih bayaran balik atau masa baharu.` : "Tiada siapa menempah masa ini."),

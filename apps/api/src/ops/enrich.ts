@@ -34,6 +34,8 @@ async function load(env: Env, operatorId: string, q: Lookup) {
         nameEn: projOptions.nameEn,
         nameMs: projOptions.nameMs,
         durationMinutes: projOptions.durationMinutes,
+        bookingUnit: projOptions.bookingUnit,
+        ticketType: projOptions.ticketType,
         requiresWaiver: projActivities.requiresWaiver,
       })
       .from(projOptions)
@@ -52,7 +54,7 @@ async function load(env: Env, operatorId: string, q: Lookup) {
     contact: by(contacts, (c) => c.bookingId),
     customer: by(buyers, (c) => c.id),
     addOn: by(addOns, (a) => a.id),
-    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0, requiresWaiver: true },
+    option: (id: string) => option.get(id) ?? { id, nameEn: "", nameMs: "", durationMinutes: 0, bookingUnit: "person" as const, ticketType: "timeslot" as const, requiresWaiver: true },
     // A per-court Ticket has no Participant, so it shows the Customer's name.
     participant(id: string, startsAt: number, optionId: string, customerName: string) {
       const p = person.get(id);
@@ -140,6 +142,8 @@ export async function enrichTimeslots(env: Env, operatorId: string, rows: Timesl
           tickets: ts.map((t) => ({
             id: t.id,
             code: ticketCode(t.id),
+            timeslotId: t.timeslotId,
+            hours: t.hours,
             checkedInAt: t.checkedInAt,
             resources: t.resources,
             ...x.participant(t.participantId, r.startsAt, r.optionId, name),

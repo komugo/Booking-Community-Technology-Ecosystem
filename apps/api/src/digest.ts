@@ -29,32 +29,67 @@ const closeK = (env: Env, operatorId: string, timeslotId: string, contactId: str
 export const closeLink = async (env: Env, operatorId: string, timeslotId: string, c: Contact) =>
   `${site(env, c.locale)}/close/${operatorId}/${timeslotId}?c=${c.id}&k=${await closeK(env, operatorId, timeslotId, c.id)}`;
 
+// A per-court Ticket is listed once, under its first hour, with its court and hours; a Date ticket's day has no time.
 async function dayList(env: Env, operatorId: string, date: string) {
   const rows = await booking(env, operatorId).timeslots({ from: dayStart(date), to: dayStart(date) + DAY });
-  return (await enrichTimeslots(env, operatorId, rows)).map((s) => ({
-    id: s.id,
-    startsAt: s.startsAt,
-    closed: s.closedAt !== null,
-    closedBy: s.closedBy,
-    option: { nameEn: s.option.nameEn, nameMs: s.option.nameMs },
-    groups: s.closedAt !== null ? [] : s.groups.map((g) => ({ name: g.contact.name, codes: g.tickets.map((t) => t.code) })),
-  }));
+  return (await enrichTimeslots(env, operatorId, rows)).flatMap((s) => {
+    const court = s.option.bookingUnit === "court";
+    const groups =
+      s.closedAt !== null
+        ? []
+        : s.groups.flatMap<{ name: string; codes: string[]; names: string[]; court: string | null; endsAt: number | null }>((g) =>
+            court
+              ? g.tickets
+                  .filter((t) => t.timeslotId === s.id)
+                  .map((t) => ({
+                    name: g.contact.name,
+                    codes: [t.code],
+                    names: [t.participant.name],
+                    court: t.resources[0] ?? null,
+                    endsAt: s.startsAt + t.hours * HOUR,
+                  }))
+              : [{ name: g.contact.name, codes: g.tickets.map((t) => t.code), names: g.tickets.map((t) => t.participant.name), court: null, endsAt: null }],
+          );
+    if (court && s.groups.length && !groups.length && s.closedAt === null) return [];
+    return [
+      {
+        id: s.id,
+        startsAt: s.startsAt,
+        date: s.option.ticketType === "date",
+        closed: s.closedAt !== null,
+        closedBy: s.closedBy,
+        option: { nameEn: s.option.nameEn, nameMs: s.option.nameMs },
+        groups,
+      },
+    ];
+  });
 }
 
 const hhmm = (t: number) => new Date(t + 8 * HOUR).toISOString().slice(11, 16);
 
 const NONE: Record<Locale, string> = { en: "No bookings tomorrow.", ms: "Tiada tempahan esok." };
 const CLOSE: Record<Locale, string> = { en: "Close this time", ms: "Tutup masa ini" };
+const CLOSE_DATE: Record<Locale, string> = { en: "Close this date", ms: "Tutup tarikh ini" };
+const TICKETS: Record<Locale, (n: number) => string> = { en: (n) => `${n} ticket${n === 1 ? "" : "s"}`, ms: (n) => `${n} tiket` };
 
-async function lines(env: Env, operatorId: string, slots: Awaited<ReturnType<typeof dayList>>, c: Contact) {
+type Day = Awaited<ReturnType<typeof dayList>>;
+
+const line = (s: Day[number], g: Day[number]["groups"][number]) =>
+  s.date
+    ? `• ${g.name}: ${g.names.map((n, i) => `${n} ${g.codes[i]}`).join(", ")}`
+    : `• ${g.court ? `${g.court}, ${hhmm(s.startsAt)}–${hhmm(g.endsAt!)} · ` : ""}${g.name}: ${g.codes.join(", ")}`;
+
+async function lines(env: Env, operatorId: string, slots: Day, c: Contact) {
   const booked = slots.filter((s) => s.groups.length);
   if (!booked.length) return NONE[c.locale];
   const blocks = await Promise.all(
     booked.map(async (s) =>
       [
-        `${hhmm(s.startsAt)} ${named(s.option, c.locale)}`,
-        ...s.groups.map((g) => `• ${g.name}: ${g.codes.join(", ")}`),
-        `${CLOSE[c.locale]}: ${await closeLink(env, operatorId, s.id, c)}`,
+        s.date
+          ? `${named(s.option, c.locale)}: ${TICKETS[c.locale](s.groups.reduce((n, g) => n + g.codes.length, 0))}`
+          : `${hhmm(s.startsAt)} ${named(s.option, c.locale)}`,
+        ...s.groups.map((g) => line(s, g)),
+        `${(s.date ? CLOSE_DATE : CLOSE)[c.locale]}: ${await closeLink(env, operatorId, s.id, c)}`,
       ].join("\n"),
     ),
   );
@@ -198,6 +233,7 @@ closes.get("/:operatorId/:timeslotId", async (c) => {
     timeslot: {
       id: slot.id,
       startsAt: slot.startsAt,
+      date: slot.option.ticketType === "date",
       horse: slot.horse,
       option: { nameEn: slot.option.nameEn, nameMs: slot.option.nameMs },
       closedAt: slot.closedAt,

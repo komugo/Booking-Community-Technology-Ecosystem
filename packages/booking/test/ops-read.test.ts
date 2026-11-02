@@ -38,6 +38,7 @@ test("timeslots lists a range or ids with issued Tickets, horse names, Add-ons p
         bookingId: paid.bookingId,
         packId: null,
         checkedInAt: null,
+        hours: 1,
         resources: [expect.stringMatching(/Bayu|Kilat/)],
       },
     ],

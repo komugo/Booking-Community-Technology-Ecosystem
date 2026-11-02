@@ -192,6 +192,7 @@ export type TimeslotRow = {
     bookingId: string | null;
     packId: string | null;
     checkedInAt: number | null;
+    hours: number;
     resources: string[];
   }[];
   addOns: { bookingId: string; addOnId: string; quantity: number }[];
@@ -1386,8 +1387,9 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
       booking_id: string | null;
       pack_id: string | null;
       checked_in_at: number | null;
+      hours: number;
     }>(
-      `SELECT s.id AS slot_id, x.id, x.timeslot_id, x.customer_id, x.participant_id, x.booking_id, x.pack_id, x.checked_in_at
+      `SELECT s.id AS slot_id, x.id, x.timeslot_id, x.customer_id, x.participant_id, x.booking_id, x.pack_id, x.checked_in_at, x.hours
        FROM timeslots s JOIN timeslots f ON f.option_id = s.option_id JOIN tickets x ON x.timeslot_id = f.id
        WHERE s.id IN (SELECT value FROM json_each(?)) AND x.status = 'issued' AND ${TAKES} ORDER BY x.rowid`,
       ids(slots.map((s) => s.id)),
@@ -1428,6 +1430,7 @@ export function timeslots(sql: SqlStorage, now: number, q: { from: number; to: n
         bookingId: t.booking_id,
         packId: t.pack_id,
         checkedInAt: t.checked_in_at,
+        hours: t.hours,
         resources: resources.get(t.id) ?? [],
       })),
       addOns: addOns

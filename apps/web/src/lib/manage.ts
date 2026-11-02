@@ -216,11 +216,12 @@ type DayList = {
   timeslots: {
     id: string;
     startsAt: number;
+    date: boolean;
     closed: boolean;
     closedBy: string | null;
     closeK: string | null;
     option: { nameEn: string; nameMs: string };
-    groups: { name: string; codes: string[] }[];
+    groups: { name: string; codes: string[]; names: string[]; court: string | null; endsAt: number | null }[];
   }[];
 };
 
@@ -235,7 +236,7 @@ export async function listStep({ request, params, url }: Ctx, l: Locale) {
 
 type CloseView = {
   operator: string;
-  timeslot: { id: string; startsAt: number; horse: boolean; option: { nameEn: string; nameMs: string }; closedAt: number | null; closedBy: string | null };
+  timeslot: { id: string; startsAt: number; date: boolean; horse: boolean; option: { nameEn: string; nameMs: string }; closedAt: number | null; closedBy: string | null };
   customers: number;
 };
 

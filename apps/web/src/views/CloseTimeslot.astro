@@ -9,14 +9,15 @@ const s = t[l].closeLink;
 const reasons = ["weather", "maintenance", "event", ...(view?.timeslot.horse ? ["horse_unfit"] : []), "other"];
 ---
 
-<Checkout locale={l} title={s.title}>
+<Checkout locale={l} title={view?.timeslot.date ? s.titleDate : s.title}>
   {
     view ? (
       <>
         <p class="mt-2 text-lg font-semibold">{view.operator}</p>
         <p class="text-muted">{klLongDay(l, view.timeslot.startsAt)}</p>
         <h2 class="mt-1 text-xl font-bold">
-          {klTime(l, view.timeslot.startsAt)} · {l === "ms" ? view.timeslot.option.nameMs : view.timeslot.option.nameEn}
+          {!view.timeslot.date && `${klTime(l, view.timeslot.startsAt)} · `}
+          {l === "ms" ? view.timeslot.option.nameMs : view.timeslot.option.nameEn}
         </h2>
         {view.timeslot.closedAt !== null ? (
           <p role="status" class="mt-6 rounded-2xl bg-sand p-4 font-semibold">{s.done(view.timeslot.closedBy)}</p>
