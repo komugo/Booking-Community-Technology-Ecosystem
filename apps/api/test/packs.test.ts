@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, test } from "vitest";
-import { confirmBill } from "../src/billplz";
+import { confirmBill } from "../src/chip";
 import { cron } from "../src/cron";
 import { devInbox } from "../src/email";
 import { client, d1, fake, held, later, packOffer, pay, returnPath, rid, signedIn, slotAt, world, type World } from "./helpers";

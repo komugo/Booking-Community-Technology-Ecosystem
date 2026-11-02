@@ -70,8 +70,8 @@ export function stubOutbound() {
     const req = new Request(input, init);
     const url = new URL(req.url);
     if (url.origin === "https://api.test") return dispatch(req);
-    if (url.origin === "https://web.test" && url.pathname === "/billplz/callback") {
-      return dispatch(new Request(`https://api.test/billplz/callback`, req));
+    if (url.origin === "https://web.test" && url.pathname === "/chip/callback") {
+      return dispatch(new Request(`https://api.test/chip/callback`, req));
     }
     if (url.origin === "https://api.resend.com") {
       const body = (await req.json()) as { to: string[] };
@@ -334,7 +334,7 @@ export async function pay(cl: Client, id: string) {
 
 export async function fake(billId: string, action: string) {
   const res = await dispatch(
-    new Request(`https://api.test/dev/billplz/bills/${billId}`, {
+    new Request(`https://api.test/dev/chip/p/${billId}`, {
       method: "POST",
       body: new URLSearchParams({ action }),
     }),
@@ -342,7 +342,7 @@ export async function fake(billId: string, action: string) {
   return res.headers.get("location");
 }
 
-export const returnPath = (location: string) => `/billplz/return?${new URL(location).search.slice(1)}`;
+export const returnPath = (location: string) => `/chip/return?${new URL(location).search.slice(1)}`;
 
 export const d1 = <T = Record<string, unknown>>(q: string, ...p: unknown[]) =>
   env.DB.prepare(q)

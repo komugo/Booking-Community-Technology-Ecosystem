@@ -16,7 +16,7 @@ import {
 import { ageOn, klDate, participantKey, WAIVER, waiverText } from "@komugo/types";
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
-import { checkoutState, createBill, deleteBill } from "./billplz";
+import { cancelPurchase, checkoutState, createPurchase } from "./chip";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
 import { bookingAlert } from "./day-list";
 import { sendBookedEmail } from "./email";
@@ -146,7 +146,7 @@ async function releaseBill(env: Env, holdId: string) {
     .select({ id: bills.id })
     .from(bills)
     .where(and(eq(bills.holdId, holdId), isNull(bills.paidAt), isNull(bills.deletedAt)));
-  if (bill && (await deleteBill(env, bill.id))) {
+  if (bill && (await cancelPurchase(env, bill.id))) {
     await db.update(bills).set({ deletedAt: Date.now() }).where(eq(bills.id, bill.id));
   }
 }
@@ -530,20 +530,17 @@ checkout.post("/:id/pay", async (c) => {
   const l = co.locale;
   let bill;
   try {
-    bill = await createBill(c.env, {
-      collection_id: c.env.BILLPLZ_COLLECTION_ID,
+    bill = await createPurchase(c.env, {
       email: customer.email,
-      name: (co.contactName ?? customer.name).slice(0, 255),
-      amount: String(co.amountSen),
-      description: `Komugo · ${named(d.activity, l)} – ${named(d.option, l)}, ${klDay(d.slot.startsAt, l)}`.slice(0, 200),
-      callback_url: `${c.env.PUBLIC_SITE_URL}/billplz/callback`,
-      redirect_url: `${c.env.PUBLIC_SITE_URL}${l === "ms" ? "/ms" : ""}/checkout/return`,
-      reference_1_label: "Checkout",
-      reference_1: co.id,
-      deliver: "false",
+      name: co.contactName ?? customer.name,
+      product: `Komugo · ${named(d.activity, l)} – ${named(d.option, l)}, ${klDay(d.slot.startsAt, l)}`,
+      amountSen: co.amountSen,
+      reference: co.id,
+      holdId: co.holdId,
+      locale: l,
     });
   } catch (e) {
-    logError("billplz_create_failed", { checkoutId: co.id, error: String(e) });
+    logError("chip_create_failed", { checkoutId: co.id, error: String(e) });
     return fail(c, 502, { code: "payment_unavailable" });
   }
   const inserted = await db
@@ -553,13 +550,13 @@ checkout.post("/:id/pay", async (c) => {
       checkoutId: co.id,
       holdId: co.holdId,
       amountSen: co.amountSen,
-      url: bill.url,
+      url: bill.checkout_url,
       createdAt: Date.now(),
     })
     .onConflictDoNothing({ target: bills.holdId })
     .returning({ url: bills.url });
   if (inserted.length) return c.json({ url: inserted[0].url });
-  c.executionCtx.waitUntil(deleteBill(c.env, bill.id).catch(() => false));
+  c.executionCtx.waitUntil(cancelPurchase(c.env, bill.id).catch(() => false));
   const [won] = await winner();
   return won ? c.json({ url: won.url }) : fail(c, 409, { code: "hold_expired" });
 });

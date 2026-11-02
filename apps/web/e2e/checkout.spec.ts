@@ -117,8 +117,8 @@ for (const locale of ["en", "ms"] as const) {
     await expect(page.locator("section[aria-labelledby=summary] p.text-muted")).toHaveText("Aina Rahman, Adam Rahman");
     await shot("06-pay");
     await page.locator("[data-pay]").click();
-    await expect(page).toHaveURL(/\/dev\/billplz\/bills\//);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/${locale}-07-billplz.png`, fullPage: true });
+    await expect(page).toHaveURL(/\/dev\/chip\/p\//);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/${locale}-07-chip.png`, fullPage: true });
     await page.locator('button[value="pay"]').click();
 
     await expect(page).toHaveURL(/\/bookings\/[^?]+\?k=/);
@@ -269,18 +269,18 @@ test("paid without a return, the email link shows the Tickets", async ({ browser
   await context.close();
 });
 
-test("a forged return shows the error page", async ({ page }) => {
-  await page.goto(`/checkout/return?billplz[id]=nope&billplz[paid]=true&billplz[paid_at]=x&billplz[x_signature]=${"0".repeat(64)}`);
+test("a return for an unknown Hold shows the error page", async ({ page }) => {
+  await page.goto("/checkout/return?hold=nope");
   await expect(page.locator("h1")).toHaveText("There's a problem");
   await expect(page.locator("main")).toContainText("couldn't verify");
 });
 
-test("POSTs need our Origin, except the Billplz callback", async ({ request, baseURL }) => {
+test("POSTs need our Origin, except the CHIP callback", async ({ request, baseURL }) => {
   const form = { form: { timeslotId: "x", quantity: "1" } };
   expect((await request.post("/book/opt_cp_adult", { ...form, headers: { Origin: "https://evil.test" } })).status()).toBe(403);
   expect((await request.post("/book/opt_cp_adult", { ...form, headers: { Origin: "null" } })).status()).toBe(403);
   expect((await request.post("/book/opt_cp_adult", { ...form, headers: { Origin: baseURL! } })).status()).toBe(400);
-  const callback = await request.post("/billplz/callback", { form: { id: "x", paid: "true" } });
+  const callback = await request.post("/chip/callback", { data: { id: "x", status: "paid" } });
   expect(await callback.text()).toContain("bad_signature");
 });
 

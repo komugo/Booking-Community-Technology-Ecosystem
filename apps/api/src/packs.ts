@@ -2,7 +2,7 @@ import { booking, BookingError } from "@komugo/booking";
 import { activities, bills, createDb, customers, operators, packOrders, projPackOffers } from "@komugo/db";
 import { Hono } from "hono";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
-import { createBill, type BillRow } from "./billplz";
+import { createPurchase, getPurchase, paidSen, pending, type BillRow, type Purchase } from "./chip";
 import { named } from "./details";
 import { sendPackEmail, sendRefundEmail } from "./email";
 import { DAY, fail, limited, log, logError, requireJson, type Ctx, type WaitUntil } from "./lib";
@@ -65,31 +65,28 @@ packs.post("/", requireJson, async (c) => {
   await db.insert(packOrders).values({ id: orderId, customerId, operatorId: offer.operatorId, offerId, amountSen, locale: l, createdAt: now });
   let bill;
   try {
-    bill = await createBill(c.env, {
-      collection_id: c.env.BILLPLZ_COLLECTION_ID,
+    bill = await createPurchase(c.env, {
       email: customer.email,
-      name: customer.name.slice(0, 255),
-      amount: String(amountSen),
-      description: `Komugo · ${named(offer, l)} – ${named(activity, l)}`.slice(0, 200),
-      callback_url: `${c.env.PUBLIC_SITE_URL}/billplz/callback`,
-      redirect_url: `${c.env.PUBLIC_SITE_URL}${l === "ms" ? "/ms" : ""}/checkout/return`,
-      reference_1_label: "Pack",
-      reference_1: orderId,
-      deliver: "false",
+      name: customer.name,
+      product: `Komugo · ${named(offer, l)} – ${named(activity, l)}`,
+      amountSen,
+      reference: orderId,
+      holdId: orderId,
+      locale: l,
     });
   } catch (e) {
-    logError("billplz_create_failed", { orderId, error: String(e) });
+    logError("chip_create_failed", { orderId, error: String(e) });
     return fail(c, 502, { code: "payment_unavailable" });
   }
-  await db.insert(bills).values({ id: bill.id, kind: "pack", checkoutId: orderId, holdId: orderId, amountSen, url: bill.url, createdAt: Date.now() });
-  return c.json({ url: bill.url });
+  await db.insert(bills).values({ id: bill.id, kind: "pack", checkoutId: orderId, holdId: orderId, amountSen, url: bill.checkout_url, createdAt: Date.now() });
+  return c.json({ url: bill.checkout_url });
 });
 
 export async function confirmPackOrder(env: Env, waitUntil: WaitUntil, bill: BillRow, amountSen: number) {
   const db = createDb(env.DB);
   const [order] = await db.select().from(packOrders).where(eq(packOrders.id, bill.checkoutId));
   if (!order) {
-    log("billplz_unknown_bill", { billId: bill.id });
+    log("chip_unknown_bill", { billId: bill.id });
     return null;
   }
   const result = await booking(env, order.operatorId).confirmPackBill({ billId: bill.id, orderId: order.id, amountSen });
@@ -111,21 +108,22 @@ export async function confirmPackOrder(env: Env, waitUntil: WaitUntil, bill: Bil
     }
   } else {
     await paid;
-    logError("billplz_refund_due", { billId: bill.id, orderId: order.id, reason: result.reason });
+    logError("chip_refund_due", { billId: bill.id, orderId: order.id, reason: result.reason });
     waitUntil(sendRefundEmail(env, bill.id).catch((e) => logError("refund_email_failed", { billId: bill.id, error: String(e) })));
   }
-  log("billplz_confirmed", { billId: bill.id, orderId: order.id, status: result.status });
+  log("chip_confirmed", { billId: bill.id, orderId: order.id, status: result.status });
   return { order, result };
 }
 
-export async function packReturn(c: Ctx, bill: BillRow, fields: Record<string, string>) {
-  const paid = fields.billplzpaid === "true";
-  if (paid) {
-    try {
-      await confirmPackOrder(c.env, (p) => c.executionCtx.waitUntil(p), bill, bill.amountSen);
-    } catch (e) {
-      logError("billplz_return_failed", { billId: bill.id, error: String(e) });
-    }
+export async function packReturn(c: Ctx, bill: BillRow) {
+  let p: Purchase | null | undefined;
+  let sen: number | null = null;
+  try {
+    p = await getPurchase(c.env, bill.id);
+    sen = p && paidSen(p);
+    if (sen !== null) await confirmPackOrder(c.env, (w) => c.executionCtx.waitUntil(w), bill, sen);
+  } catch (e) {
+    logError("chip_return_failed", { billId: bill.id, error: String(e) });
   }
   const db = createDb(c.env.DB);
   const [[order], [now]] = await Promise.all([
@@ -136,7 +134,7 @@ export async function packReturn(c: Ctx, bill: BillRow, fields: Record<string, s
     ? "refund_due"
     : now.paidAt && order.packId
       ? "pack"
-      : paid || fields.billplztransaction_status === "pending"
+      : p === undefined || sen !== null || pending(p)
         ? "pending"
         : "failed";
   const mine = (await readSession(c))?.customerId === order.customerId;

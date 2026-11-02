@@ -257,10 +257,10 @@ type Return =
   | { state: "pack" | "refund_due" | "pending" | "failed"; offerId: string; packId?: string; k?: string };
 
 export async function returnStep({ request, url }: Ctx, l: Locale) {
-  const res = await api<Return>(request, "GET", `/billplz/return${url.search}`);
+  const res = await api<Return>(request, "GET", `/chip/return${url.search}`);
   const r = res.data;
   const tries = Number(url.searchParams.get("n")) || 0;
-  if (!r) return { locale: l, state: res.status === 403 || res.status === 404 ? ("invalid" as const) : ("pending" as const), tries };
+  if (!r) return { locale: l, state: res.status === 404 ? ("invalid" as const) : ("pending" as const), tries };
   if ("offerId" in r) {
     if (r.state === "pack") return see(r.k ? `${path(l, "packs", r.packId!)}?k=${r.k}&new=1` : path(l, "bookings"));
     if (r.state === "refund_due") return see(`${path(l, "bookings")}?e=pack_refund_due`);

@@ -44,19 +44,19 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 ### Platform
 
 - [ ] Cron Triggers: payouts
-- [x] Billplz webhook as a Worker route, duplicate callbacks handled in code (cron reconciles lost callbacks; no Queues)
+- [x] CHIP success callback as a Worker route (`X-Signature` RSA-verified with CHIP's public key), duplicate callbacks handled in code (cron reconciles lost callbacks; no Queues)
 - [ ] R2 for photos/files
 - [x] Rate limiting on auth + checkout (Workers `ratelimits` plus D1 caps: 5 codes per email per hour, 10 per day, 5 tries per code; 3 active Holds and 10 held people per Timeslot per Customer; 8 Holds per Checkout)
-- [ ] Allowlist `/billplz/callback` in WAF/bot rules
+- [ ] Allowlist `/chip/callback` in WAF/bot rules
 - [ ] Git-connected deploys to a `staging` env with its own DO namespace and D1 database (DOs don't support preview URLs)
 
 ## Checkout (step 4)
 
-- [x] Guest checkout: Option → Timeslot → Participants + Waivers → email code → Hold (15 min) → Billplz → Tickets with QR, EN + BM
+- [x] Guest checkout: Option → Timeslot → Participants + Waivers → email code → Hold (15 min) → CHIP → Tickets with QR, EN + BM
 - [x] Waiver records version, text hash, signer, and a guardian flag for a minor (under 18 at signing)
 - [x] Late payment after Hold expiry: re-allocate the same Timeslot (or the Checkout's replacement Hold for the same people), else `refund_due` with a refund email and rebook link
 - Refunds are manual: ops pays out every `refund_due` Payment (`proj_payments`, `bills.refund_reason`) by hand; the Customer gets an email. Not an automatic Refund.
-- [ ] Real Billplz keys and collection (`BILLPLZ_API_KEY`, `BILLPLZ_X_SIGNATURE_KEY`, `BILLPLZ_COLLECTION_ID`), "Extra Payment Completion Information" on, then a sandbox smoke test on staging
+- [ ] Real CHIP keys and brand (`CHIP_SECRET_KEY`, `CHIP_BRAND_ID`), then a test-mode smoke test on staging (#38)
 - [ ] Email domain: verify `komugo.com` in Resend (SPF/DKIM), set `RESEND_API_KEY` and `APP_SECRET`
 - [ ] Legal review of the DRAFT Waiver text (EN + BM) and of adult self-attestation on the lead booker's device; bump `WAIVER.version` when it changes
 - [ ] Test Safari on staging (`__Host-` Secure cookies don't set on http://localhost)
@@ -77,7 +77,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 
 ## Customer changes (step 6)
 
-- [x] Pack offers in dashboard Setup (Packs tab); Activity page lists active offers; Pack purchase via Sign-in + Billplz, Pack issued on the paid callback (idempotent; late or duplicate payment → Refund row)
+- [x] Pack offers in dashboard Setup (Packs tab); Activity page lists active offers; Pack purchase via Sign-in + CHIP, Pack issued on the paid callback (idempotent; late or duplicate payment → Refund row)
 - [x] "Use Pack" at the Pay step consumes the Checkout's Hold (Requirements, Waivers, eligible Options, expiry and remaining sessions enforced in the DO); no Add-ons with a Pack
 - [x] Standalone Sign-in (`/sign-in`) and My bookings (`/bookings`): Needs your choice, Upcoming, Packs, Past
 - [x] Cancel per Ticket with the outcome shown first (ticket price + Add-on share, or forfeited; Pack session returned); refused with `quote_changed` if the outcome moved
@@ -109,7 +109,7 @@ Decisions: CONTEXT.md (Listing mode, Venue, Operator signed up, Booking unit, Ti
 - [ ] Closure reasons + maintenance, event (`closed_reason` CHECK); horse unfit only on horse Activities; free-cancel default 24h for courts/Date tickets; policy shown on Pick and Pay
 - [x] Per-Option max per booking (stepper max 10 and `MAX_PEOPLE` are hard-coded)
 - Deploy note: Operators backfilled as signed up sell nothing until staff set their Commission; the daily 03:00 KL cron wakes every Operator so its Packs re-project into Payouts, so mark the first Payouts only after it has run
-- [ ] Check the Billplz collection has e-wallets (TnG, GrabPay, Boost), not only FPX/card
+- [ ] Check the CHIP brand has e-wallets (TnG, GrabPay, Boost) and DuitNow QR on, not only FPX/card
 - Eng risks: confirm nothing live in remote D1/DO before editing migrations in place, else additive only; `kind`/`closed_reason` CHECKs need one table rebuild (validate in code after), never one per value; `participant_id` NOT NULL on tickets/allocations/proj_tickets; `tickets.timeslot_id` single column vs back-to-back hours; `spots()` = 0 with no Resources; seed `onConflictDoUpdate` overwrites, block `/dev/seed` outside local; `listing_mode` backfill from `published`; venues backfilled from activities address/geo/hours; slug uniqueness across EN and MS
 - [x] Reschedule with tiered prices: Customer same total only; after Closure same-or-cheaper with difference refunded (Klook customer-promises)
 - Deferred: several courts or times in one checkout, pay-the-difference bill for pricier post-Closure targets, inconvenience compensation for operator cancels within 24h, Packs on per-court/Date ticket Options (if needed later: Operator RM wallet, Playtomic-style), promo codes, split pay, contact edit on a Booking, per-date price overrides
