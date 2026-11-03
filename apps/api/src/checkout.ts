@@ -5,6 +5,7 @@ import {
   checkouts,
   createDb,
   customers,
+  operators,
   participants,
   projPackOffers,
   projPacks,
@@ -20,7 +21,7 @@ import { cancelPurchase, checkoutState, createPurchase } from "./chip";
 import { klDay, named, optionDetails, type Locale, type OptionDetails } from "./details";
 import { bookingAlert } from "./day-list";
 import { sendBookedEmail } from "./email";
-import { fail, HOUR, limited, logError, MIN, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
+import { fail, HOUR, limited, logError, MIN, sellable, sha256Hex, type ApiError, type Ctx, type WaitUntil } from "./lib";
 import { bookingLink, groupLink } from "./manage";
 import { ensureSession, owns, readSession, type Session } from "./session";
 
@@ -152,8 +153,12 @@ async function releaseBill(env: Env, holdId: string) {
 }
 
 async function notBookable(env: Env, activityId: string) {
-  const [a] = await createDb(env.DB).select({ listingMode: activities.listingMode }).from(activities).where(eq(activities.id, activityId));
-  return a?.listingMode !== "bookable" && env.BOOK_DRAFTS !== "1";
+  const [a] = await createDb(env.DB)
+    .select({ listingMode: activities.listingMode, commissionBps: operators.commissionBps })
+    .from(activities)
+    .innerJoin(operators, eq(operators.id, activities.operatorId))
+    .where(eq(activities.id, activityId));
+  return !a || !sellable(env, a.listingMode, a.commissionBps);
 }
 
 export async function holdStep(
@@ -324,7 +329,7 @@ checkout.post("/", async (c) => {
     d.slot.closedAt !== null ||
     (d.slot.endsAt ?? d.slot.startsAt) - (d.bookingCutoffMinutes ?? 0) * MIN <= now ||
     (court && d.requiresWaiver !== false) ||
-    ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1")
+    !sellable(c.env, d.activity.listingMode, d.commissionBps)
   ) {
     return fail(c, 409, { code: "not_bookable" });
   }
@@ -524,7 +529,7 @@ checkout.post("/:id/pay", async (c) => {
     optionDetails(db, co.optionId, co.timeslotId, []),
   ]);
   if (!customer?.email || !d?.slot) return fail(c, 409, { code: "invalid_state" });
-  if ((d.activity.listingMode !== "bookable" || d.commissionBps === null) && c.env.BOOK_DRAFTS !== "1") {
+  if (!sellable(c.env, d.activity.listingMode, d.commissionBps)) {
     return fail(c, 409, { code: "not_bookable" });
   }
   const l = co.locale;
