@@ -2,7 +2,7 @@ import { booking, BookingError } from "@komugo/booking";
 import { activities, bills, createDb, customers, operators, packOrders, projPackOffers } from "@komugo/db";
 import { Hono } from "hono";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
-import { createPurchase, getPurchase, paidSen, pending, type BillRow, type Purchase } from "./chip";
+import { createPurchase, getPurchase, paidSen, pending, refundLater, type BillRow, type Purchase } from "./chip";
 import { named } from "./details";
 import { sendPackEmail, sendRefundEmail } from "./email";
 import { DAY, fail, limited, log, logError, requireJson, type Ctx, type WaitUntil } from "./lib";
@@ -110,6 +110,7 @@ export async function confirmPackOrder(env: Env, waitUntil: WaitUntil, bill: Bil
     await paid;
     logError("chip_refund_due", { billId: bill.id, orderId: order.id, reason: result.reason });
     waitUntil(sendRefundEmail(env, bill.id).catch((e) => logError("refund_email_failed", { billId: bill.id, error: String(e) })));
+    refundLater(env, waitUntil, order.operatorId, `bill:${bill.id}`);
   }
   log("chip_confirmed", { billId: bill.id, orderId: order.id, status: result.status });
   return { order, result };

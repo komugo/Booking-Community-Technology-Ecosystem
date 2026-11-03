@@ -5,12 +5,18 @@ type FakePurchase = {
   brand_id: string;
   status: string;
   total: number;
+  refunded: number;
+  refunds?: "refuse" | "lost";
   success_callback: string;
   success_redirect: string;
   failure_redirect: string;
 };
 
 const purchases = new Map<string, FakePurchase>();
+
+// A Payment made outside CHIP (fixtures, tests) that the fake refunds, refuses to, or refunds but loses the answer.
+export const fakePaid = (id: string, total: number, refunds?: "refuse" | "lost") =>
+  purchases.set(id, { id, brand_id: "", status: "paid", total, refunded: 0, refunds, success_callback: "", success_redirect: "", failure_redirect: "" });
 
 let keys: Promise<CryptoKeyPair> | null = null;
 const keyPair = () =>
@@ -44,6 +50,7 @@ const json = (env: Env, p: FakePurchase) => ({
   checkout_url: `${env.CHIP_BASE.replace(/\/api\/v1$/, "")}/p/${p.id}`,
   purchase: { currency: "MYR", total: p.total },
   payment: p.status === "paid" ? { amount: p.total, currency: "MYR" } : null,
+  refundable_amount: p.status === "paid" ? p.total - p.refunded : 0,
 });
 
 fakeChip.get("/api/v1/public_key/", async (c) => {
@@ -65,6 +72,7 @@ fakeChip.post("/api/v1/purchases/", async (c) => {
     brand_id: b.brand_id,
     status: "created",
     total: b.purchase.products.reduce((s, x) => s + x.price, 0),
+    refunded: 0,
     success_callback: b.success_callback,
     success_redirect: b.success_redirect,
     failure_redirect: b.failure_redirect,
@@ -84,6 +92,18 @@ fakeChip.post("/api/v1/purchases/:id/cancel/", (c) => {
   if (!["created", "pending_execute"].includes(p.status)) return c.json({ error: "purchase_not_payable" }, 400);
   p.status = "cancelled";
   return c.json(json(c.env, p));
+});
+
+fakeChip.post("/api/v1/purchases/:id/refund/", async (c) => {
+  const p = purchases.get(c.req.param("id"));
+  if (!p) return c.json({ error: "not_found" }, 404);
+  const { amount } = await c.req.json<{ amount: number }>();
+  if (p.status !== "paid" || p.refunds === "refuse" || amount <= 0 || amount > p.total - p.refunded) {
+    return c.json({ __all__: [{ message: "Refund is not available for this purchase", code: "purchase_refund_error" }] }, 400);
+  }
+  p.refunded += amount;
+  if (p.refunds === "lost") return c.text("Bad Gateway", 502);
+  return c.json({ id: crypto.randomUUID(), type: "payment", status: "success", payment: { amount, currency: "MYR" } });
 });
 
 const ACTIONS = {

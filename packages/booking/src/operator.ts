@@ -186,6 +186,10 @@ export class OperatorBooking extends DurableObject<Env> {
     return this.#read(op, (sql) => engine.packView(sql, packId));
   }
 
+  refund(op: string, id: string) {
+    return this.#read(op, (sql) => engine.refund(sql, id));
+  }
+
   markRefunded(op: string, i: { refundId: string; memberId: string }) {
     return this.#mutate(op, null, (sql, now) => engine.markRefunded(sql, now, i));
   }

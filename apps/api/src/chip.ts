@@ -1,10 +1,10 @@
 import { booking, BookingError, type ConfirmResult } from "@komugo/booking";
-import { bills, checkouts, createDb } from "@komugo/db";
+import { bills, checkouts, createDb, refundSends, type Db } from "@komugo/db";
 import { Hono } from "hono";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { bookingAlert } from "./day-list";
-import { sendBookedEmail, sendRefundEmail } from "./email";
-import { fail, log, logError, type WaitUntil } from "./lib";
+import { sendBookedEmail, sendRefundEmail, sendRefundPaidEmail } from "./email";
+import { fail, log, logError, MIN, type WaitUntil } from "./lib";
 import { bookingLink } from "./manage";
 import { confirmPackOrder, packReturn } from "./packs";
 import { owns, readSession } from "./session";
@@ -65,6 +65,73 @@ export async function cancelPurchase(env: Env, id: string) {
   const p = await getPurchase(env, id);
   return !p || (paidSen(p) === null && !pending(p));
 }
+
+// Resolves to CHIP's refusal (4xx) or null once refunded. Throws when the outcome is unknown (network, 5xx): CHIP may have refunded.
+async function refundPurchase(env: Env, id: string, amountSen: number) {
+  const res = await api(env, "POST", `/purchases/${encodeURIComponent(id)}/refund/`, { amount: amountSen });
+  if (res.ok) return null;
+  const text = `CHIP ${res.status}: ${(await res.text()).slice(0, 500)}`;
+  if (res.status >= 500) throw new Error(text);
+  return res.status === 404 ? "Not a CHIP payment. Pay by hand." : text;
+}
+
+// A claim with neither sentAt nor error older than this is a send whose outcome is unknown.
+export const STALE = 5 * MIN;
+
+// The refund_sends claim lets one sender (CHIP or staff by hand) pay a Refund; only a CHIP refusal frees it again.
+const claim = (db: Db, refundId: string) => {
+  const now = Date.now();
+  return db
+    .insert(refundSends)
+    .values({ refundId, claimedAt: now })
+    .onConflictDoUpdate({ target: refundSends.refundId, set: { claimedAt: now, error: null }, setWhere: isNotNull(refundSends.error) })
+    .returning();
+};
+
+const prior = async (db: Db, refundId: string) => (await db.select().from(refundSends).where(eq(refundSends.refundId, refundId)))[0];
+
+// Whether staff may mark a Refund paid by hand: not while CHIP may still be paying it.
+export async function claimByHand(env: Env, refundId: string) {
+  const db = createDb(env.DB);
+  const [claimed] = await claim(db, refundId);
+  if (claimed) return true;
+  const p = await prior(db, refundId);
+  return !!p && (!!p.sentAt || p.claimedAt < Date.now() - STALE);
+}
+
+export async function sendRefund(env: Env, operatorId: string, refundId: string): Promise<"sent" | "failed" | "sending" | "already_refunded"> {
+  const b = booking(env, operatorId);
+  const r = await b.refund(refundId);
+  if (!r) throw new Error("refund_not_found");
+  if (r.refundedAt) return "already_refunded";
+  const db = createDb(env.DB);
+  const [claimed] = await claim(db, refundId);
+  if (claimed) {
+    if ((await b.refund(refundId))?.refundedAt) return "already_refunded";
+    let refused: string | null;
+    try {
+      refused = r.billId ? await refundPurchase(env, r.billId, r.amountSen) : "No CHIP payment to refund";
+    } catch (e) {
+      logError("chip_refund_unknown", { refundId, error: String(e) });
+      return "sending";
+    }
+    if (refused) {
+      await db.update(refundSends).set({ error: refused }).where(eq(refundSends.refundId, refundId));
+      logError("chip_refund_failed", { refundId, error: refused });
+      return "failed";
+    }
+    await db.update(refundSends).set({ sentAt: Date.now() }).where(eq(refundSends.refundId, refundId));
+    log("chip_refunded", { refundId, amountSen: r.amountSen });
+  } else if (!(await prior(db, refundId))?.sentAt) return "sending";
+  const { changed } = await b.markRefunded({ refundId, memberId: "chip" });
+  if (changed) {
+    await sendRefundPaidEmail(env, { ...r, operatorId }).catch((e) => logError("refund_paid_email_failed", { refundId, error: String(e) }));
+  }
+  return "sent";
+}
+
+export const refundLater = (env: Env, waitUntil: WaitUntil, operatorId: string, refundId: string) =>
+  waitUntil(sendRefund(env, operatorId, refundId).catch((e) => logError("chip_refund_failed", { refundId, error: String(e) })));
 
 const bytes = (b64: string) => Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
 
@@ -192,6 +259,7 @@ async function confirmBooking(env: Env, waitUntil: WaitUntil, bill: BillRow, amo
       ]);
       (ends ? log : logError)("chip_refund_due", { billId, checkoutId, reason: result.reason });
       waitUntil(sendRefundEmail(env, billId).catch((e) => logError("refund_email_failed", { billId, error: String(e) })));
+      refundLater(env, waitUntil, checkout.operatorId, `bill:${billId}`);
     }
     log("chip_confirmed", { billId, checkoutId, status: result.status });
   }

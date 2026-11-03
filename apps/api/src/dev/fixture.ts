@@ -7,6 +7,7 @@ import { DAY, HOUR, MIN, type WaitUntil } from "../lib";
 import { groupLink } from "../manage";
 import { recordClosure } from "../ops/closure";
 import { ticketCode } from "../ops/enrich";
+import { fakePaid } from "./chip";
 
 // An isolated Operator with one booked Timeslot (today, or 3 days ahead inWindow), so each e2e test owns its data.
 // viaPack books it with a Pack instead of paying.
@@ -29,6 +30,7 @@ export async function fixture(
     dailyLimit?: unknown;
     weekendPriceSen?: unknown;
     listed?: unknown;
+    refuseRefunds?: unknown;
   },
 ) {
   const db = createDb(env.DB);
@@ -155,6 +157,7 @@ export async function fixture(
     const { ticketIds } = await b.redeemPack({ requestId: `fixture:${rid}:redeem`, customerId: customer.id, packId: issued.packId, holdId: hold.holdId });
     group = { kind: "pack", id: issued.packId, ticketIds };
   } else {
+    fakePaid(`dev_${rid}`, hold.amountSen, o.refuseRefunds === true ? "refuse" : undefined);
     const paid = await b.confirmHold({ billId: `dev_${rid}`, holdId: hold.holdId, amountSen: hold.amountSen });
     if (paid.status !== "paid") throw new Error(`fixture_not_paid:${paid.reason}`);
     group = { kind: "booking", id: paid.bookingId, ticketIds: paid.ticketIds };

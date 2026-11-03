@@ -2227,6 +2227,15 @@ export function packView(sql: SqlStorage, packId: string): PackView {
   };
 }
 
+export const refund = (sql: SqlStorage, id: string) =>
+  first(
+    sql.exec<{ id: string; customerId: string | null; billId: string | null; bookingId: string | null; amountSen: number; reason: RefundReason; refundedAt: number | null }>(
+      `SELECT id, customer_id AS customerId, bill_id AS billId, booking_id AS bookingId, amount_sen AS amountSen, reason,
+        refunded_at AS refundedAt FROM refunds WHERE id = ?`,
+      id,
+    ),
+  ) ?? null;
+
 // Idempotent by state: a second mark returns the first refundedAt.
 export function markRefunded(sql: SqlStorage, now: number, i: { refundId: string; memberId: string }) {
   const done = first(

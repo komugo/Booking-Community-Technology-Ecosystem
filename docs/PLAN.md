@@ -55,7 +55,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - [x] Guest checkout: Option → Timeslot → Participants + Waivers → email code → Hold (15 min) → CHIP → Tickets with QR, EN + BM
 - [x] Waiver records version, text hash, signer, and a guardian flag for a minor (under 18 at signing)
 - [x] Late payment after Hold expiry: re-allocate the same Timeslot (or the Checkout's replacement Hold for the same people), else `refund_due` with a refund email and rebook link
-- Refunds are manual: ops pays out every `refund_due` Payment (`proj_payments`, `bills.refund_reason`) by hand; the Customer gets an email. Not an automatic Refund.
+- [x] Automatic Refunds (#40): every Refund (refund_due Payment, cancel, Closure) goes back through CHIP `POST /purchases/{id}/refund/` (partial `amount` for a share), claimed once in D1 `refund_sends` so it is never sent twice; CHIP accepts → marked sent and the Customer emailed; CHIP refuses → stays on "Refunds to pay" with CHIP's error, where staff retry or pay by hand
 - [ ] Real CHIP keys and brand (`CHIP_SECRET_KEY`, `CHIP_BRAND_ID`), then a test-mode smoke test on staging (#38)
 - [ ] Email domain: verify `komugo.com` in Resend (SPF/DKIM), set `RESEND_API_KEY` and `APP_SECRET`
 - [ ] Legal review of the DRAFT Waiver text (EN + BM) and of adult self-attestation on the lead booker's device; bump `WAIVER.version` when it changes
@@ -83,7 +83,7 @@ See ADR 0004. `packages/booking`: `OperatorBooking` (one per Operator, embedded 
 - [x] Cancel per Ticket with the outcome shown first (ticket price + Add-on share, or forfeited; Pack session returned); refused with `quote_changed` if the outcome moved
 - [x] Reschedule per Ticket inside the free-cancel window; after a Closure free to any future open Timeslot
 - [x] Closure choice from the emailed link (refund or new time), recorded in the Operator DO with the change and projected by the outbox onto `closure_notices`, shown in the dashboard
-- [x] Staff-only "Refunds to pay" (`/refunds`): mark refunded (idempotent) emails the Customer
+- [x] Staff-only "Refunds to pay" (`/refunds`): mark refunded (idempotent) emails the Customer; "Send through CHIP" retries a refused or older Refund
 - [x] DO migration 7 and D1 `0006_customer_changes` are additive only
 - `free_cancel_hours = 0` now means no free cancel (it used to allow a free cancel up to the start)
 - e2e: `pnpm --filter @komugo/web exec playwright test` starts its own API (8790) and web (4330) on `.wrangler/state-e2e`, with a private dev registry (`WRANGLER_REGISTRY_PATH`/`MINIFLARE_REGISTRY_PATH=.wrangler/registry-e2e`) so the web's `API` service binding reaches that API and not another local one. `PERSIST_TO` and `INSPECTOR_PORT` point `astro dev` at the same D1 and a free inspector port; `--ignore-lock` keeps it in the foreground.

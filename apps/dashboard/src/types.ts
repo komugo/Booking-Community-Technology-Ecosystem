@@ -117,6 +117,7 @@ export type RefundRow = {
   billId: string | null;
   bookingId: string | null;
   customer: { name: string | null; email: string | null; phone: string | null };
+  chip: { state: "sending" | "sent" | "failed" | "unknown"; error: string | null } | null;
 };
 export type ListingMode = "bookable" | "info" | "hidden";
 export type Setting = "indoor" | "outdoor";

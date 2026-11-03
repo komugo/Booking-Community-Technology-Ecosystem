@@ -28,7 +28,7 @@ Run from `apps/api`. Add `--env staging` for staging.
 
 - [x] D1 `komugo-staging` migrated (0000–0006), 3 Workers deployed, seeded
 - [ ] Set secrets above, set brand id, `pnpm --filter @komugo/api deploy:staging`
-- [ ] Test-mode smoke test: book → pay (CHIP test card) → callback → ticket email → dashboard check-in
+- [ ] Test-mode smoke test: book → pay (CHIP test card) → callback → ticket email → dashboard check-in → cancel one Ticket → CHIP refund → "Refund sent" email
 - [ ] Operator sign-in: seed members are `*@komugo.test` (no inbox); add a member with the Resend owner email to test the dashboard
 - [ ] Optional: Cloudflare Access on both workers.dev URLs (bypass `/chip/callback`)
 

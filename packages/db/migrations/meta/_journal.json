@@ -169,6 +169,13 @@
       "when": 1793612029673,
       "tag": "0025_link_closures",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793662592694,
+      "tag": "0026_chip_refunds",
+      "breakpoints": true
     }
   ]
 }
