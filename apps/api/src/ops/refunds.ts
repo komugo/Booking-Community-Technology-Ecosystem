@@ -1,7 +1,8 @@
 import { booking } from "@komugo/booking";
-import { checkouts, createDb, customers, operators, projRefunds, type Db } from "@komugo/db";
+import { checkouts, createDb, customers, operators, projRefunds, refundSends, type Db } from "@komugo/db";
 import { Hono } from "hono";
 import { and, asc, desc, eq, gt, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { claimByHand, sendRefund, STALE } from "../chip";
 import { sendRefundPaidEmail } from "../email";
 import { DAY, fail, logError } from "../lib";
 import { requireMember, staffOnly, type Ops } from "./auth";
@@ -17,16 +18,18 @@ const select = (db: Db, where: SQL | undefined) =>
       operatorName: operators.name,
       customer: { name: customers.name, email: customers.email, phone: customers.phone },
       contactPhone: checkouts.contactPhone,
+      chip: { claimedAt: refundSends.claimedAt, sentAt: refundSends.sentAt, error: refundSends.error },
     })
     .from(projRefunds)
     .innerJoin(operators, eq(operators.id, projRefunds.operatorId))
     .leftJoin(customers, eq(customers.id, projRefunds.customerId))
     .leftJoin(checkouts, eq(checkouts.bookingId, projRefunds.bookingId))
+    .leftJoin(refundSends, eq(refundSends.refundId, projRefunds.id))
     .where(where);
 
 type Row = Awaited<ReturnType<typeof select>>[number];
 
-const view = ({ refund: r, operatorName, customer, contactPhone }: Row) => ({
+const view = ({ refund: r, operatorName, customer, contactPhone, chip }: Row) => ({
   id: r.id,
   operatorName,
   amountSen: r.amountSen,
@@ -36,6 +39,10 @@ const view = ({ refund: r, operatorName, customer, contactPhone }: Row) => ({
   billId: r.billId,
   bookingId: r.bookingId,
   customer: { name: customer?.name ?? null, email: customer?.email ?? null, phone: contactPhone ?? customer?.phone ?? null },
+  chip: chip && {
+    state: chip.sentAt ? "sent" : chip.error ? "failed" : chip.claimedAt < Date.now() - STALE ? "unknown" : "sending",
+    error: chip.error,
+  },
 });
 
 refunds.get("/", async (c) => {
@@ -53,11 +60,20 @@ refunds.post("/:id/refunded", async (c) => {
   const id = c.req.param("id");
   const [row] = await createDb(c.env.DB).select().from(projRefunds).where(eq(projRefunds.id, id));
   if (!row) return fail(c, 404, { code: "not_found" });
-  const { refundedAt, changed } = await booking(c.env, row.operatorId).markRefunded({ refundId: id, memberId: c.var.member.id });
+  const b = booking(c.env, row.operatorId);
+  if (!(await b.refund(id))?.refundedAt && !(await claimByHand(c.env, id))) return fail(c, 409, { code: "refund_sending" });
+  const { refundedAt, changed } = await b.markRefunded({ refundId: id, memberId: c.var.member.id });
   if (changed) {
     c.executionCtx.waitUntil(
       sendRefundPaidEmail(c.env, row).catch((e) => logError("refund_paid_email_failed", { refundId: id, error: String(e) })),
     );
   }
   return c.json({ refundedAt });
+});
+
+refunds.post("/:id/send", async (c) => {
+  const id = c.req.param("id");
+  const [row] = await createDb(c.env.DB).select().from(projRefunds).where(eq(projRefunds.id, id));
+  if (!row) return fail(c, 404, { code: "not_found" });
+  return c.json({ status: await sendRefund(c.env, row.operatorId, id) });
 });

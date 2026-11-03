@@ -9,15 +9,14 @@ interface __BaseEnv_Env {
 	DEV_SEED: string;
 	BOOK_DRAFTS: string;
 	PUBLIC_SITE_URL: string;
-	BILLPLZ_BASE: string;
-	BILLPLZ_COLLECTION_ID: string;
+	CHIP_BASE: string;
+	CHIP_BRAND_ID: string;
 	EMAIL_MODE: string;
 	EMAIL_FROM: string;
 	WHATSAPP_MODE: string;
 	WASENDER_GAP_MS: string;
 	APP_SECRET: string;
-	BILLPLZ_API_KEY: string;
-	BILLPLZ_X_SIGNATURE_KEY: string;
+	CHIP_SECRET_KEY: string;
 	RESEND_API_KEY: string;
 	WASENDER_API_KEY: string;
 	BOOKING: DurableObjectNamespace<import("./src/index").OperatorBooking>;
@@ -34,7 +33,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "BILLPLZ_BASE" | "BILLPLZ_COLLECTION_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "WASENDER_GAP_MS" | "APP_SECRET" | "BILLPLZ_API_KEY" | "BILLPLZ_X_SIGNATURE_KEY" | "RESEND_API_KEY" | "WASENDER_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "CHIP_BASE" | "CHIP_BRAND_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "WASENDER_GAP_MS" | "APP_SECRET" | "CHIP_SECRET_KEY" | "RESEND_API_KEY" | "WASENDER_API_KEY">> {}
 }
 declare module "*.txt" {
 	const value: string;

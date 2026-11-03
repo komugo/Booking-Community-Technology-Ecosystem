@@ -39,7 +39,7 @@ for (const locale of ["en", "ms"] as const) {
     await expect(page).toHaveURL(/\/pay$/);
     await expect(page.locator("section[aria-labelledby=summary]")).toContainText(/6:00.*–.*11:30/);
     await page.locator("[data-pay]").click();
-    await expect(page).toHaveURL(/\/dev\/billplz\/bills\//);
+    await expect(page).toHaveURL(/\/dev\/chip\/p\//);
     await page.locator('button[value="pay"]').click();
 
     await expect(page).toHaveURL(/\/bookings\/[^?]+\?k=/);

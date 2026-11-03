@@ -14,6 +14,7 @@ import {
 import { Hono } from "hono";
 import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { optionDetails } from "./details";
+import { refundLater } from "./chip";
 import { bookingAlert } from "./day-list";
 import { sendRefundDueEmail } from "./email";
 import { b64url, DAY, fail, hmac, HOUR, limited, logError, MIN, requireJson, safeEqual, UUID, type Ctx } from "./lib";
@@ -69,12 +70,12 @@ function pick(tickets: BookingView["tickets"], t: string | undefined) {
   return tickets.filter((x) => want.has(x.id));
 }
 
-function emailRefund(c: Ctx, a: Access, r: { id: string; amountSen: number; reason: "cancel" | "closure" } | null) {
+function refund(c: Ctx, a: Access, r: { id: string; amountSen: number; reason: "cancel" | "closure" } | null) {
   if (!r || !("bookingId" in a.group)) return;
-  const refund = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
-  c.executionCtx.waitUntil(
-    sendRefundDueEmail(c.env, refund).catch((e) => logError("refund_due_email_failed", { refundId: refund.id, error: String(e) })),
-  );
+  const row = { ...r, operatorId: a.operatorId, customerId: a.customerId, bookingId: a.group.bookingId };
+  const waitUntil = (p: Promise<unknown>) => c.executionCtx.waitUntil(p);
+  waitUntil(sendRefundDueEmail(c.env, row).catch((e) => logError("refund_due_email_failed", { refundId: row.id, error: String(e) })));
+  refundLater(c.env, waitUntil, a.operatorId, r.id);
 }
 
 function alert(c: Ctx, a: Access, x: { ticketIds: string[]; from: string | null; to: string | null }) {
@@ -228,7 +229,7 @@ export function manage(kind: Kind) {
       expectSen: Number(body.expectSen),
       expectForfeited: Array.isArray(body.expectForfeited) ? body.expectForfeited.map(String) : [],
     });
-    emailRefund(c, a, r.refund);
+    refund(c, a, r.refund);
     if (!replayed) {
       for (const timeslotId of new Set(tickets.map((t) => t.timeslotId))) {
         alert(c, a, { ticketIds: tickets.filter((t) => t.timeslotId === timeslotId).map((t) => t.id), from: timeslotId, to: null });
@@ -251,7 +252,7 @@ export function manage(kind: Kind) {
       participantIds: o?.bookingUnit === "court" ? [] : tickets.map((t) => t.participantId),
       onlyClosed: !a.viaSession,
     });
-    emailRefund(c, a, r.refund);
+    refund(c, a, r.refund);
     if (!replayed) alert(c, a, { ticketIds: tickets.map((t) => t.id), from: tickets[0].timeslotId, to: r.timeslotId });
     return c.json(r);
   });

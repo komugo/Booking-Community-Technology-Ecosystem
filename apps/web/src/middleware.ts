@@ -1,7 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 
 const PRIVATE = /^(\/ms)?\/(book|checkout|bookings|packs|sign-in|unsubscribe|list|close)(\/|$)/;
-const FORM_ACTION = ["'self'", "https://www.billplz.com", "https://www.billplz-sandbox.com", ...(import.meta.env.DEV ? ["http://localhost:*"] : [])];
+const FORM_ACTION = ["'self'", "https://gate.chip-in.asia", ...(import.meta.env.DEV ? ["http://localhost:*"] : [])];
 
 // Astro collapses `//` in Astro.url before routing, so read the raw request URL.
 export const onRequest = defineMiddleware(async ({ request }, next) => {
@@ -13,8 +13,8 @@ export const onRequest = defineMiddleware(async ({ request }, next) => {
   if (url.pathname.includes("//")) {
     return new Response(null, { status: 301, headers: { Location: url.pathname.replace(/\/{2,}/g, "/") + url.search } });
   }
-  // Astro's checkOrigin is off because it would reject Billplz's server-to-server callback.
-  if (request.method === "POST" && url.pathname !== "/billplz/callback" && request.headers.get("Origin") !== url.origin) {
+  // Astro's checkOrigin is off because it would reject CHIP's server-to-server callback.
+  if (request.method === "POST" && url.pathname !== "/chip/callback" && request.headers.get("Origin") !== url.origin) {
     return new Response("Forbidden", { status: 403 });
   }
   const res = await next();

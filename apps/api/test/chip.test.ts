@@ -1,69 +1,47 @@
 import { env } from "cloudflare:test";
 import { describe, expect, test, vi } from "vitest";
-import { sign, verified } from "../src/billplz";
 import { cron } from "../src/cron";
+import { fakeSignature } from "../src/dev/chip";
 import { adult, client, d1, dispatch, fake, held, pay, resend, returnPath, world } from "./helpers";
 
-const KEY = "S-s7b4yWpp9h7rrkNM1i3Z_g";
+const postCallback = (body: string, signature?: string | null, e: Partial<Env> = {}) =>
+  dispatch(
+    new Request("https://api.test/chip/callback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(signature !== null ? { "X-Signature": signature ?? "" } : {}) },
+      body,
+    }),
+    e,
+  );
 
-const callbackVector = {
-  id: "zq0tm2wc",
-  collection_id: "yhx5t1pp",
-  paid: "true",
-  state: "paid",
-  amount: "100",
-  paid_amount: "100",
-  due_at: "2018-9-27",
-  email: "tester@test.com",
-  mobile: "",
-  name: "TESTER",
-  url: "http://www.billplz-sandbox.com/bills/zq0tm2wc",
-  paid_at: "2018-09-27 15:15:09 +0800",
-};
-
-test("signatures match both Billplz doc vectors", async () => {
-  expect(await sign(callbackVector, KEY)).toBe("0fe0a20b8d557eeae570377783d062a3816a9ea80f368860bacfa7ec3ca4d00e");
-  expect(
-    await sign({ billplzid: "zq0tm2wc", billplzpaid: "true", billplzpaid_at: "2018-09-27 15:15:09 +0800" }, KEY),
-  ).toBe("4aab095fe5a39b1d534500988f9a0cb085cd1b6d5bbb55dd4e02ea6fa102b47b");
-  expect(
-    await verified({ ...callbackVector, x_signature: "0fe0a20b8d557eeae570377783d062a3816a9ea80f368860bacfa7ec3ca4d00e" }, KEY),
-  ).toBe(true);
-});
-
-async function signedCallback(fields: Record<string, string>) {
-  return new URLSearchParams({ ...fields, x_signature: await sign(fields, KEY) });
-}
-
-const postCallback = (body: URLSearchParams, e: Partial<Env> = {}) =>
-  dispatch(new Request("https://api.test/billplz/callback", { method: "POST", body }), e);
-
-async function paidFields(billId: string, amount: number) {
-  return {
-    ...callbackVector,
+const paidBody = (billId: string, amount: number, o: Record<string, unknown> = {}) =>
+  JSON.stringify({
     id: billId,
-    collection_id: "col_test",
-    amount: String(amount),
-    paid_amount: String(amount),
-    transaction_status: "completed",
-  };
-}
+    brand_id: "brand_test",
+    status: "paid",
+    event_type: "purchase.paid",
+    purchase: { currency: "MYR", total: 10000 },
+    payment: { amount, currency: "MYR" },
+    ...o,
+  });
+
+const signed = async (body: string, e: Partial<Env> = {}) => postCallback(body, await fakeSignature(body), e);
 
 const checkoutRow = async (id: string) =>
   (await d1<{ booking_id: string | null; refund_reason: string | null }>("SELECT booking_id, refund_reason FROM checkouts WHERE id = ?", id))[0];
 
 describe("callback", () => {
-  test("a tampered field or missing signature is 403 with no state change", async () => {
+  test("a tampered body, missing or forged signature is 403 with no state change", async () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    const good = await signedCallback(await paidFields(billId, 10000));
-    const tampered = new URLSearchParams(good);
-    tampered.set("paid_amount", "1");
-    const missing = new URLSearchParams(good);
-    missing.delete("x_signature");
-    expect((await postCallback(tampered)).status).toBe(403);
-    expect((await postCallback(missing)).status).toBe(403);
+    const good = paidBody(billId, 10000);
+    const signature = await fakeSignature(good);
+    expect((await postCallback(paidBody(billId, 1), signature)).status).toBe(403);
+    expect((await postCallback(good, null)).status).toBe(403);
+    expect((await postCallback(good, "not base64!")).status).toBe(403);
+    expect((await postCallback(good, btoa("short"))).status).toBe(403);
+    expect((await postCallback(good, btoa("x".repeat(256)))).status).toBe(403);
     expect(await checkoutRow(id)).toEqual({ booking_id: null, refund_reason: null });
     expect(await w.doSql("SELECT count(*) AS n FROM payments")).toEqual([{ n: 0 }]);
   });
@@ -72,28 +50,26 @@ describe("callback", () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    const body = await signedCallback(await paidFields(billId, 10000));
-    const statuses = await Promise.all([postCallback(body), postCallback(body)]);
-    for (let i = 0; i < 3; i++) statuses.push(await postCallback(body));
+    const body = paidBody(billId, 10000);
+    const statuses = await Promise.all([signed(body), signed(body)]);
+    for (let i = 0; i < 3; i++) statuses.push(await signed(body));
     expect(statuses.map((r) => r.status)).toEqual([200, 200, 200, 200, 200]);
     expect((await checkoutRow(id)).booking_id).toEqual(expect.any(String));
     expect(await w.doSql("SELECT count(*) AS n FROM bookings")).toEqual([{ n: 1 }]);
     expect(await w.doSql("SELECT count(*) AS n FROM payments")).toEqual([{ n: 1 }]);
   });
 
-  test("paid=false is 200 and changes nothing; an unknown bill is 200", async () => {
+  test("an unpaid status is 200 and changes nothing; an unknown CHIP purchase is 200", async () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    const unpaid = await signedCallback({ ...(await paidFields(billId, 10000)), paid: "false", state: "due" });
-    expect((await postCallback(unpaid)).status).toBe(200);
+    expect((await signed(paidBody(billId, 10000, { status: "error", payment: null }))).status).toBe(200);
     expect(await checkoutRow(id)).toEqual({ booking_id: null, refund_reason: null });
-    expect((await postCallback(await signedCallback(await paidFields("nope", 10000)))).status).toBe(200);
+    expect((await signed(paidBody("nope", 10000))).status).toBe(200);
   });
 
-  test("a collection mismatch is 403", async () => {
-    const res = await postCallback(await signedCallback({ ...(await paidFields("x", 1)), collection_id: "other" }));
-    expect(res.status).toBe(403);
+  test("another brand is 403", async () => {
+    expect((await signed(paidBody("x", 1, { brand_id: "other" }))).status).toBe(403);
   });
 
   test("an amount mismatch is passed through and becomes refund_due", async () => {
@@ -101,26 +77,26 @@ describe("callback", () => {
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
     const errors = vi.spyOn(console, "error");
-    expect((await postCallback(await signedCallback({ ...(await paidFields(billId, 10000)), paid_amount: "9000" }))).status).toBe(200);
+    expect((await signed(paidBody(billId, 9000))).status).toBe(200);
     expect(await checkoutRow(id)).toEqual({ booking_id: null, refund_reason: "amount_mismatch" });
-    expect(errors.mock.calls.flat().join()).toContain("billplz_amount_mismatch");
+    expect(errors.mock.calls.flat().join()).toContain("chip_amount_mismatch");
   });
 
   test("idempotency_conflict is logged and answered 200", async () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    await postCallback(await signedCallback({ ...(await paidFields(billId, 10000)), paid_amount: "9000" }));
+    await signed(paidBody(billId, 9000));
     const errors = vi.spyOn(console, "error");
-    expect((await postCallback(await signedCallback(await paidFields(billId, 10000)))).status).toBe(200);
-    expect(errors.mock.calls.flat().join()).toContain("billplz_idempotency_conflict");
+    expect((await signed(paidBody(billId, 10000))).status).toBe(200);
+    expect(errors.mock.calls.flat().join()).toContain("chip_idempotency_conflict");
   });
 
-  test("a DO failure is 500, and Billplz's retry succeeds", async () => {
+  test("a DO failure is 500, and CHIP's retry succeeds", async () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    const body = await signedCallback(await paidFields(billId, 10000));
+    const body = paidBody(billId, 10000);
     const broken = {
       idFromName: (n: string) => env.BOOKING.idFromName(n),
       get: () => ({
@@ -129,14 +105,14 @@ describe("callback", () => {
         },
       }),
     } as unknown as Env["BOOKING"];
-    expect((await postCallback(body, { BOOKING: broken })).status).toBe(500);
+    expect((await signed(body, { BOOKING: broken })).status).toBe(500);
     expect((await checkoutRow(id)).booking_id).toBeNull();
-    expect((await postCallback(body)).status).toBe(200);
+    expect((await signed(body)).status).toBe(200);
     expect((await checkoutRow(id)).booking_id).toEqual(expect.any(String));
   });
 });
 
-describe("fake Billplz end to end", () => {
+describe("fake CHIP end to end", () => {
   test("pay: callback then redirect confirms, and the return gives the Booking and its link key", async () => {
     const w = await world();
     const { cl, id } = await held(w, { quantity: 2, addOns: [] });
@@ -156,7 +132,7 @@ describe("fake Billplz end to end", () => {
     const { billId } = await pay(cl, id);
     const location = await fake(billId, "return_no_callback");
     expect((await cl.json("GET", returnPath(location!))).body.state).toBe("booked");
-    expect((await postCallback(await signedCallback(await paidFields(billId, 10000)))).status).toBe(200);
+    expect((await signed(paidBody(billId, 10000))).status).toBe(200);
     expect(await w.doSql("SELECT count(*) AS n FROM bookings")).toEqual([{ n: 1 }]);
   });
 
@@ -179,20 +155,18 @@ describe("fake Billplz end to end", () => {
     expect((await pay(c.cl, c.id)).billId).toBe(billC);
   });
 
-  test("a forged redirect is 403 with no state change", async () => {
+  test("a return for an unpaid CHIP purchase changes nothing; an unknown Hold is 404", async () => {
     const w = await world();
     const { cl, id } = await held(w);
-    const { billId } = await pay(cl, id);
-    const res = await cl.call(
-      "GET",
-      `/billplz/return?billplz[id]=${billId}&billplz[paid]=true&billplz[paid_at]=x&billplz[x_signature]=${"0".repeat(64)}`,
-    );
-    expect(res.status).toBe(403);
+    await pay(cl, id);
+    const [{ hold_id }] = await d1<{ hold_id: string }>("SELECT hold_id FROM checkouts WHERE id = ?", id);
+    expect((await cl.json("GET", `/chip/return?hold=${hold_id}`)).body).toEqual({ state: "failed", checkoutId: id });
     expect((await checkoutRow(id)).booking_id).toBeNull();
+    expect((await cl.call("GET", "/chip/return?hold=nope")).status).toBe(404);
   });
 });
 
-test("concurrent Pay creates one bill", async () => {
+test("concurrent Pay creates one CHIP purchase", async () => {
   const w = await world();
   const { cl, id } = await held(w);
   const urls = await Promise.all([pay(cl, id), pay(cl, id), pay(cl, id)]);
@@ -248,10 +222,20 @@ describe("cron", () => {
     await d1("UPDATE checkouts SET hold_expires_at = 1 WHERE id = ?", id);
     await cron(env, () => {});
     expect(await d1("SELECT deleted_at IS NOT NULL AS gone FROM bills WHERE id = ?", billId)).toEqual([{ gone: 1 }]);
-    const r = await dispatch(new Request(`https://api.test/dev/billplz/api/v3/bills/${billId}`, {
-      headers: { Authorization: `Basic ${btoa("test-api-key:")}` },
-    }));
-    expect(r.status).toBe(404);
+    const r = await dispatch(
+      new Request(`https://api.test/dev/chip/api/v1/purchases/${billId}/`, { headers: { Authorization: "Bearer test-secret-key" } }),
+    );
+    expect(((await r.json()) as { status: string }).status).toBe("cancelled");
+  });
+
+  test("deletes a stale bill whose CHIP purchase can no longer be cancelled", async () => {
+    const w = await world();
+    const { cl, id } = await held(w);
+    const { billId } = await pay(cl, id);
+    await fake(billId, "fail");
+    await d1("UPDATE checkouts SET hold_expires_at = 1 WHERE id = ?", id);
+    await cron(env, () => {});
+    expect(await d1("SELECT deleted_at IS NOT NULL AS gone FROM bills WHERE id = ?", billId)).toEqual([{ gone: 1 }]);
   });
 
   test("a re-Hold drops the previous Hold's bill", async () => {
@@ -269,7 +253,7 @@ describe("cron", () => {
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
     resend.fail = 1;
-    await postCallback(await signedCallback(await paidFields(billId, 10000)), e);
+    await signed(paidBody(billId, 10000), e);
     expect(await d1("SELECT emailed_at FROM checkouts WHERE id = ?", id)).toEqual([{ emailed_at: null }]);
     await d1("UPDATE checkouts SET updated_at = updated_at - 300000 WHERE id = ?", id);
     await cron({ ...env, ...e }, () => {});
@@ -287,7 +271,7 @@ describe("refunds and stray bills", () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);
-    await postCallback(await signedCallback({ ...(await paidFields(billId, 10000)), paid_amount: "9000" }));
+    await signed(paidBody(billId, 9000));
     const mail = await devMail(`refund:${billId}`);
     expect(mail?.text).toContain("RM 90.00");
     expect(mail?.text).not.toContain("no longer available");
@@ -338,11 +322,11 @@ describe("refunds and stray bills", () => {
     expect((await cl.json("GET", returnPath(late))).body).toMatchObject({ state: "booked", bookingId });
     expect(await checkoutRow(id)).toEqual({ booking_id: bookingId, refund_reason: null });
     expect(await d1("SELECT refund_reason FROM bills WHERE id = ?", first.billId)).toEqual([{ refund_reason: "unavailable" }]);
-    expect(errors.mock.calls.flat().join()).toContain("billplz_refund_due");
+    expect(errors.mock.calls.flat().join()).toContain("chip_refund_due");
     expect((await devMail(`refund:${first.billId}`))?.text).not.toContain("no longer available");
   });
 
-  test("the 30-day purge keeps a Checkout whose bill Billplz never deleted", async () => {
+  test("the 30-day purge keeps a Checkout whose CHIP purchase was never cancelled", async () => {
     const w = await world();
     const { cl, id } = await held(w);
     const { billId } = await pay(cl, id);

@@ -5,6 +5,7 @@ import { WAIVER } from "@komugo/types";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { app } from "../src/app";
+import { fakePaid } from "../src/dev/chip";
 import { devInbox } from "../src/email";
 import worker from "../src/index";
 import type { Job } from "../src/whatsapp";
@@ -70,8 +71,8 @@ export function stubOutbound() {
     const req = new Request(input, init);
     const url = new URL(req.url);
     if (url.origin === "https://api.test") return dispatch(req);
-    if (url.origin === "https://web.test" && url.pathname === "/billplz/callback") {
-      return dispatch(new Request(`https://api.test/billplz/callback`, req));
+    if (url.origin === "https://web.test" && url.pathname === "/chip/callback") {
+      return dispatch(new Request(`https://api.test/chip/callback`, req));
     }
     if (url.origin === "https://api.resend.com") {
       const body = (await req.json()) as { to: string[] };
@@ -334,7 +335,7 @@ export async function pay(cl: Client, id: string) {
 
 export async function fake(billId: string, action: string) {
   const res = await dispatch(
-    new Request(`https://api.test/dev/billplz/bills/${billId}`, {
+    new Request(`https://api.test/dev/chip/p/${billId}`, {
       method: "POST",
       body: new URLSearchParams({ action }),
     }),
@@ -342,7 +343,7 @@ export async function fake(billId: string, action: string) {
   return res.headers.get("location");
 }
 
-export const returnPath = (location: string) => `/billplz/return?${new URL(location).search.slice(1)}`;
+export const returnPath = (location: string) => `/chip/return?${new URL(location).search.slice(1)}`;
 
 export const d1 = <T = Record<string, unknown>>(q: string, ...p: unknown[]) =>
   env.DB.prepare(q)
@@ -375,6 +376,7 @@ export async function booked(
     hours?: number;
     customer?: { id: string; email: string | null };
     packId?: string;
+    refunds?: "refuse" | "lost";
   } = {},
 ) {
   const [customer] = o.customer ? [o.customer] : await db.insert(customers).values({ name: "Aiman Rahman", email: `${rid()}@example.com` }).returning();
@@ -404,12 +406,14 @@ export async function booked(
     addOns: o.addOns ?? [],
     hours: o.hours,
   });
-  const base = { customerId: customer.id, email: customer.email!, participantIds: ids, holdId: hold.holdId };
+  const billId = rid();
+  const base = { customerId: customer.id, email: customer.email!, participantIds: ids, holdId: hold.holdId, billId };
   if (o.packId) {
     const r = await w.b.redeemPack({ requestId: rid(), customerId: customer.id, packId: o.packId, holdId: hold.holdId });
     return { ...base, bookingId: "", ticketIds: r.ticketIds };
   }
-  const paid = await w.b.confirmHold({ billId: rid(), holdId: hold.holdId, amountSen: hold.amountSen });
+  fakePaid(billId, hold.amountSen, o.refunds);
+  const paid = await w.b.confirmHold({ billId, holdId: hold.holdId, amountSen: hold.amountSen });
   if (paid.status !== "paid") throw new Error("not paid");
   for (const [i, p] of people.entries()) {
     if (p.waiver === "outdated") await db.update(waivers).set({ version: "old" }).where(eq(waivers.participantId, ids[i]));

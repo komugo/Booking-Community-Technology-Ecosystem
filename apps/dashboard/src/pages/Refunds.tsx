@@ -13,6 +13,7 @@ export default function Refunds() {
   const list = useApi<{ due: RefundRow[]; refunded: RefundRow[] }>("/refunds");
   const [confirming, setConfirming] = useState<RefundRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function mark(r: RefundRow) {
@@ -27,6 +28,21 @@ export default function Refunds() {
       setError(errorText(e, t));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function send(r: RefundRow) {
+    setSending(r.id);
+    try {
+      const { status } = await api<{ status: "sent" | "failed" | "sending" | "already_refunded" }>("POST", `/refunds/${r.id}/send`, {});
+      if (status !== "already_refunded") {
+        toast(status === "sent" ? t.sentViaChip : status === "failed" ? t.chipRefused : t.chipSending, status === "failed" ? "error" : "ok");
+      }
+      await list.reload();
+    } catch (e) {
+      toast(errorText(e, t), "error");
+    } finally {
+      setSending(null);
     }
   }
 
@@ -55,16 +71,23 @@ export default function Refunds() {
               <ul className="mt-6 grid gap-3 lg:grid-cols-2" aria-label={t.refundsTitle}>
                 {list.data.due.map((r) => (
                   <Card key={r.id} r={r}>
-                    <button
-                      type="button"
-                      className="btn btn-primary mt-4 w-full"
-                      onClick={() => {
-                        setError(null);
-                        setConfirming(r);
-                      }}
-                    >
-                      {t.markRefunded}
-                    </button>
+                    {r.chip?.state !== "sending" && r.chip?.state !== "unknown" && (
+                      <button type="button" className="btn btn-quiet mt-4 w-full" disabled={sending === r.id} onClick={() => send(r)}>
+                        {t.sendViaChip}
+                      </button>
+                    )}
+                    {r.chip?.state !== "sending" && (
+                      <button
+                        type="button"
+                        className="btn btn-primary mt-2 w-full"
+                        onClick={() => {
+                          setError(null);
+                          setConfirming(r);
+                        }}
+                      >
+                        {t.markRefunded}
+                      </button>
+                    )}
                   </Card>
                 ))}
               </ul>
@@ -158,6 +181,16 @@ function Card({ r, children }: { r: RefundRow; children?: ReactNode }) {
           </div>
         )}
       </dl>
+      {r.refundedAt ? (
+        r.chip?.state === "sent" && <p className="mt-2 text-sm font-semibold text-forest">{t.chipSent}</p>
+      ) : (
+        <div className="mt-2 text-sm" data-chip={r.chip?.state ?? "none"}>
+          <p className={`font-semibold ${r.chip?.state === "failed" || r.chip?.state === "unknown" ? "text-clay" : "text-muted"}`}>
+            {!r.chip ? t.chipNotSent : { failed: t.chipRefused, sending: t.chipSending, unknown: t.chipUnknown, sent: t.chipSent }[r.chip.state]}
+          </p>
+          {r.chip?.error && <p className="mt-1 font-mono text-xs break-all text-muted">{r.chip.error}</p>}
+        </div>
+      )}
       <p className={`mt-2 text-sm font-semibold ${r.refundedAt ? "text-forest" : days >= 5 ? "text-clay" : "text-muted"}`}>
         {r.refundedAt ? t.refundedOn(dateLong(r.refundedAt, l)) : t.dueFor(days)}
       </p>

@@ -536,6 +536,14 @@ export const refundEmails = sqliteTable(
   (t) => [primaryKey({ columns: [t.refundId, t.kind] })],
 );
 
+// A Refund claimed for CHIP: error once CHIP refused it (claimable again), sentAt once CHIP accepted it.
+export const refundSends = sqliteTable("refund_sends", {
+  refundId: text().primaryKey(),
+  claimedAt: integer().notNull(),
+  sentAt: integer(),
+  error: text(),
+});
+
 export const interests = sqliteTable(
   "interests",
   {

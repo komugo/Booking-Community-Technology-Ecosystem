@@ -28,7 +28,7 @@ for (const locale of ["en", "ms"] as const) {
     await expect(page).toHaveURL(/\/pay$/);
     await expect(page.locator("[data-bar] [data-total]")).toHaveText("RM40");
     await page.locator("[data-pay]").click();
-    await expect(page).toHaveURL(/\/dev\/billplz\/bills\//);
+    await expect(page).toHaveURL(/\/dev\/chip\/p\//);
     await page.locator('button[value="pay"]').click();
 
     await expect(page).toHaveURL(/\/bookings\/[^?]+\?k=/);

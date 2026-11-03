@@ -9,14 +9,13 @@ Run from `apps/api`. Add `--env staging` for staging.
 | Secret | Staging | Prod | Source |
 | --- | --- | --- | --- |
 | `APP_SECRET` | [x] | [ ] | `openssl rand -base64 48 \| tr -d '\n' \| npx wrangler secret put APP_SECRET` (different value per env) |
-| `BILLPLZ_API_KEY` | [ ] | [ ] | Billplz sandbox (staging) / live (prod) → Settings → API key |
-| `BILLPLZ_X_SIGNATURE_KEY` | [ ] | [ ] | Billplz → Settings → X Signature key |
+| `CHIP_SECRET_KEY` | [ ] | [ ] | CHIP portal → Developers → API keys: test key (staging) / live key (prod) (#38) |
 | `RESEND_API_KEY` | [ ] | [ ] | Resend → API Keys |
 | `WASENDER_API_KEY` | [ ] | [ ] | WasenderAPI → the Komugo number's session → API key (#34) |
 
 ## Vars (`apps/api/wrangler.jsonc`)
 
-- [ ] `BILLPLZ_COLLECTION_ID`: staging = sandbox collection id, prod = live collection id (empty in both now)
+- [ ] `CHIP_BRAND_ID`: CHIP portal → Developers → Brands (empty in both now); `CHIP_BASE` is the same for test and live, the key decides
 - [ ] Prod `EMAIL_FROM` `tickets@komugo.com` needs `komugo.com` verified in Resend (see DNS)
 - Staging sends from `onboarding@resend.dev`: delivers only to the Resend account owner's email
 - [ ] `WASENDER_GAP_MS` (5000, Account Protection's 1 message per 5 s): lower it if the WasenderAPI plan allows (#34)
@@ -28,17 +27,17 @@ Run from `apps/api`. Add `--env staging` for staging.
 ## Staging (https://komugo-web-staging.komugo.workers.dev, https://komugo-dashboard-staging.komugo.workers.dev)
 
 - [x] D1 `komugo-staging` migrated (0000–0006), 3 Workers deployed, seeded
-- [ ] Set secrets above, set collection id, `pnpm --filter @komugo/api deploy:staging`
-- [ ] Sandbox smoke test: book → pay (sandbox) → callback → ticket email → dashboard check-in
+- [ ] Set secrets above, set brand id, `pnpm --filter @komugo/api deploy:staging`
+- [ ] Test-mode smoke test: book → pay (CHIP test card) → callback → ticket email → dashboard check-in → cancel one Ticket → CHIP refund → "Refund sent" email
 - [ ] Operator sign-in: seed members are `*@komugo.test` (no inbox); add a member with the Resend owner email to test the dashboard
-- [ ] Optional: Cloudflare Access on both workers.dev URLs (bypass `/billplz/callback`)
+- [ ] Optional: Cloudflare Access on both workers.dev URLs (bypass `/chip/callback`)
 
 ## Prod
 
 Order matters.
 
 1. [ ] `pnpm --filter @komugo/api db:migrate:remote` (D1 `komugo`, 0000–0006)
-2. [ ] Set prod secrets + live `BILLPLZ_COLLECTION_ID`
+2. [ ] Set prod secrets (live `CHIP_SECRET_KEY`) + `CHIP_BRAND_ID`
 3. [ ] `pnpm --filter @komugo/api deploy`
 4. [ ] Delete WordPress DNS records (takes WordPress offline): apex A ×2 + AAAA ×2, `www` CNAME. Keep MX, SPF, DMARC, DKIM, `ftp`, `autoconfig`, `autodiscover`
 5. [ ] `pnpm --filter @komugo/web deploy` (creates `komugo.com` + `www` custom domains; `www` 301s to apex in middleware)

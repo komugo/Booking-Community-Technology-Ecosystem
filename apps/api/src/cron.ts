@@ -17,7 +17,7 @@ import {
   sessions,
 } from "@komugo/db";
 import { and, between, eq, exists, gt, inArray, isNotNull, isNull, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
-import { confirmBill, deleteBill, getBill } from "./billplz";
+import { cancelPurchase, confirmBill, getPurchase, paidSen } from "./chip";
 import { sendBookedEmail, sendInterestEmail, sendPackEmail, sendRefundDueEmail, sendRefundEmail, sendRefundPaidEmail } from "./email";
 import { DAY, each, HOUR, MIN, type WaitUntil } from "./lib";
 import { sendClosureNotices } from "./ops/closure";
@@ -43,8 +43,9 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
     .orderBy(bills.createdAt)
     .limit(BATCH);
   await each(unsettled, "cron_reconcile_failed", async ({ id }) => {
-    const bill = await getBill(env, id);
-    if (bill?.paid) await confirmBill(env, waitUntil, id, bill.paid_amount);
+    const p = await getPurchase(env, id);
+    const sen = p && paidSen(p);
+    if (sen !== null) await confirmBill(env, waitUntil, id, sen);
   });
 
   const stale = await db
@@ -69,8 +70,8 @@ export async function cron(env: Env, waitUntil: WaitUntil, now = Date.now(), sch
     .from(bills)
     .where(and(eq(bills.kind, "pack"), isNull(bills.paidAt), isNull(bills.deletedAt), lt(bills.createdAt, now - DAY)))
     .limit(BATCH);
-  await each([...stale, ...unpaidPacks], "cron_bill_delete_failed", async ({ id }) => {
-    if (await deleteBill(env, id)) await db.update(bills).set({ deletedAt: now }).where(eq(bills.id, id));
+  await each([...stale, ...unpaidPacks], "cron_bill_cancel_failed", async ({ id }) => {
+    if (await cancelPurchase(env, id)) await db.update(bills).set({ deletedAt: now }).where(eq(bills.id, id));
   });
 
   const unsent = await db

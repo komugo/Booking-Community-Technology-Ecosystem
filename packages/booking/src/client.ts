@@ -112,6 +112,7 @@ export function booking(env: Env, operatorId: string) {
       expectForfeited: string[];
     }) => mutation((s) => s.cancelTickets(op, i)),
     packView: (packId: string) => call((s) => s.packView(op, packId)),
+    refund: (id: string) => call((s) => s.refund(op, id)),
     markRefunded: (i: { refundId: string; memberId: string }) => call((s) => s.markRefunded(op, i)),
     async createHold({
       participantIds,

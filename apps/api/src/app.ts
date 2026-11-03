@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { HealthResponse } from "@komugo/types";
 import { auth } from "./auth";
-import { billplz } from "./billplz";
 import { checkout } from "./checkout";
-import { fakeBillplz } from "./dev/billplz";
+import { chip } from "./chip";
+import { fakeChip } from "./dev/chip";
 import { fixture } from "./dev/fixture";
 import { lists } from "./day-list";
 import { devInbox } from "./email";
@@ -29,14 +29,14 @@ app.get("/health", (c) => c.json<HealthResponse>({ ok: true }));
 
 app.route("/checkouts", checkout);
 app.route("/auth", auth);
-app.route("/billplz", billplz);
+app.route("/chip", chip);
 app.route("/bookings", manage("booking"));
 app.route("/packs", manage("pack"));
 app.route("/pack-orders", packs);
 app.route("/me", me);
 app.route("/interests", interests);
 app.route("/lists", lists);
-app.route("/dev/billplz", fakeBillplz);
+app.route("/dev/chip", fakeChip);
 
 ops.use("/operators/:operatorId/*", requireMember, forOperator);
 ops.route("/operators/:operatorId", routes);

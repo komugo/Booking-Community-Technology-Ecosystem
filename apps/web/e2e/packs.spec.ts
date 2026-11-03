@@ -11,7 +11,7 @@ async function buyPack(page: Page, l: Locale, fx: Fixture) {
   await signInHere(page, fx.customerEmail);
   await expect(page).toHaveURL(new RegExp(`/packs/buy/${fx.offerId}$`));
   await page.locator("[data-pay]").click();
-  await expect(page).toHaveURL(/\/dev\/billplz\/bills\//);
+  await expect(page).toHaveURL(/\/dev\/chip\/p\//);
   await page.locator('button[value="pay"]').click();
   await expect(page).toHaveURL(/\/packs\/[^/?]+\?k=[^&]+&new=1$/);
 }
