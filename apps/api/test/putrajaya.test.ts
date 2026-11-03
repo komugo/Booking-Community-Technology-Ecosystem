@@ -3,17 +3,20 @@ import { activities, operators, venues } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import csv from "../../../data/putrajaya-master-list.csv?raw";
+import ppj from "../../../data/ppj-sport.json";
 import reviewed from "../../../data/putrajaya.json";
 import { build, parseHours } from "../scripts/putrajaya-build";
 import { diff, EXISTING_SQL, existingFrom, insertSql, plan, type Catalogue } from "../scripts/putrajaya-load";
+import { fill, parseSport, report, type Facility } from "../scripts/putrajaya-ppj";
+import sport from "./fixtures/ppj-sport.html?raw";
 import { db, dispatch } from "./helpers";
 
-const data = build(csv);
+const data = fill(build(csv), ppj as Facility[]);
 const at = (row: number) => data.activities.filter((a) => a.rows.includes(row));
 const venueOf = (row: number) => data.venues.filter((v) => v.rows.includes(row));
 
 describe("build", () => {
-  test("the reviewed data file is what the importer builds from the master list", () => {
+  test("the reviewed data file is what the importer builds from the master list and saved PPJ facts", () => {
     expect(reviewed).toEqual(data);
   });
 
@@ -59,6 +62,58 @@ describe("build", () => {
   test("excludes N/A, restricted and retail rows with a reason", () => {
     expect(data.excluded.map((e) => e.row)).toEqual([92, 93, 96, 97, 110, 111, 112, 115, 116, 117]);
     expect(data.excluded.every((e) => e.reason)).toBe(true);
+  });
+});
+
+describe("PPJ scrape", () => {
+  const facilities = parseSport(sport);
+  const activity = (c: Catalogue, id: string) => c.activities.find((a) => a.id === id);
+
+  test("parses names, rates and courts from the public sport page only", () => {
+    expect(facilities).toEqual([
+      { id: 2, name: "Badminton", location: "Presint 8", rate: { rm: 8, per: "hour" }, courts: 4 },
+      { id: 3, name: "Ping Pong", location: "Presint 8", rate: { rm: 4, per: "hour" }, courts: 3 },
+      { id: 58, name: "Padang Bola Sepak (Pancarona)", location: "Taman Pancarona", rate: { rm: 140, per: "session" }, courts: null },
+      { id: 62, name: "Padang Bola Jaring (Pancarona)", location: "Taman Pancarona", rate: { rm: 0, per: "hour" }, courts: 2 },
+      { id: 102, name: "Padang Bola Sepak", location: "Padang Bola Sepak Presint 5", rate: null, courts: null },
+    ]);
+  });
+
+  test("refuses a page whose cards and facility list disagree", () => {
+    expect(() => parseSport(sport.replace(">Ping Pong<", ">Tenis<"))).toThrow("PPJ page changed");
+    expect(() => parseSport("<html></html>")).toThrow("facility list not found");
+  });
+
+  test("fills only empty fields and leaves master-list values alone", () => {
+    const base = build(csv);
+    const filled = fill(base, facilities);
+    expect(activity(filled, "act_kompleks_kejiranan_presint_8_badminton")).toMatchObject({ priceNoteEn: "RM8 per hour", priceNoteMs: "RM8 sejam" });
+    expect(activity(filled, "act_taman_pancarona_football")).toEqual(activity(base, "act_taman_pancarona_football"));
+    expect(activity(filled, "act_taman_pancarona_netball")).toEqual(activity(base, "act_taman_pancarona_netball"));
+    const touched = filled.activities.filter((a, i) => a !== base.activities[i]).map((a) => a.id);
+    expect(touched).toEqual(["act_kompleks_kejiranan_presint_8_badminton"]);
+    expect({ ...filled, activities: [] }).toEqual({ ...base, activities: [] });
+  });
+
+  test("an RM0 rate is never filled as free", () => {
+    const base = build(csv);
+    const unpriced = { ...base, activities: base.activities.map((a) => (a.id === "act_taman_pancarona_netball" ? { ...a, priceNoteEn: null, priceNoteMs: null } : a)) };
+    expect(activity(fill(unpriced, facilities), "act_taman_pancarona_netball")).toMatchObject({ priceNoteEn: null, priceNoteMs: null });
+  });
+
+  test("a re-run is idempotent and the report says what changed", () => {
+    const base = build(csv);
+    const filled = fill(base, facilities);
+    expect(fill(filled, facilities)).toEqual(filled);
+    const first = report(facilities, base, filled);
+    expect(first).toContain("PPJ facilities: 5, 3 matched");
+    expect(first).toContain("Changed: 1");
+    expect(first).toContain("~ activity act_kompleks_kejiranan_presint_8_badminton  price=RM8 per hour / RM8 sejam  (was -)");
+    expect(first).toContain("? ppj 3  Ping Pong, Presint 8  rate=RM4/hour  courts=3  (no Activity)");
+    expect(first).toContain("? ppj 62  Padang Bola Jaring (Pancarona), Taman Pancarona  rate=RM0/hour  (not filled: confirm the price with PPJ)");
+    expect(first.some((l) => l.startsWith("!"))).toBe(false);
+    expect(report(facilities, { ...base, activities: [] }, filled)).toContain("Changed: 0");
+    expect(report(facilities, filled, fill(filled, facilities))).toContain("Changed: 0");
   });
 });
 
