@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNull, ne, or, sql, type Column, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, notInArray, or, sql, type Column, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "./client";
 import { activities, categories, cities, operators, photos, projActivities, projAddOns, projOptions, projPackOffers, projTimeslots, venues, type ListingMode, type Setting } from "./schema";
@@ -39,8 +39,7 @@ export type ActivityCard = {
 
 export type CatalogQuery = { locale: Locale; includeDrafts: boolean };
 
-type PhotoRow = typeof photos.$inferSelect;
-type HubRow = typeof cities.$inferSelect;
+type PhotoRow = Omit<typeof photos.$inferSelect, "id" | "activityId" | "venueId" | "position">;
 type Sluggable = { slugEn: SQLiteColumn; slugMs: SQLiteColumn };
 
 const toPhoto = (p: PhotoRow, l: Locale): Photo => ({
@@ -61,30 +60,41 @@ const draftGate = (q: CatalogQuery) => (q.includeDrafts ? undefined : listed);
 // json_each keeps it to one bound parameter; D1 caps a statement at 100.
 export const within = (col: Column, ids: string[]) => sql`${col} IN (SELECT value FROM json_each(${JSON.stringify([...new Set(ids)])}))`;
 
-async function toHubs(db: Db, rows: HubRow[], l: Locale): Promise<Hub[]> {
-  const ids = rows.flatMap((r) => (r.photoId ? [r.photoId] : []));
-  const found = ids.length ? await db.select().from(photos).where(inArray(photos.id, ids)) : [];
-  const byId = new Map(found.map((p) => [p.id, p]));
-  return rows.map((r) => {
-    const p = r.photoId ? byId.get(r.photoId) : undefined;
-    return {
-      id: r.id,
-      slugs: { en: r.slugEn, ms: r.slugMs },
-      name: l === "en" ? r.nameEn : r.nameMs,
-      intro: l === "en" ? r.introEn : r.introMs,
-      photo: p ? toPhoto(p, l) : null,
-    };
-  });
-}
+type HubRow = { hub: typeof cities.$inferSelect; photo: PhotoRow | null };
+type HubTable = typeof cities | typeof categories;
+
+const toHub = ({ hub: r, photo: p }: HubRow, l: Locale): Hub => ({
+  id: r.id,
+  slugs: { en: r.slugEn, ms: r.slugMs },
+  name: l === "en" ? r.nameEn : r.nameMs,
+  intro: l === "en" ? r.introEn : r.introMs,
+  photo: p ? toPhoto(p, l) : null,
+});
+
+const photoCols = {
+  url: photos.url,
+  width: photos.width,
+  height: photos.height,
+  altEn: photos.altEn,
+  altMs: photos.altMs,
+  creditName: photos.creditName,
+  creditUrl: photos.creditUrl,
+  sourceUrl: photos.sourceUrl,
+};
+
+// D1 batch results are keyed by column name, so batched selects never join tables sharing one (photos.id would clobber the hub's id).
+const hubs = (db: Db, table: HubTable) => db.select({ hub: table, photo: photoCols }).from(table).leftJoin(photos, eq(photos.id, table.photoId));
 
 // Lowest price of each Option's open future Timeslots (a Schedule's or Weekend price, else the Option's).
-export const slotPrices = (db: Db, activityIds: string[]) =>
+const slotPricesWhere = (db: Db, options: SQL) =>
   db
     .select({ optionId: projTimeslots.optionId, priceSen: sql<number>`min(coalesce(${projTimeslots.priceSen}, ${projOptions.priceSen}))` })
     .from(projTimeslots)
     .innerJoin(projOptions, eq(projOptions.id, projTimeslots.optionId))
-    .where(and(within(projOptions.activityId, activityIds), isNull(projTimeslots.closedAt), gt(projTimeslots.startsAt, Date.now())))
+    .where(and(options, isNull(projTimeslots.closedAt), gt(projTimeslots.startsAt, Date.now())))
     .groupBy(projTimeslots.optionId);
+
+export const slotPrices = (db: Db, activityIds: string[]) => slotPricesWhere(db, within(projOptions.activityId, activityIds));
 
 type SlotPrice = { optionId: string; priceSen: number };
 
@@ -96,21 +106,36 @@ const fromPrice = (options: { id: string; priceSen: number }[], slots: SlotPrice
   return prices.length ? Math.min(...prices) : null;
 };
 
-const hubQuery = (db: Db, table: typeof cities | typeof categories, l: Locale, slug: string) =>
-  db.select().from(table).where(bySlug(table, slug)).orderBy(localeFirst(table, l, slug)).limit(1);
+const hubQuery = (db: Db, table: HubTable, l: Locale, slug: string) =>
+  hubs(db, table).where(bySlug(table, slug)).orderBy(localeFirst(table, l, slug)).limit(1);
 
-async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<ActivityCard[]> {
-  const rows = await db
-    .select({ a: activities, city: cities, category: categories, venue: venues })
-    .from(activities)
-    .innerJoin(cities, eq(cities.id, activities.cityId))
-    .innerJoin(categories, eq(categories.id, activities.categoryId))
-    .leftJoin(venues, eq(venues.id, activities.venueId))
-    .where(and(where, draftGate(q)))
-    .orderBy(sql`${activities.listingMode} = 'bookable' desc`, asc(activities.nameEn));
-  if (rows.length === 0) return [];
-  const ids = rows.map((r) => r.a.id);
-  const [opts, covers, slots] = await db.batch([
+// The hub a slug resolves to, as a subquery, so dependent queries share one batch.
+const hubId = (db: Db, table: HubTable, l: Locale, slug: string) =>
+  db.select({ id: table.id }).from(table).where(bySlug(table, slug)).orderBy(localeFirst(table, l, slug)).limit(1);
+
+// Statements for listed cards; run them in a db.batch and pass the results to toCards.
+function cardQueries(db: Db, q: CatalogQuery, where?: SQL) {
+  const gate = and(where, draftGate(q));
+  const of = (col: SQLiteColumn) => db.select({ id: col }).from(activities).where(gate);
+  const ids = of(activities.id);
+  return [
+    db
+      .select({
+        id: activities.id,
+        slugEn: activities.slugEn,
+        slugMs: activities.slugMs,
+        nameEn: activities.nameEn,
+        nameMs: activities.nameMs,
+        listingMode: activities.listingMode,
+        free: activities.free,
+        setting: activities.setting,
+        cityId: activities.cityId,
+        categoryId: activities.categoryId,
+        venueId: activities.venueId,
+      })
+      .from(activities)
+      .where(gate)
+      .orderBy(sql`${activities.listingMode} = 'bookable' desc`, asc(activities.nameEn)),
     db
       .select({
         id: projOptions.id,
@@ -120,35 +145,66 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
         minAge: projOptions.minAge,
       })
       .from(projOptions)
-      .where(and(within(projOptions.activityId, ids), eq(projOptions.active, true))),
+      .where(and(inArray(projOptions.activityId, ids), eq(projOptions.active, true))),
     db
-      .select()
+      .select({ activityId: photos.activityId, ...photoCols })
       .from(photos)
-      .where(and(within(photos.activityId, ids), eq(photos.position, 0))),
-    slotPrices(db, ids),
-  ]);
+      .where(and(inArray(photos.activityId, ids), eq(photos.position, 0))),
+    slotPricesWhere(db, inArray(projOptions.activityId, ids)),
+    db.select({ id: cities.id, slugEn: cities.slugEn, slugMs: cities.slugMs }).from(cities).where(inArray(cities.id, of(activities.cityId))),
+    db
+      .select({ id: categories.id, slugEn: categories.slugEn, slugMs: categories.slugMs, nameEn: categories.nameEn, nameMs: categories.nameMs })
+      .from(categories)
+      .where(inArray(categories.id, of(activities.categoryId))),
+    db
+      .select({
+        id: venues.id,
+        slugEn: venues.slugEn,
+        slugMs: venues.slugMs,
+        nameEn: venues.nameEn,
+        nameMs: venues.nameMs,
+        presint: venues.presint,
+        lat: venues.lat,
+        lng: venues.lng,
+      })
+      .from(venues)
+      .where(inArray(venues.id, of(activities.venueId))),
+  ] as const;
+}
+
+type Results<T> = { -readonly [K in keyof T]: Awaited<T[K]> };
+type CardRows = Results<ReturnType<typeof cardQueries>>;
+
+function toCards(q: CatalogQuery, [rows, opts, covers, slots, cityRows, categoryRows, venueRows]: CardRows): ActivityCard[] {
   const min = (xs: (number | null)[]) => {
     const n = xs.filter((x): x is number => x !== null);
     return n.length ? Math.min(...n) : null;
   };
   const max = (xs: number[]) => (xs.length ? Math.max(...xs) : null);
+  const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
+  const [cityOf, categoryOf, venueOf] = [byId(cityRows), byId(categoryRows), byId(venueRows)];
   const en = q.locale === "en";
-  return rows.map(({ a, city, category, venue: v }) => {
+  return rows.map((a) => {
     const o = opts.filter((x) => x.activityId === a.id);
     const cover = covers.find((p) => p.activityId === a.id);
+    const city = cityOf.get(a.cityId)!;
+    const category = categoryOf.get(a.categoryId)!;
+    const v = a.venueId ? venueOf.get(a.venueId) : undefined;
     return {
       id: a.id,
       slugs: { en: a.slugEn, ms: a.slugMs },
       city: { en: city.slugEn, ms: city.slugMs },
       category: { en: category.slugEn, ms: category.slugMs, name: en ? category.nameEn : category.nameMs },
-      venue: v && {
-        id: v.id,
-        slugs: v.slugEn && v.slugMs ? { en: v.slugEn, ms: v.slugMs } : null,
-        name: en ? v.nameEn : v.nameMs,
-        presint: v.presint,
-        lat: v.lat,
-        lng: v.lng,
-      },
+      venue: v
+        ? {
+            id: v.id,
+            slugs: v.slugEn && v.slugMs ? { en: v.slugEn, ms: v.slugMs } : null,
+            name: en ? v.nameEn : v.nameMs,
+            presint: v.presint,
+            lat: v.lat,
+            lng: v.lng,
+          }
+        : null,
       name: en ? a.nameEn : a.nameMs,
       listingMode: a.listingMode,
       free: a.free,
@@ -165,24 +221,23 @@ async function listCards(db: Db, q: CatalogQuery, where?: SQL): Promise<Activity
 const hasListed = (cards: ActivityCard[]) => cards.some((c) => c.listingMode !== "hidden");
 
 export async function getHome(db: Db, q: CatalogQuery) {
-  const [cityRows, categoryRows] = await db.batch([
-    db.select().from(cities).orderBy(asc(cities.nameEn)),
-    db.select().from(categories).orderBy(asc(categories.nameEn)),
+  const [cityRows, categoryRows, ...cards] = await db.batch([
+    hubs(db, cities).orderBy(asc(cities.nameEn)),
+    hubs(db, categories).orderBy(asc(categories.nameEn)),
+    ...cardQueries(db, q),
   ]);
-  const [cityHubs, categoryHubs, cards] = await Promise.all([
-    toHubs(db, cityRows, q.locale),
-    toHubs(db, categoryRows, q.locale),
-    listCards(db, q),
-  ]);
-  return { cities: cityHubs, categories: categoryHubs, activities: cards };
+  return {
+    cities: cityRows.map((r) => toHub(r, q.locale)),
+    categories: categoryRows.map((r) => toHub(r, q.locale)),
+    activities: toCards(q, cards),
+  };
 }
 
-async function categoryHubs(db: Db, cards: ActivityCard[], l: Locale) {
-  const slugs = [...new Set(cards.map((c) => c.category.en))];
-  if (slugs.length === 0) return [];
-  const rows = await db.select().from(categories).where(inArray(categories.slugEn, slugs)).orderBy(asc(categories.nameEn));
-  return toHubs(db, rows, l);
-}
+// Categories with listed Activities matching `where`.
+const categoriesWith = (db: Db, q: CatalogQuery, where: SQL | undefined) =>
+  hubs(db, categories)
+    .where(inArray(categories.id, db.select({ id: activities.categoryId }).from(activities).where(and(where, draftGate(q)))))
+    .orderBy(asc(categories.nameEn));
 
 export type CityFilters = { bookable: boolean; free: boolean; setting: Setting | null; presint: number | null };
 export type MapVenue = { id: string; slugs: Slugs; name: string; lat: number; lng: number };
@@ -202,14 +257,15 @@ function mapVenues(cards: ActivityCard[]): MapVenue[] {
 }
 
 export async function getCityHub(db: Db, q: CatalogQuery & { city: string; filters?: CityFilters }) {
-  const [row] = await hubQuery(db, cities, q.locale, q.city);
+  const inCity = inArray(activities.cityId, hubId(db, cities, q.locale, q.city));
+  const [[row], categoryRows, ...rows] = await db.batch([hubQuery(db, cities, q.locale, q.city), categoriesWith(db, q, inCity), ...cardQueries(db, q, inCity)]);
   if (!row) return null;
-  const [[city], cards] = await Promise.all([toHubs(db, [row], q.locale), listCards(db, q, eq(activities.cityId, row.id))]);
+  const cards = toCards(q, rows);
   const { filters } = q;
   const shown = filters ? cards.filter((c) => matches(c, filters)) : cards;
   return {
-    city,
-    categories: await categoryHubs(db, cards, q.locale),
+    city: toHub(row, q.locale),
+    categories: categoryRows.map((r) => toHub(r, q.locale)),
     activities: shown,
     venues: mapVenues(shown),
     presints: [...new Set(cards.flatMap((c) => (c.venue?.presint ? [c.venue.presint] : [])))].sort((a, b) => a - b),
@@ -218,77 +274,71 @@ export async function getCityHub(db: Db, q: CatalogQuery & { city: string; filte
 }
 
 export async function getCategoryHub(db: Db, q: CatalogQuery & { city: string; category: string }) {
-  const [[cityRow], [categoryRow]] = await db.batch([
+  const inCity = inArray(activities.cityId, hubId(db, cities, q.locale, q.city));
+  const categoryId = hubId(db, categories, q.locale, q.category);
+  const [[cityRow], [categoryRow], others, ...rows] = await db.batch([
     hubQuery(db, cities, q.locale, q.city),
     hubQuery(db, categories, q.locale, q.category),
+    categoriesWith(db, q, and(inCity, notInArray(activities.categoryId, categoryId))),
+    ...cardQueries(db, q, and(inCity, inArray(activities.categoryId, categoryId))),
   ]);
   if (!cityRow || !categoryRow) return null;
-  const inCity = eq(activities.cityId, cityRow.id);
-  const [[city, category], cards, others] = await Promise.all([
-    toHubs(db, [cityRow, categoryRow], q.locale),
-    listCards(db, q, and(inCity, eq(activities.categoryId, categoryRow.id))),
-    listCards(db, q, and(inCity, ne(activities.categoryId, categoryRow.id))),
-  ]);
+  const cards = toCards(q, rows);
   return {
-    city,
-    category,
+    city: toHub(cityRow, q.locale),
+    category: toHub(categoryRow, q.locale),
     activities: cards,
-    otherCategories: await categoryHubs(db, others, q.locale),
+    otherCategories: others.map((r) => toHub(r, q.locale)),
     indexable: hasListed(cards),
   };
 }
 
 export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; category: string; activity: string }) {
-  const [[row], [cityRow], [categoryRow]] = await db.batch([
+  const found = and(bySlug(activities, q.activity), draftGate(q));
+  const id = db.select({ id: activities.id }).from(activities).where(found).orderBy(localeFirst(activities, q.locale, q.activity)).limit(1);
+  const venueId = db.select({ id: activities.venueId }).from(activities).where(inArray(activities.id, id));
+  const cityId = db.select({ id: activities.cityId }).from(activities).where(inArray(activities.id, id));
+  const [[row], [cityRow], [categoryRow], opts, extras, gallery, offers, [venue], venueGallery, slots, ...rows] = await db.batch([
     db
       .select({ a: activities, operatorName: operators.name, commissionBps: operators.commissionBps, freeCancelHours: projActivities.freeCancelHours })
       .from(activities)
       .innerJoin(operators, eq(operators.id, activities.operatorId))
       .leftJoin(projActivities, eq(projActivities.id, activities.id))
-      .where(and(bySlug(activities, q.activity), draftGate(q)))
+      .where(found)
       .orderBy(localeFirst(activities, q.locale, q.activity))
       .limit(1),
     hubQuery(db, cities, q.locale, q.city),
     hubQuery(db, categories, q.locale, q.category),
+    db
+      .select()
+      .from(projOptions)
+      .where(and(inArray(projOptions.activityId, id), eq(projOptions.active, true)))
+      .orderBy(asc(projOptions.priceSen), asc(projOptions.durationMinutes)),
+    db
+      .select()
+      .from(projAddOns)
+      .where(and(inArray(projAddOns.activityId, id), eq(projAddOns.active, true)))
+      .orderBy(asc(projAddOns.priceSen)),
+    db.select().from(photos).where(inArray(photos.activityId, id)).orderBy(asc(photos.position)),
+    db
+      .select()
+      .from(projPackOffers)
+      .where(and(inArray(projPackOffers.activityId, id), eq(projPackOffers.active, true)))
+      .orderBy(asc(projPackOffers.priceSen)),
+    db.select().from(venues).where(inArray(venues.id, venueId)),
+    db.select().from(photos).where(inArray(photos.venueId, venueId)).orderBy(asc(photos.position)),
+    slotPricesWhere(db, inArray(projOptions.activityId, id)),
+    ...cardQueries(db, q, and(inArray(activities.cityId, cityId), notInArray(activities.id, id))),
   ]);
-  if (!row || cityRow?.id !== row.a.cityId || categoryRow?.id !== row.a.categoryId) return null;
+  if (!row || cityRow?.hub.id !== row.a.cityId || categoryRow?.hub.id !== row.a.categoryId) return null;
   const { a } = row;
   const en = q.locale === "en";
-  const [[opts, extras, gallery, offers, [venue], venueGallery, slots], [city, category], related] = await Promise.all([
-    db.batch([
-      db
-        .select()
-        .from(projOptions)
-        .where(and(eq(projOptions.activityId, a.id), eq(projOptions.active, true)))
-        .orderBy(asc(projOptions.priceSen), asc(projOptions.durationMinutes)),
-      db
-        .select()
-        .from(projAddOns)
-        .where(and(eq(projAddOns.activityId, a.id), eq(projAddOns.active, true)))
-        .orderBy(asc(projAddOns.priceSen)),
-      db.select().from(photos).where(eq(photos.activityId, a.id)).orderBy(asc(photos.position)),
-      db
-        .select()
-        .from(projPackOffers)
-        .where(and(eq(projPackOffers.activityId, a.id), eq(projPackOffers.active, true)))
-        .orderBy(asc(projPackOffers.priceSen)),
-      db.select().from(venues).where(eq(venues.id, a.venueId ?? "")),
-      db
-        .select()
-        .from(photos)
-        .where(eq(photos.venueId, a.venueId ?? ""))
-        .orderBy(asc(photos.position)),
-      slotPrices(db, [a.id]),
-    ]),
-    toHubs(db, [cityRow, categoryRow], q.locale),
-    listCards(db, q, and(eq(activities.cityId, a.cityId), ne(activities.id, a.id))),
-  ]);
 
   return {
     id: a.id,
     slugs: { en: a.slugEn, ms: a.slugMs },
-    city,
-    category,
+    city: toHub(cityRow, q.locale),
+    category: toHub(categoryRow, q.locale),
     operatorName: row.operatorName,
     name: en ? a.nameEn : a.nameMs,
     description: en ? a.descriptionEn : a.descriptionMs,
@@ -335,27 +385,24 @@ export async function getActivityPage(db: Db, q: CatalogQuery & { city: string; 
       options: opts.filter((x) => o.optionIds.includes(x.id)).map((x) => (en ? x.nameEn : x.nameMs)),
     })),
     photos: (gallery.length ? gallery : venueGallery).map((p) => toPhoto(p, q.locale)),
-    related,
+    related: toCards(q, rows),
   };
 }
 
 const RANK: Record<ListingMode, number> = { bookable: 0, info: 1, hidden: 2 };
 
 export async function getVenuePage(db: Db, q: CatalogQuery & { city: string; venue: string }) {
-  const [cityRow] = await hubQuery(db, cities, q.locale, q.city);
-  if (!cityRow) return null;
-  const [v] = await db
-    .select()
-    .from(venues)
-    .where(and(eq(venues.cityId, cityRow.id), bySlug(venues, q.venue)))
-    .orderBy(localeFirst(venues, q.locale, q.venue))
-    .limit(1);
-  if (!v?.slugEn || !v.slugMs) return null;
-  const [[city], cards, gallery] = await Promise.all([
-    toHubs(db, [cityRow], q.locale),
-    listCards(db, q, eq(activities.venueId, v.id)),
-    db.select().from(photos).where(eq(photos.venueId, v.id)).orderBy(asc(photos.position)),
+  const inCity = and(inArray(venues.cityId, hubId(db, cities, q.locale, q.city)), bySlug(venues, q.venue));
+  const venueId = db.select({ id: venues.id }).from(venues).where(inCity).orderBy(localeFirst(venues, q.locale, q.venue)).limit(1);
+  const [[cityRow], [v], gallery, ...rows] = await db.batch([
+    hubQuery(db, cities, q.locale, q.city),
+    db.select().from(venues).where(inArray(venues.id, venueId)),
+    db.select().from(photos).where(inArray(photos.venueId, venueId)).orderBy(asc(photos.position)),
+    ...cardQueries(db, q, inArray(activities.venueId, venueId)),
   ]);
+  if (!cityRow || !v?.slugEn || !v.slugMs) return null;
+  const city = toHub(cityRow, q.locale);
+  const cards = toCards(q, rows);
   if (cards.length === 0) return null;
   const en = q.locale === "en";
   return {

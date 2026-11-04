@@ -68,7 +68,7 @@ const live = city
       <section class="mt-20 md:mt-28" aria-labelledby="featured">
         <h2 id="featured" class="wrap text-4xl font-extrabold md:text-6xl">{s.featured}</h2>
         <div class="snap-row wrap mt-8 auto-cols-[82%] gap-4 scroll-px-4 sm:auto-cols-[46%] md:scroll-px-8 lg:auto-cols-[calc((100%-4rem)/3)] lg:gap-8">
-          {activities.map((a) => <ActivityCard card={a} locale={locale} sizes="(min-width: 1024px) 24rem, 82vw" />)}
+          {activities.slice(0, 9).map((a) => <ActivityCard card={a} locale={locale} sizes="(min-width: 1024px) 24rem, 82vw" />)}
         </div>
       </section>
     )

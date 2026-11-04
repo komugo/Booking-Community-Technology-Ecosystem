@@ -51,6 +51,7 @@ export async function loadActivity({ params: p, request, url }: { params: Params
   const { city, category } = data;
   const alt = alternates(locale, url.search, [p.city, p.category, p.activity], [city.slugs, category.slugs, data.slugs]);
   if (alt instanceof Response) return alt;
+  const sameCategory = data.related.filter((c) => c.category.en === category.slugs.en);
   let errors: ApiError[] = [];
   let email = "";
   if (request.method === "POST") {
@@ -65,6 +66,7 @@ export async function loadActivity({ params: p, request, url }: { params: Params
     ...data,
     city,
     category,
+    related: [...sameCategory, ...data.related.filter((c) => !sameCategory.includes(c))].slice(0, 6),
     bookable: sells(data.listingMode, data.commissionBps) && data.options.length > 0,
     notify: { sent: url.searchParams.get("notify") === "sent", email, problems: problems(locale, errors) },
     status: errors.length ? 400 : 200,

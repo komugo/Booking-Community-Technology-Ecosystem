@@ -43,7 +43,7 @@ Order matters.
 4. [x] Delete WordPress DNS records (takes WordPress offline): apex A ×2 + AAAA ×2, `www` CNAME. Keep MX, SPF, DMARC, DKIM, `ftp`, `autoconfig`, `autodiscover`
 5. [x] `pnpm --filter @komugo/web deploy` (creates `komugo.com` + `www` custom domains; `www` 301s to apex in middleware)
 6. [x] `pnpm --filter @komugo/dashboard deploy` (creates `dashboard.komugo.com`)
-7. [ ] Seed prod: blocked. `/dev/seed` and `putrajaya import` only reach local D1 (the seed overwrites rows, so it 404s on any deployed host); decide how launch data gets into prod D1
+7. [x] Seed prod: `pnpm --filter @komugo/api putrajaya import --remote` (dry run), then `--write` (#42). Staging waits on its migrations 0009–0026
 8. [ ] Resend: add `komugo.com`, add its DKIM/SPF/MX (`send.` subdomain) records in Cloudflare DNS, verify
 9. [ ] Confirm prices/hours with both parks before publishing any Activity
 
