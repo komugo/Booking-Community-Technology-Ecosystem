@@ -1,0 +1,635 @@
+{
+  "venues": {
+    "ven_cruise_tasik_putrajaya": {
+      "lat": 2.9339371,
+      "lng": 101.6903597,
+      "postalCode": "62000",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr"
+          ],
+          "opens": "09:00",
+          "closes": "19:00"
+        },
+        {
+          "days": [
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "20:00"
+        }
+      ]
+    },
+    "ven_putrajaya_water_sports_complex": {
+      "lat": 2.9014889,
+      "lng": 101.6673635,
+      "postalCode": "62000"
+    },
+    "ven_putrajaya_challenge_park": {
+      "lat": 2.8891858,
+      "lng": 101.6654669,
+      "postalCode": "62200",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "Th",
+            "Su"
+          ],
+          "opens": "10:00",
+          "closes": "20:00"
+        },
+        {
+          "days": [
+            "We",
+            "Fr",
+            "Sa"
+          ],
+          "opens": "10:00",
+          "closes": "22:00"
+        }
+      ]
+    },
+    "ven_kompleks_kejiranan_presint_9": {
+      "lat": 2.9404049,
+      "lng": 101.6758986,
+      "postalCode": "62250",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "22:00"
+        }
+      ]
+    },
+    "ven_kompleks_kejiranan_presint_11": {
+      "lat": 2.962505,
+      "lng": 101.6660743,
+      "postalCode": "62300"
+    },
+    "ven_putrajaya_wetland_park": {
+      "lat": 2.9616867,
+      "lng": 101.6956668,
+      "postalCode": "62000"
+    },
+    "ven_putrajaya_botanical_garden": {
+      "lat": 2.9448069,
+      "lng": 101.6955157,
+      "postalCode": "62000"
+    },
+    "ven_putra_square": {
+      "lat": 2.934843,
+      "lng": 101.6908245,
+      "postalCode": "62502",
+      "openingHours": [
+        {
+          "days": [
+            "Mo",
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "06:00",
+          "closes": "22:00"
+        }
+      ]
+    },
+    "ven_putra_bridge": {
+      "lat": 2.9328977,
+      "lng": 101.690293,
+      "postalCode": "62100"
+    },
+    "ven_millennium_monument": {
+      "lat": 2.9235876,
+      "lng": 101.6826889,
+      "postalCode": "62100"
+    }
+  },
+  "activities": {
+    "act_cruise_tasik_putrajaya_sightseeing_cruise": {
+      "descriptionEn": "A relaxed cruise on Putrajaya Lake from Jeti Putra, passing Putra Mosque, the government buildings and the city's bridges. A good first look at Putrajaya, especially in the late afternoon.",
+      "descriptionMs": "Pelayaran santai di Tasik Putrajaya dari Jeti Putra, melalui Masjid Putra, bangunan kerajaan dan jambatan-jambatan bandar. Cara mudah mengenali Putrajaya, lebih-lebih lagi pada lewat petang.",
+      "photo": "lake_cruise"
+    },
+    "act_cruise_tasik_putrajaya_dondang_sayang_boat_ride": {
+      "descriptionEn": "A shorter ride on a smaller, traditional-style boat that gets you closer to the water. It suits families and small groups who want a quick trip around the lake.",
+      "descriptionMs": "Tunggangan lebih singkat dengan bot gaya tradisional yang lebih kecil, lebih dekat dengan air. Sesuai untuk keluarga dan kumpulan kecil yang mahu bersiar-siar sekejap di tasik.",
+      "photo": "dondang_sayang"
+    },
+    "act_cruise_tasik_putrajaya_private_boat_charter": {
+      "descriptionEn": "Hire a boat just for your group and cruise the lake on your own schedule. Ask the operator about boat sizes, routes and how far ahead to book.",
+      "descriptionMs": "Sewa bot khas untuk kumpulan anda dan belayar di tasik mengikut masa anda sendiri. Tanya pengendali tentang saiz bot, laluan dan berapa awal perlu menempah.",
+      "photo": "boat_charter"
+    },
+    "act_cruise_tasik_putrajaya_dine_cruise": {
+      "descriptionEn": "Dinner on the water while the lakeside landmarks light up around you. Menus and sailing times vary, so check with the operator before you go.",
+      "descriptionMs": "Makan malam di atas air sambil mercu tanda di tepi tasik bercahaya di sekeliling anda. Menu dan waktu pelayaran berbeza, jadi semak dengan pengendali sebelum pergi.",
+      "photo": "dine_cruise"
+    },
+    "act_cruise_tasik_putrajaya_boat_hire_for_events": {
+      "descriptionEn": "Use a boat on Putrajaya Lake for a birthday, company event or celebration. The operator can tell you capacity, catering options and rates.",
+      "descriptionMs": "Gunakan bot di Tasik Putrajaya untuk hari jadi, majlis syarikat atau sambutan. Pengendali boleh beritahu kapasiti, pilihan katering dan kadar.",
+      "photo": "event_boat"
+    },
+    "act_putrajaya_water_sports_complex_water_sports": {
+      "descriptionEn": "The Putrajaya Water Sports Complex in Presint 6 sits right on the lake and hosts paddling, rowing and towed water sports. Check with the venue which activities are open to the public on the day.",
+      "descriptionMs": "Kompleks Sukan Air Putrajaya di Presint 6 terletak betul-betul di tepi tasik dan menempatkan sukan dayung, mendayung dan sukan air yang ditarik bot. Semak dengan pihak venue aktiviti mana yang dibuka kepada orang ramai pada hari tersebut.",
+      "photo": "water_sports"
+    },
+    "act_putrajaya_water_sports_complex_kayaking": {
+      "descriptionEn": "Paddle a kayak on the calm water of Putrajaya Lake. A gentle way to try water sports, with the city skyline around you.",
+      "descriptionMs": "Berkayak di air tenang Tasik Putrajaya. Cara santai untuk mencuba sukan air, dengan pemandangan bandar di sekeliling anda.",
+      "photo": "kayaking"
+    },
+    "act_putrajaya_water_sports_complex_rowing": {
+      "descriptionEn": "Rowing on the long, sheltered stretch of lake by the complex, a venue used for races and training. Ask the venue about sessions for beginners.",
+      "descriptionMs": "Mendayung di bahagian tasik yang panjang dan terlindung di tepi kompleks, yang digunakan untuk perlumbaan dan latihan. Tanya pihak venue tentang sesi untuk pemula.",
+      "photo": "rowing"
+    },
+    "act_putrajaya_water_sports_complex_water_skiing": {
+      "descriptionEn": "Get towed behind a boat and try water skiing on Putrajaya Lake. Ask the venue about lessons, safety gear and age limits before you book.",
+      "descriptionMs": "Ditarik di belakang bot dan cuba ski air di Tasik Putrajaya. Tanya pihak venue tentang kelas, kelengkapan keselamatan dan had umur sebelum menempah.",
+      "photo": "water_skiing"
+    },
+    "act_putrajaya_water_sports_complex_wakeboarding": {
+      "descriptionEn": "Ride a wakeboard on the lake, from first-timer runs to tricks. Ask the venue about lessons and safety gear before you go.",
+      "descriptionMs": "Menunggang papan wake di tasik, dari percubaan pertama hingga aksi. Tanya pihak venue tentang kelas dan kelengkapan keselamatan sebelum pergi.",
+      "photo": "wakeboarding"
+    },
+    "act_putrajaya_challenge_park_wall_climbing": {
+      "descriptionEn": "Outdoor climbing walls at the Putrajaya Challenge Park in Presint 5, with routes for beginners and regular climbers. Ask the venue about instructors, gear hire and session times.",
+      "descriptionMs": "Dinding panjat luar di Taman Cabaran Putrajaya, Presint 5, dengan laluan untuk pemula dan pemanjat biasa. Tanya pihak venue tentang jurulatih, sewa kelengkapan dan waktu sesi.",
+      "photo": "wall_climbing"
+    },
+    "act_putrajaya_challenge_park_skateboarding": {
+      "descriptionEn": "A free skatepark with ramps and bowls for skateboards, scooters and inline skates. Busy in the evenings and at weekends.",
+      "descriptionMs": "Taman papan luncur percuma dengan ram dan mangkuk untuk papan luncur, skuter dan kasut roda. Sibuk pada waktu petang dan hujung minggu.",
+      "photo": "skateboarding"
+    },
+    "act_putrajaya_challenge_park_bmx": {
+      "descriptionEn": "BMX tracks and jumps in the same park, popular with local riders. Bring your own bike and a helmet.",
+      "descriptionMs": "Trek dan lompatan BMX di taman yang sama, popular dalam kalangan penunggang tempatan. Bawa basikal dan topi keledar sendiri.",
+      "photo": "bmx"
+    },
+    "act_putrajaya_challenge_park_mountain_biking": {
+      "descriptionEn": "Mountain bike trails through the park's wooded hills, from flowing paths to steeper sections. Bring your own bike and a helmet.",
+      "descriptionMs": "Trek basikal gunung melalui bukit berhutan di taman ini, dari laluan landai hingga bahagian yang lebih curam. Bawa basikal dan topi keledar sendiri.",
+      "photo": "mountain_biking"
+    },
+    "act_putrajaya_challenge_park_cycling": {
+      "descriptionEn": "Ride the paths around the Challenge Park and the nearby lakeside. An easy outing for families on bikes.",
+      "descriptionMs": "Berbasikal di laluan sekitar Taman Cabaran dan tepi tasik berhampiran. Aktiviti mudah untuk keluarga yang berbasikal.",
+      "photo": "cycling_park"
+    },
+    "act_kompleks_kejiranan_presint_9_badminton": {
+      "descriptionEn": "Indoor badminton courts at the Presint 9 neighbourhood complex, run by Perbadanan Putrajaya. Book a court with the venue.",
+      "descriptionMs": "Gelanggang badminton dalam bangunan di kompleks kejiranan Presint 9, dikendalikan oleh Perbadanan Putrajaya. Tempah gelanggang dengan pihak venue.",
+      "photo": "badminton"
+    },
+    "act_kompleks_kejiranan_presint_9_squash": {
+      "descriptionEn": "Squash courts at the Presint 9 neighbourhood complex. Book a court for a quick, intense game.",
+      "descriptionMs": "Gelanggang skuasy di kompleks kejiranan Presint 9. Tempah gelanggang untuk permainan yang pantas dan mencabar.",
+      "photo": "squash"
+    },
+    "act_kompleks_kejiranan_presint_9_tennis": {
+      "descriptionEn": "Outdoor tennis courts at the Presint 9 neighbourhood complex. Evening games are cooler.",
+      "descriptionMs": "Gelanggang tenis luar di kompleks kejiranan Presint 9. Bermain pada waktu petang lebih nyaman.",
+      "photo": "tennis"
+    },
+    "act_kompleks_kejiranan_presint_9_swimming": {
+      "descriptionEn": "The public swimming pool at the Presint 9 neighbourhood complex, open in sessions through the day. Check session times and the dress code before you go.",
+      "descriptionMs": "Kolam renang awam di kompleks kejiranan Presint 9, dibuka mengikut sesi sepanjang hari. Semak waktu sesi dan etika pakaian sebelum pergi.",
+      "photo": "swimming",
+      "openingHours": [
+        {
+          "days": [
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "09:00",
+          "closes": "11:00"
+        },
+        {
+          "days": [
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "13:00",
+          "closes": "15:00"
+        },
+        {
+          "days": [
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "17:00",
+          "closes": "19:00"
+        },
+        {
+          "days": [
+            "Tu",
+            "We",
+            "Th",
+            "Fr",
+            "Sa",
+            "Su"
+          ],
+          "opens": "20:00",
+          "closes": "22:00"
+        }
+      ]
+    },
+    "act_kompleks_kejiranan_presint_9_gym": {
+      "descriptionEn": "A community gym at the Presint 9 neighbourhood complex with cardio machines and weights. Ask at the counter about entry fees and memberships.",
+      "descriptionMs": "Gim komuniti di kompleks kejiranan Presint 9 dengan mesin kardio dan pemberat. Tanya di kaunter tentang yuran masuk dan keahlian.",
+      "photo": "gym"
+    },
+    "act_kompleks_kejiranan_presint_11_badminton": {
+      "descriptionEn": "Indoor badminton courts at the Presint 11 neighbourhood complex, run by Perbadanan Putrajaya. Book a court with the venue.",
+      "descriptionMs": "Gelanggang badminton dalam bangunan di kompleks kejiranan Presint 11, dikendalikan oleh Perbadanan Putrajaya. Tempah gelanggang dengan pihak venue.",
+      "photo": "badminton"
+    },
+    "act_kompleks_kejiranan_presint_11_squash": {
+      "descriptionEn": "Squash courts at the Presint 11 neighbourhood complex. Book a court for a quick, intense game.",
+      "descriptionMs": "Gelanggang skuasy di kompleks kejiranan Presint 11. Tempah gelanggang untuk permainan yang pantas dan mencabar.",
+      "photo": "squash"
+    },
+    "act_kompleks_kejiranan_presint_11_tennis": {
+      "descriptionEn": "Outdoor tennis courts at the Presint 11 neighbourhood complex. Evening games are cooler.",
+      "descriptionMs": "Gelanggang tenis luar di kompleks kejiranan Presint 11. Bermain pada waktu petang lebih nyaman.",
+      "photo": "tennis"
+    },
+    "act_kompleks_kejiranan_presint_11_swimming": {
+      "descriptionEn": "The public swimming pool at the Presint 11 neighbourhood complex, open in sessions through the day. Check session times and the dress code before you go.",
+      "descriptionMs": "Kolam renang awam di kompleks kejiranan Presint 11, dibuka mengikut sesi sepanjang hari. Semak waktu sesi dan etika pakaian sebelum pergi.",
+      "photo": "swimming"
+    },
+    "act_kompleks_kejiranan_presint_11_gym": {
+      "descriptionEn": "A community gym at the Presint 11 neighbourhood complex with cardio machines and weights. Ask at the counter about entry fees and memberships.",
+      "descriptionMs": "Gim komuniti di kompleks kejiranan Presint 11 dengan mesin kardio dan pemberat. Tanya di kaunter tentang yuran masuk dan keahlian.",
+      "photo": "gym"
+    },
+    "act_kompleks_kejiranan_presint_11_basketball": {
+      "descriptionEn": "An outdoor basketball court at the Presint 11 neighbourhood complex. Book a slot for your group.",
+      "descriptionMs": "Gelanggang bola keranjang luar di kompleks kejiranan Presint 11. Tempah slot untuk kumpulan anda.",
+      "photo": "basketball"
+    },
+    "act_putrajaya_wetland_park_nature_walk": {
+      "descriptionEn": "Walk the boardwalks and trails of Putrajaya Wetland Park, a large man-made wetland at the north end of the lake. Look out for birds, flamingos and the lookout tower.",
+      "descriptionMs": "Berjalan di laluan papan dan denai Taman Wetland Putrajaya, tanah bencah buatan yang luas di hujung utara tasik. Perhatikan burung, flamingo dan menara peninjau.",
+      "photo": "wetland_park"
+    },
+    "act_putrajaya_wetland_park_birdwatching": {
+      "descriptionEn": "The wetland's lakes and reed beds attract egrets, herons and other water birds. Come early in the morning and bring binoculars.",
+      "descriptionMs": "Tasik dan paya buluh di tanah bencah ini menarik burung bangau, pucung dan burung air lain. Datang awal pagi dan bawa teropong.",
+      "photo": "birdwatching"
+    },
+    "act_putrajaya_wetland_park_cycling": {
+      "descriptionEn": "Flat, shady paths through the wetland make for an easy bike ride. Bring your own bike or ask about rentals on site.",
+      "descriptionMs": "Laluan rata dan redup melalui tanah bencah sesuai untuk berbasikal santai. Bawa basikal sendiri atau tanya tentang sewaan di sana.",
+      "photo": "cycling_park"
+    },
+    "act_putrajaya_botanical_garden_garden_visit": {
+      "descriptionEn": "A large lakeside botanical garden in Presint 1 with themed gardens, a Moroccan pavilion and picnic lawns. Entry is free.",
+      "descriptionMs": "Taman botani yang luas di tepi tasik di Presint 1 dengan taman bertema, astaka Maghribi dan padang berkelah. Masuk percuma.",
+      "photo": "botanical_garden"
+    },
+    "act_putrajaya_botanical_garden_cycling": {
+      "descriptionEn": "Ride the garden's long paths along the lake. Bicycles can be rented on site, so you don't need to bring your own.",
+      "descriptionMs": "Berbasikal di laluan panjang taman di sepanjang tasik. Basikal boleh disewa di sana, jadi tidak perlu bawa sendiri.",
+      "photo": "cycling_park"
+    },
+    "act_putrajaya_botanical_garden_walking_jogging": {
+      "descriptionEn": "Shady paths for a morning walk or jog among the gardens and lakeside. Free, and popular early in the day.",
+      "descriptionMs": "Laluan redup untuk berjalan atau berjoging pada waktu pagi di antara taman dan tepi tasik. Percuma, dan popular awal pagi.",
+      "photo": "walking_jogging"
+    },
+    "act_putra_square_sightseeing": {
+      "descriptionEn": "The city's main square, with Putra Mosque on one side and the Prime Minister's office, Perdana Putra, at the end. A good starting point for photos and a walk along the lake.",
+      "descriptionMs": "Dataran utama bandar, dengan Masjid Putra di satu sisi dan Perdana Putra, pejabat Perdana Menteri, di hujungnya. Tempat mula yang baik untuk bergambar dan berjalan di tepi tasik.",
+      "photo": "putra_square"
+    },
+    "act_putra_bridge_sightseeing": {
+      "descriptionEn": "Putrajaya's best-known bridge, with pedestrian walkways and lake views towards Putra Mosque. Lovely at sunset and after dark.",
+      "descriptionMs": "Jambatan paling terkenal di Putrajaya, dengan laluan pejalan kaki dan pemandangan tasik ke arah Masjid Putra. Cantik ketika matahari terbenam dan pada waktu malam.",
+      "photo": "putra_bridge"
+    },
+    "act_millennium_monument_sightseeing": {
+      "descriptionEn": "A tall monument by the lake in Presint 2 that marks Malaysia's history, with a timeline along the walkway. Free, and quiet in the evening.",
+      "descriptionMs": "Monumen tinggi di tepi tasik di Presint 2 yang menandakan sejarah Malaysia, dengan garis masa di sepanjang laluan pejalan kaki. Percuma dan tenang pada waktu petang.",
+      "photo": "millennium_monument"
+    }
+  },
+  "photos": {
+    "badminton": {
+      "photoId": "1783266503722-973f579d9b5a",
+      "pageId": "0Zq9PQJvEv8",
+      "width": 6240,
+      "height": 4160,
+      "creditName": "Evan Marvell",
+      "username": "evan_marvell",
+      "altEn": "Four people playing badminton on a blue indoor court",
+      "altMs": "Empat orang bermain badminton di gelanggang dalaman berwarna biru"
+    },
+    "basketball": {
+      "photoId": "1562552052-dbdd31c06339",
+      "pageId": "fkWtCoij4e0",
+      "width": 6273,
+      "height": 4182,
+      "creditName": "Steven Abraham",
+      "username": "stevenabraham",
+      "altEn": "People playing basketball on an outdoor court on a sunny day",
+      "altMs": "Orang ramai bermain bola keranjang di gelanggang luar pada hari cerah"
+    },
+    "birdwatching": {
+      "photoId": "1576462319822-19d77b3a40b8",
+      "pageId": "oDFp1vrkSYM",
+      "width": 4242,
+      "height": 2828,
+      "creditName": "Afdhal N.",
+      "username": "nekuromanseru",
+      "altEn": "Painted stork flying low over green water",
+      "altMs": "Burung botak padi terbang rendah di atas air kehijauan"
+    },
+    "bmx": {
+      "photoId": "1510228957367-be4a85ea7509",
+      "pageId": "5iA6qO_Ztv8",
+      "width": 3000,
+      "height": 2000,
+      "creditName": "Aleksandr Popov",
+      "username": "5tep5",
+      "altEn": "BMX rider silhouetted mid-air above a ramp at dusk",
+      "altMs": "Penunggang BMX berbayang di udara di atas tanjakan ketika senja"
+    },
+    "boat_charter": {
+      "photoId": "1724102894997-c30f6216cec6",
+      "pageId": "qGUPhiqSKZM",
+      "width": 3840,
+      "height": 2160,
+      "creditName": "Rusty Watson",
+      "username": "rustyct1",
+      "altEn": "Small wooden boat floating alone on a calm lake",
+      "altMs": "Bot kayu kecil terapung sendirian di tasik yang tenang"
+    },
+    "botanical_garden": {
+      "photoId": "1668698397629-cb7e949737be",
+      "pageId": "PrKTJiz_tS4",
+      "width": 6000,
+      "height": 4000,
+      "creditName": "Mai Singgah",
+      "username": "maisinggah",
+      "altEn": "Paved path curving through a leafy park with pine trees and shrubs",
+      "altMs": "Laluan berturap melengkung melalui taman yang rimbun dengan pokok pain dan pokok renek"
+    },
+    "cycling_park": {
+      "photoId": "1781229849207-36c959ac3d4f",
+      "pageId": "evTQ33Hqicc",
+      "width": 7360,
+      "height": 4912,
+      "creditName": "Jack Wong",
+      "username": "boschj",
+      "altEn": "Person cycling along a shaded path through a green park",
+      "altMs": "Seorang berbasikal di laluan teduh melalui taman hijau"
+    },
+    "dine_cruise": {
+      "photoId": "1662915749879-870a2ad89fb2",
+      "pageId": "9vPmM7u4RBc",
+      "width": 3024,
+      "height": 4032,
+      "creditName": "Arlinda",
+      "username": "atrnv",
+      "altEn": "Dinner table set on a boat deck overlooking water and mountains at dusk",
+      "altMs": "Meja makan malam di dek bot menghadap air dan gunung ketika senja"
+    },
+    "dondang_sayang": {
+      "photoId": "1751860562294-b67f9b809b59",
+      "pageId": "BvS74VKKt3Q",
+      "width": 3712,
+      "height": 5568,
+      "creditName": "Marshall Ma",
+      "username": "marsshow",
+      "altEn": "Ornate traditional boats decorated with red and white flags",
+      "altMs": "Bot tradisional berhias dengan bendera merah dan putih"
+    },
+    "event_boat": {
+      "photoId": "1575328514791-2e51500c5779",
+      "pageId": "1b6WsKfzoHM",
+      "width": 6000,
+      "height": 4000,
+      "creditName": "Mitchell Luo",
+      "username": "mitchel3uo",
+      "altEn": "Group of people gathered on the deck of a wooden boat on the water",
+      "altMs": "Sekumpulan orang berkumpul di dek bot kayu di atas air"
+    },
+    "gym": {
+      "photoId": "1771586791190-97ed536c54af",
+      "pageId": "R_cN3dJLcK8",
+      "width": 6250,
+      "height": 3409,
+      "creditName": "Rahul Singh",
+      "username": "rahul_singhsss",
+      "altEn": "Modern gym with rows of treadmills and weight machines",
+      "altMs": "Gim moden dengan deretan treadmill dan mesin bebanan"
+    },
+    "kayaking": {
+      "photoId": "1653593548856-23fdff295e2d",
+      "pageId": "wbqy_-475tw",
+      "width": 4000,
+      "height": 6000,
+      "creditName": "Serhii Danevych",
+      "username": "danevich",
+      "altEn": "Two people paddling a kayak on a lake lined with trees",
+      "altMs": "Dua orang mengayuh kayak di tasik yang dikelilingi pokok"
+    },
+    "lake_cruise": {
+      "photoId": "1695391693885-75b0f9ccad6e",
+      "pageId": "yoAzG4EXXMo",
+      "width": 4032,
+      "height": 3024,
+      "creditName": "Nina Samat",
+      "username": "amaninasamat",
+      "altEn": "Small white boat on a lake near a pink-domed mosque and minaret",
+      "altMs": "Bot putih kecil di tasik berhampiran masjid berkubah merah jambu dan menaranya"
+    },
+    "millennium_monument": {
+      "photoId": "1559419004-6c68d9a72164",
+      "pageId": "fID00LjQz9s",
+      "width": 5076,
+      "height": 3222,
+      "creditName": "Hadi Yazdi Aznaveh",
+      "username": "hadyyazdi",
+      "altEn": "Tall slender monument and a cable-stayed bridge across a calm lake, with a hot-air balloon above",
+      "altMs": "Monumen tinggi lagi ramping dan jambatan kabel merentangi tasik yang tenang, dengan belon udara panas di langit"
+    },
+    "mountain_biking": {
+      "photoId": "1760462433709-ce64b275d2f5",
+      "pageId": "ZF6FHzcnrTI",
+      "width": 5401,
+      "height": 3040,
+      "creditName": "Sunil Chandra Sharma",
+      "username": "sunilcsharma",
+      "altEn": "Mountain bikers riding a dirt trail through a green forest",
+      "altMs": "Penunggang basikal gunung melalui denai tanah di hutan hijau"
+    },
+    "putra_bridge": {
+      "photoId": "1711955397644-7ef7a6537735",
+      "pageId": "1VOCNuzTD28",
+      "width": 6000,
+      "height": 4000,
+      "creditName": "Muhammad Faiz Zulkeflee",
+      "username": "fzeo",
+      "altEn": "Arched bridge with lit towers reflected on a lake at night",
+      "altMs": "Jambatan melengkung dengan menara bercahaya terpantul di tasik pada waktu malam"
+    },
+    "putra_square": {
+      "photoId": "1574310886178-20688c28aeb1",
+      "pageId": "_u_wI4LaT7o",
+      "width": 4256,
+      "height": 2832,
+      "creditName": "Alex Hudson",
+      "username": "aliffhassan91",
+      "altEn": "Pink-domed mosque with a tall minaret beside a lake",
+      "altMs": "Masjid berkubah merah jambu dengan menara tinggi di tepi tasik"
+    },
+    "rowing": {
+      "photoId": "1569406125624-98ee19b01d4a",
+      "pageId": "H3htK85wwnU",
+      "width": 6000,
+      "height": 4000,
+      "creditName": "Mitchell Luo",
+      "username": "mitchel3uo",
+      "altEn": "Rowing crew in a long boat silhouetted on the water",
+      "altMs": "Pasukan pendayung dalam bot panjang berbayang di atas air"
+    },
+    "skateboarding": {
+      "photoId": "1496886077455-6e206da90837",
+      "pageId": "ISkeH2SLqNU",
+      "width": 3548,
+      "height": 2367,
+      "creditName": "Robson Hatsukami Morgan",
+      "username": "robsonhmorgan",
+      "altEn": "Skateboarder doing a trick above a concrete skatepark bowl at sunset",
+      "altMs": "Pemain papan selaju melakukan aksi di atas mangkuk taman papan selaju ketika senja"
+    },
+    "squash": {
+      "photoId": "1740813416102-5d42f408bc85",
+      "pageId": "3HSBcnyoE58",
+      "width": 3200,
+      "height": 2400,
+      "creditName": "Aryaman Agarwal",
+      "username": "captainthanda",
+      "altEn": "Empty squash court with wooden floor and glass back wall",
+      "altMs": "Gelanggang skuasy kosong dengan lantai kayu dan dinding kaca belakang"
+    },
+    "swimming": {
+      "photoId": "1791521157092-b69b07a479d8",
+      "pageId": "Wf9YeJtH_kM",
+      "width": 5656,
+      "height": 3181,
+      "creditName": "Yazid N",
+      "username": "mzynasx",
+      "altEn": "People swimming in a bright outdoor swimming pool",
+      "altMs": "Orang ramai berenang di kolam renang luar yang terang"
+    },
+    "tennis": {
+      "photoId": "1499510318569-1a3d67dc3976",
+      "pageId": "qjrjJnFypa0",
+      "width": 2196,
+      "height": 2745,
+      "creditName": "Ryan Searle",
+      "username": "ryansearle",
+      "altEn": "Aerial view of an outdoor tennis court surrounded by trees",
+      "altMs": "Pandangan udara gelanggang tenis luar dikelilingi pokok"
+    },
+    "wakeboarding": {
+      "photoId": "1531001602318-1916852b9205",
+      "pageId": "TzHl80vMzdk",
+      "width": 5472,
+      "height": 3648,
+      "creditName": "Luke Bender",
+      "username": "lukebender",
+      "altEn": "Wakeboarder silhouetted mid-jump against the setting sun",
+      "altMs": "Pemain papan luncur air berbayang melompat dengan latar matahari terbenam"
+    },
+    "walking_jogging": {
+      "photoId": "1576751691889-568b63882cd5",
+      "pageId": "wxfPSwytxf8",
+      "width": 2671,
+      "height": 2874,
+      "creditName": "VENUS MAJOR",
+      "username": "venusmajor",
+      "altEn": "Woman jogging on a tree-lined path beside the water",
+      "altMs": "Wanita berjoging di laluan berpokok di tepi air"
+    },
+    "wall_climbing": {
+      "photoId": "1759928222798-63e73f690563",
+      "pageId": "XSEazbZB0WY",
+      "width": 5932,
+      "height": 3947,
+      "creditName": "Ryunosuke Kikuno",
+      "username": "ryunosuke_kikuno",
+      "altEn": "Climber on a colourful outdoor bouldering wall under a blue sky",
+      "altMs": "Pemanjat di dinding panjat luar yang berwarna-warni di bawah langit biru"
+    },
+    "water_skiing": {
+      "photoId": "1723074295323-66dee3315091",
+      "pageId": "nwvli28ZCHE",
+      "width": 3278,
+      "height": 1560,
+      "creditName": "fr0ggy5",
+      "username": "fr0ggy5_",
+      "altEn": "Water skier carving a spray across blue water",
+      "altMs": "Pemain ski air memercikkan air merentasi permukaan biru"
+    },
+    "water_sports": {
+      "photoId": "1554132267-d06483b00adc",
+      "pageId": "AZijeluagac",
+      "width": 4443,
+      "height": 2956,
+      "creditName": "Ludovic Gauthier",
+      "username": "ludogauthier",
+      "altEn": "Two people riding a jet ski across choppy water",
+      "altMs": "Dua orang menunggang jet ski merentasi air berombak"
+    },
+    "wetland_park": {
+      "photoId": "1659669504760-d6836c218032",
+      "pageId": "nkC7pF-GjwI",
+      "width": 3409,
+      "height": 2557,
+      "creditName": "Berisman Bangi",
+      "username": "berisman",
+      "altEn": "A group of pelicans swimming on calm water",
+      "altMs": "Sekumpulan burung undan berenang di air yang tenang"
+    }
+  }
+}

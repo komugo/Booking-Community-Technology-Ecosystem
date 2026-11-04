@@ -9,7 +9,8 @@ import { staffOnly, type Ops } from "./auth";
 import { REASONS, recordClosure } from "./closure";
 import { enrichCheckIn, enrichTimeslots } from "./enrich";
 import { bool, int, intOrNull, invalid, json, list, name, type Body } from "./input";
-import { activityGaps, photoList, photoRows, photoView, publishBar, publishGaps, syncHours, type PhotoInput } from "./venues";
+import { publishGaps } from "../publish";
+import { activityGaps, photoList, photoRows, photoView, publishBar, syncHours, type PhotoInput } from "./venues";
 
 export const routes = new Hono<Ops>();
 

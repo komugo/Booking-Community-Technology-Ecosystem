@@ -77,6 +77,10 @@ A day an Activity never runs, every week (every Monday) or by week of the month 
 How an Activity appears in the catalogue: **Bookable** (Customers buy through Komugo checkout), **Info** (a page with hours, price note and how to go or book elsewhere; no checkout) or **Hidden**. An Activity becomes Bookable only once its Operator has signed up, and leaves Bookable only when it has no future Tickets; an Activity whose Operator is unknown stays Hidden. An Activity leaves Hidden only once it has a Venue with a map pin, a Category, an EN/BM description and a photo; missing hours, price or contact show as "Check with venue".
 _Avoid_: Listing type, status
 
+**Illustrative photo**:
+A photo that shows the kind of Activity (any badminton court) rather than the Venue itself. It counts as the photo an Activity needs to leave Hidden, is described for what it shows rather than as the Venue, and is replaced once the Venue or Operator supplies a real one.
+_Avoid_: Stock photo, placeholder
+
 **Venue**:
 A physical place in a City (sports complex, park, jetty, mall) with its address, Presint, location and opening hours. Kept by Komugo staff; hosts Activities from one or more Operators, each of which edits only its own Activities and may keep shorter hours than the Venue. Shown only while at least one of its Activities isn't Hidden.
 _Avoid_: Location, facility, site

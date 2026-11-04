@@ -1,22 +1,24 @@
 import { env } from "cloudflare:test";
-import { activities, operators, venues } from "@komugo/db";
+import { activities, operators, photos, venues } from "@komugo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import csv from "../../../data/putrajaya-master-list.csv?raw";
 import ppj from "../../../data/ppj-sport.json";
 import reviewed from "../../../data/putrajaya.json";
+import launchFile from "../../../data/putrajaya-launch.json";
 import { build, parseHours } from "../scripts/putrajaya-build";
+import { launch, type Launch } from "../scripts/putrajaya-launch";
 import { diff, EXISTING_SQL, existingFrom, insertSql, plan, type Catalogue } from "../scripts/putrajaya-load";
 import { fill, parseSport, report, type Facility } from "../scripts/putrajaya-ppj";
 import sport from "./fixtures/ppj-sport.html?raw";
 import { db, dispatch } from "./helpers";
 
-const data = fill(build(csv), ppj as Facility[]);
+const data = launch(fill(build(csv), ppj as Facility[]), launchFile as Launch);
 const at = (row: number) => data.activities.filter((a) => a.rows.includes(row));
 const venueOf = (row: number) => data.venues.filter((v) => v.rows.includes(row));
 
 describe("build", () => {
-  test("the reviewed data file is what the importer builds from the master list and saved PPJ facts", () => {
+  test("the reviewed data file is what the importer builds from the master list, saved PPJ facts and the launch batch", () => {
     expect(reviewed).toEqual(data);
   });
 
@@ -39,8 +41,10 @@ describe("build", () => {
     expect(at(21)[0].howToBook).toBe("unknown");
   });
 
-  test("every Activity lands Hidden with a Category, slugs unique across EN and BM", () => {
-    expect(data.activities.every((a) => a.listingMode === "hidden" && a.categoryId.startsWith("cat_"))).toBe(true);
+  test("only the launch batch lands Info; the rest Hidden, all with a Category, slugs unique across EN and BM", () => {
+    const info = data.activities.filter((a) => a.listingMode === "info").map((a) => a.id);
+    expect(info.sort()).toEqual(Object.keys(launchFile.activities).sort());
+    expect(data.activities.every((a) => ["hidden", "info"].includes(a.listingMode) && a.categoryId.startsWith("cat_"))).toBe(true);
     const slugs = data.activities.flatMap((a) => (a.slugEn === a.slugMs ? [a.slugEn] : [a.slugEn, a.slugMs]));
     expect(new Set(slugs).size).toBe(slugs.length);
     expect(at(25)[0]).toMatchObject({ slugEn: "kompleks-kejiranan-presint-8-badminton", slugMs: "kompleks-kejiranan-presint-8-badminton" });
@@ -132,16 +136,26 @@ describe("import", () => {
   test("dry run lists the new rows", async () => {
     const lines = diff(plan(data, await existing()));
     expect(lines).toContain(`Activities: ${data.activities.length} new, 0 kept`);
-    expect(lines).toContain(`+ venue ven_taman_pancarona  Taman Pancarona / Taman Pancarona  presint=18  hours=MoTuWeThFrSaSu 08:00-00:00`);
+    expect(lines).toContain(`+ venue ven_taman_pancarona  Taman Pancarona / Taman Pancarona  presint=18  pin=-,-  hours=MoTuWeThFrSaSu 08:00-00:00`);
     expect(await db.select().from(activities)).toEqual([]);
   });
 
-  test("loads everything Hidden; a re-run inserts new rows only and keeps staff edits", async () => {
+  test("loads the launch batch as Info with pin, copy and photo, the rest Hidden; a re-run inserts new rows only and keeps staff edits", async () => {
     const first = await load(data);
     expect(first.activities).toHaveLength(data.activities.length);
     const rows = await db.select().from(activities);
     expect(rows).toHaveLength(data.activities.length);
-    expect(rows.every((a) => a.listingMode === "hidden" && !a.published)).toBe(true);
+    expect(rows.every((a) => !a.published)).toBe(true);
+    const info = rows.filter((a) => a.listingMode === "info");
+    expect(info).toHaveLength(Object.keys(launchFile.activities).length);
+    expect(rows.filter((a) => a.listingMode !== "info").every((a) => a.listingMode === "hidden")).toBe(true);
+    const cruise = "act_cruise_tasik_putrajaya_sightseeing_cruise";
+    expect(info.find((a) => a.id === cruise)?.descriptionMs).toBeTruthy();
+    const [pin] = await db.select().from(venues).where(eq(venues.id, "ven_cruise_tasik_putrajaya"));
+    expect(pin).toMatchObject({ lat: 2.9339371, lng: 101.6903597, postalCode: "62000" });
+    const shots = await db.select().from(photos);
+    expect(shots.map((p) => p.activityId).sort()).toEqual(info.map((a) => a.id).sort());
+    expect(shots.every((p) => p.url.startsWith("https://images.unsplash.com/photo-"))).toBe(true);
     const unknown = (await db.select().from(operators).where(eq(operators.unknown, true))).map((o) => o.id).sort();
     expect(unknown).toEqual(data.operators.filter((o) => o.unknown).map((o) => o.id).sort());
 
@@ -164,9 +178,16 @@ describe("import", () => {
     expect(await db.select().from(activities)).toHaveLength(data.activities.length + 1);
   });
 
-  test("refuses a data file with a listed Activity", () => {
-    const listed = { ...data, activities: [{ ...data.activities[0], listingMode: "info" }] };
-    expect(() => plan(listed, { cities: [], operators: [], venues: [], activities: [] })).toThrow("must be Hidden");
+  test("refuses an Info Activity that can't leave Hidden, and any Bookable one", () => {
+    const none = { cities: [], operators: [], venues: [], activities: [] };
+    const hidden = data.activities.find((a) => a.listingMode === "hidden" && !data.operators.find((o) => o.id === a.operatorId)?.unknown)!;
+    const unknown = data.activities.find((a) => data.operators.find((o) => o.id === a.operatorId)?.unknown)!;
+    const ready = data.activities.find((a) => a.listingMode === "info")!;
+    const as = (a: Catalogue["activities"][number]) => ({ ...data, activities: [a] });
+    expect(() => plan(as({ ...hidden, listingMode: "info" }), none)).toThrow("missing mapPin, descriptionEn, descriptionMs, photo");
+    expect(() => plan(as({ ...unknown, ...ready, id: unknown.id, operatorId: unknown.operatorId }), none)).toThrow("unknown Operator");
+    expect(() => plan(as({ ...ready, listingMode: "bookable" }), none)).toThrow("Hidden or Info");
+    expect(plan(as(ready), none).activities).toHaveLength(1);
   });
 });
 
