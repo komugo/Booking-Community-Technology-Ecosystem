@@ -1,9 +1,11 @@
 // Insert-only load of the reviewed data file: rows already in D1 are never touched, so staff edits survive a re-run.
 import type { HOW_TO_BOOK, OpeningHours } from "@komugo/db";
+import { publishGaps } from "../src/publish";
 
 export type HowToBook = (typeof HOW_TO_BOOK)[number];
 export type Hours = OpeningHours;
 export type Note = { rows: number[]; note: string };
+export type Photo = { url: string; width: number; height: number; altEn: string; altMs: string; creditName: string; creditUrl: string; sourceUrl: string };
 
 export type CatalogueVenue = {
   id: string;
@@ -16,6 +18,9 @@ export type CatalogueVenue = {
   phone: string | null;
   openingHours: Hours[];
   rows: number[];
+  lat?: number;
+  lng?: number;
+  postalCode?: string;
 };
 
 export type CatalogueActivity = {
@@ -34,6 +39,9 @@ export type CatalogueActivity = {
   phone: string | null;
   openingHours: Hours[];
   rows: number[];
+  descriptionEn?: string;
+  descriptionMs?: string;
+  photo?: Photo;
 };
 
 export type Catalogue = {
@@ -75,8 +83,17 @@ export type Plan = {
 };
 
 export function plan(data: Catalogue, existing: Existing): Plan {
-  const shown = data.activities.find((a) => a.listingMode !== "hidden");
-  if (shown) throw new Error(`${shown.id}: imported Activities must be Hidden`);
+  const unknown = new Set(data.operators.filter((o) => o.unknown).map((o) => o.id));
+  for (const a of data.activities.filter((x) => x.listingMode !== "hidden")) {
+    if (a.listingMode !== "info") throw new Error(`${a.id}: imported Activities must be Hidden or Info`);
+    if (unknown.has(a.operatorId)) throw new Error(`${a.id}: unknown Operator, must stay Hidden`);
+    const venue = data.venues.find((v) => v.id === a.venueId);
+    const gaps = publishGaps(
+      { descriptionEn: a.descriptionEn ?? "", descriptionMs: a.descriptionMs ?? "", photos: a.photo ? 1 : 0 },
+      venue ? { lat: venue.lat ?? null, lng: venue.lng ?? null } : null,
+    );
+    if (gaps.length) throw new Error(`${a.id}: can't be Info, missing ${gaps.join(", ")}`);
+  }
   const city = existing.cities.find((c) => c.slug_en === data.city.slugEn);
   const cityId = city?.id ?? data.city.id;
   const ids = (rows: { id: string }[]) => new Set(rows.map((r) => r.id));
@@ -121,9 +138,9 @@ export function diff(p: Plan): string[] {
     `Operators: ${p.operators.length} new, ${p.kept.operators} kept`,
     ...p.operators.map((o) => `+ operator ${o.id}  ${o.name}${o.unknown ? "  (unknown Operator)" : ""}`),
     `Venues: ${p.venues.length} new, ${p.kept.venues} kept`,
-    ...p.venues.map((v) => `+ venue ${v.id}  ${v.nameEn} / ${v.nameMs}  presint=${v.presint ?? "-"}  hours=${hours(v.openingHours) || "-"}`),
+    ...p.venues.map((v) => `+ venue ${v.id}  ${v.nameEn} / ${v.nameMs}  presint=${v.presint ?? "-"}  pin=${v.lat ?? "-"},${v.lng ?? "-"}  hours=${hours(v.openingHours) || "-"}`),
     `Activities: ${p.activities.length} new, ${p.kept.activities} kept`,
-    ...p.activities.map((a) => `+ activity ${a.id}  ${a.nameEn}  [${a.categoryId}] ${a.listingMode} ${a.howToBook}  price=${a.priceNoteEn ?? "-"}`),
+    ...p.activities.map((a) => `+ activity ${a.id}  ${a.nameEn}  [${a.categoryId}] ${a.listingMode} ${a.howToBook}  price=${a.priceNoteEn ?? "-"}${a.photo ? "  photo" : ""}`),
     `Skipped: ${p.skipped.length}`,
     ...p.skipped.map((s) => `! ${s.id}: ${s.reason}`),
   ];
@@ -148,7 +165,10 @@ export function insertSql(p: Plan): string[] {
         slug_en: v.slugEn,
         slug_ms: v.slugMs,
         street_address: v.streetAddress,
+        postal_code: v.postalCode ?? null,
         presint: v.presint,
+        lat: v.lat ?? null,
+        lng: v.lng ?? null,
         phone: v.phone,
         opening_hours: JSON.stringify(v.openingHours),
       }),
@@ -164,9 +184,9 @@ export function insertSql(p: Plan): string[] {
         slug_ms: a.slugMs,
         name_en: a.nameEn,
         name_ms: a.nameMs,
-        description_en: "",
-        description_ms: "",
-        listing_mode: "hidden",
+        description_en: a.descriptionEn ?? "",
+        description_ms: a.descriptionMs ?? "",
+        listing_mode: a.listingMode,
         how_to_book: a.howToBook,
         price_note_en: a.priceNoteEn,
         price_note_ms: a.priceNoteMs,
@@ -174,5 +194,24 @@ export function insertSql(p: Plan): string[] {
         opening_hours: JSON.stringify(a.openingHours),
       }),
     ),
+    ...p.activities.flatMap((a) => {
+      const ph = a.photo;
+      if (!ph) return [];
+      return [
+        insert("photos", {
+          id: `ph_${a.id.replace(/^act_/, "")}`,
+          activity_id: a.id,
+          position: 0,
+          url: ph.url,
+          width: ph.width,
+          height: ph.height,
+          alt_en: ph.altEn,
+          alt_ms: ph.altMs,
+          credit_name: ph.creditName,
+          credit_url: ph.creditUrl,
+          source_url: ph.sourceUrl,
+        }),
+      ];
+    }),
   ];
 }

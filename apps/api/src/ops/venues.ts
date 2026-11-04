@@ -6,6 +6,7 @@ import { and, asc, count, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { fail, type Ctx } from "../lib";
 import { requireMember, staffOnly, type Ops } from "./auth";
 import { int, intOrNull, invalid, json, list, name, type Body } from "./input";
+import { publishGaps, type Gap } from "../publish";
 
 // Date tickets are valid during the Activity's opening hours, else its Venue's; the booking engine keeps a copy.
 // Public holidays travel with them, for the weekend price, to Operators who opt in.
@@ -93,23 +94,6 @@ export const photoView =(p: typeof photos.$inferSelect): PhotoInput => ({
   creditUrl: p.creditUrl,
   sourceUrl: p.sourceUrl,
 });
-
-export type Gap = "venue" | "mapPin" | "descriptionEn" | "descriptionMs" | "photo";
-
-// What an Activity still lacks to leave Hidden. Category is required by the schema.
-export function publishGaps(
-  a: { descriptionEn: string; descriptionMs: string; photos: number },
-  venue: { lat: number | null; lng: number | null } | null,
-): Gap[] {
-  const gaps: [boolean, Gap][] = [
-    [!venue, "venue"],
-    [!!venue && (venue.lat === null || venue.lng === null), "mapPin"],
-    [!a.descriptionEn.trim(), "descriptionEn"],
-    [!a.descriptionMs.trim(), "descriptionMs"],
-    [a.photos === 0, "photo"],
-  ];
-  return gaps.filter(([missing]) => missing).map(([, g]) => g);
-}
 
 export async function activityGaps(env: Env, id: string) {
   const db = createDb(env.DB);
