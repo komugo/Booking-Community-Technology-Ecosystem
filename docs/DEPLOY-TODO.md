@@ -1,6 +1,6 @@
 # Deploy TODO
 
-Cloudflare account `11b89f8794afc04ed1dd94beb34db9c9`, zone `komugo.com`, workers.dev subdomain `komugo`.
+Cloudflare account `11b89f8794afc04ed1dd94beb34db9c9` (komugohq@gmail.com; set `CLOUDFLARE_ACCOUNT_ID` if wrangler picks another), zone `komugo.com`, workers.dev subdomain `komugo`.
 
 ## Secrets (`komugo-api` only)
 
@@ -22,7 +22,8 @@ Run from `apps/api`. Add `--env staging` for staging.
 
 ## Queues
 
-- [ ] `npx wrangler queues create komugo-whatsapp-staging` and `npx wrangler queues create komugo-whatsapp` before the first deploy with WhatsApp
+- [ ] `npx wrangler queues create komugo-whatsapp-staging` before the first staging deploy with WhatsApp
+- [x] `komugo-whatsapp` created (prod)
 
 ## Staging (https://komugo-web-staging.komugo.workers.dev, https://komugo-dashboard-staging.komugo.workers.dev)
 
@@ -36,12 +37,12 @@ Run from `apps/api`. Add `--env staging` for staging.
 
 Order matters.
 
-1. [ ] `pnpm --filter @komugo/api db:migrate:remote` (D1 `komugo`, 0000–0006)
+1. [x] `pnpm --filter @komugo/api db:migrate:remote` (D1 `komugo`, 0000–0026)
 2. [ ] Set prod secrets (live `CHIP_SECRET_KEY`) + `CHIP_BRAND_ID`
-3. [ ] `pnpm --filter @komugo/api deploy`
-4. [ ] Delete WordPress DNS records (takes WordPress offline): apex A ×2 + AAAA ×2, `www` CNAME. Keep MX, SPF, DMARC, DKIM, `ftp`, `autoconfig`, `autodiscover`
-5. [ ] `pnpm --filter @komugo/web deploy` (creates `komugo.com` + `www` custom domains; `www` 301s to apex in middleware)
-6. [ ] `pnpm --filter @komugo/dashboard deploy` (creates `dashboard.komugo.com`)
+3. [x] `pnpm --filter @komugo/api deploy`
+4. [x] Delete WordPress DNS records (takes WordPress offline): apex A ×2 + AAAA ×2, `www` CNAME. Keep MX, SPF, DMARC, DKIM, `ftp`, `autoconfig`, `autodiscover`
+5. [x] `pnpm --filter @komugo/web deploy` (creates `komugo.com` + `www` custom domains; `www` 301s to apex in middleware)
+6. [x] `pnpm --filter @komugo/dashboard deploy` (creates `dashboard.komugo.com`)
 7. [ ] Seed prod: blocked. `/dev/seed` and `putrajaya import` only reach local D1 (the seed overwrites rows, so it 404s on any deployed host); decide how launch data gets into prod D1
 8. [ ] Resend: add `komugo.com`, add its DKIM/SPF/MX (`send.` subdomain) records in Cloudflare DNS, verify
 9. [ ] Confirm prices/hours with both parks before publishing any Activity
