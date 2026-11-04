@@ -13,8 +13,9 @@ const langs: Locale[] = ["en", "ms"];
 
 <header class:list={[solid ? "border-b border-line" : "absolute inset-x-0 top-0 z-20 bg-linear-to-b from-ink/45 to-transparent text-white"]}>
   <div class="wrap flex h-16 items-center justify-between">
-    <a href={path(locale)} class="font-display -ml-2 flex min-h-11 items-center px-2 text-2xl font-extrabold tracking-tight">
-      komugo<span class:list={[solid ? "text-leaf" : "text-lime"]}>.</span>
+    <a href={path(locale)} class="font-display -ml-2 flex min-h-11 items-center gap-2.5 px-2 text-2xl font-extrabold tracking-tight">
+      <img src="/logo.svg" alt="" width="36" height="36" class="size-9" />
+      <span>komugo<span class:list={[solid ? "text-leaf" : "text-lime"]}>.</span></span>
     </a>
     <div class="flex items-center gap-1">
       <a href={path(locale, "bookings")} data-my-bookings class:list={["flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold", solid ? "hover:bg-sand" : "hover:bg-white/15"]}>
