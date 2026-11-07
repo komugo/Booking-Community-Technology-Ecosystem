@@ -1,0 +1,30 @@
+---
+import JsonLd from "./JsonLd.astro";
+import { href, t, type Locale } from "../content/i18n";
+import { breadcrumbLd } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+  items: { name: string; path: string }[];
+}
+const { locale, items } = Astro.props;
+const trail = [{ name: t[locale].breadcrumbHome, path: href(locale) }, ...items.map((i) => ({ name: i.name, path: href(locale, i.path) }))];
+---
+
+<nav aria-label="Breadcrumb" class="text-sm text-muted">
+  <ol class="flex flex-wrap items-center gap-x-2">
+    {
+      trail.map((it, i) => (
+        <li class="flex items-center gap-x-2">
+          {i > 0 && <span aria-hidden="true">/</span>}
+          {i === trail.length - 1 ? (
+            <span aria-current="page" class="text-ink">{it.name}</span>
+          ) : (
+            <a href={it.path} class="inline-flex min-h-11 items-center hover:text-ink hover:underline hover:underline-offset-4">{it.name}</a>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+<JsonLd data={breadcrumbLd(Astro.site, trail)} />

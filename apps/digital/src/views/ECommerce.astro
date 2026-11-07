@@ -1,0 +1,191 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import PackageCard from "../components/PackageCard.astro";
+import Faq from "../components/Faq.astro";
+import CtaBand from "../components/CtaBand.astro";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { pkg } from "../content/packages";
+import { packageLd } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const commerce = pkg("commerce");
+const booking = pkg("booking");
+const contact = `${href(locale, "/contact")}?package=${commerce.id}`;
+
+const copy = {
+  en: {
+    title: `E-commerce website in Malaysia from ${rm("en", { min: commerce.fee.min })}`,
+    description: `An online store with catalogue, cart, Malaysian payment gateway checkout, orders and stock in one dashboard. ${rm("en", commerce.fee)}, ready in ${commerce.delivery.en}.`,
+    crumb: "E-commerce",
+    h1: "An online store that takes payment and keeps count.",
+    lede: "The Commerce Package gives you your own shop: a catalogue customers can browse, a checkout that takes payment, and a dashboard where every order and every item of stock is accounted for.",
+    flowLabel: "How it works",
+    flowTitle: "From product page to packed order.",
+    flow: [
+      ["Browse", "Customers find products by category, see photos, prices and what's in stock."],
+      ["Pay", "They check out in a few steps and pay online through your payment gateway."],
+      ["Notify", "Order notifications go out the moment payment clears."],
+      ["Fulfil", "Manage each order from the dashboard. Stock counts update as you sell."],
+      ["Review", "Check sales and basic reports, and run discounts or vouchers when you want a push."],
+    ],
+    payLabel: "Payments",
+    payTitle: "Malaysian payments, built in.",
+    payBody: [
+      "We integrate the payment gateway that suits your business, such as CHIP, so customers can pay with FPX online banking or card.",
+      "It's the same kind of integration we built for ourselves: Komugo Platform's engine takes payments and sends refunds through CHIP.",
+    ],
+    payNote: "Gateway transaction fees are charged by the provider, separate from our fees.",
+    fee: "Development fee",
+    pricingLink: "Add-on services and full pricing",
+    pkgLabel: "Package",
+    pkgTitle: "The Commerce Package.",
+    priceLabel: "Price",
+    priceTitle: "What moves the price.",
+    priceBody: `Commerce starts at ${rm("en", { min: commerce.fee.min })}. Your written quote sets the final figure before work starts. It depends on:`,
+    factors: ["How many products and variants you sell", "Shipping and delivery rules", "Systems the store must connect to, such as accounting or a warehouse", "Extra roles for staff who manage orders"],
+    bookingLabel: "Selling time, not things?",
+    bookingBody: "If customers book a court, a room or a session instead of buying a product, the Booking system Package fits better.",
+    bookingLink: "See the Booking system",
+    faqLabel: "Questions",
+    faqTitle: "About online stores.",
+    faq: [
+      ["Which payment gateways can you integrate?", "We work with Malaysian gateways such as CHIP, which accept FPX online banking and cards. If you already have a merchant account with another provider, tell us and we'll confirm it in your quote."],
+      ["Can I add and edit products myself?", "Yes. Products, prices, stock and vouchers are managed from your dashboard. No Content change or Care plan is needed for that."],
+      ["Can the store be in English and Bahasa Malaysia?", "Yes. Commerce includes everything in Corporate, which includes both languages."],
+      ["How do you handle shipping?", "Tell us how you deliver today: courier, own riders, pickup or a mix. Shipping rules and any courier integration are scoped in your quote."],
+      ["What does it cost to run each year?", `Hosting for Commerce is ${rm("en", commerce.hosting!)}${s.perYear}, covering servers, SSL, daily backups, monitoring, security patches and fixes to what we built. Gateway fees are paid to the provider.`],
+    ],
+  },
+  ms: {
+    title: `Buat kedai online di Malaysia dari ${rm("ms", { min: commerce.fee.min })}`,
+    description: `Kedai online dengan katalog, troli, bayaran melalui gerbang pembayaran Malaysia, pesanan dan stok dalam satu papan pemuka. ${rm("ms", commerce.fee)}.`,
+    crumb: "E-dagang",
+    h1: "Kedai online yang terima bayaran dan kira stok.",
+    lede: "Pakej Commerce memberi anda kedai sendiri: katalog yang mudah dilayari, pembayaran dalam talian, dan papan pemuka di mana setiap pesanan dan setiap stok direkodkan.",
+    flowLabel: "Cara ia berfungsi",
+    flowTitle: "Dari halaman produk ke pesanan siap dibungkus.",
+    flow: [
+      ["Layari", "Pelanggan cari produk mengikut kategori, lihat gambar, harga dan stok yang ada."],
+      ["Bayar", "Mereka buat pembayaran dalam beberapa langkah melalui gerbang pembayaran anda."],
+      ["Notifikasi", "Notifikasi pesanan dihantar sebaik sahaja bayaran diterima."],
+      ["Penuhi", "Urus setiap pesanan dari papan pemuka. Kiraan stok dikemas kini setiap kali ada jualan."],
+      ["Semak", "Semak jualan dan laporan asas, dan jalankan diskaun atau baucar bila perlu."],
+    ],
+    payLabel: "Pembayaran",
+    payTitle: "Pembayaran tempatan, siap terbina.",
+    payBody: [
+      "Kami integrasikan gerbang pembayaran yang sesuai dengan perniagaan anda, seperti CHIP, supaya pelanggan boleh bayar melalui FPX perbankan dalam talian atau kad.",
+      "Ini integrasi yang sama jenis dengan yang kami bina untuk diri sendiri: enjin Komugo Platform terima bayaran dan pulangkan wang melalui CHIP.",
+    ],
+    payNote: "Caj transaksi gerbang pembayaran dikenakan oleh penyedia, berasingan daripada yuran kami.",
+    fee: "Yuran pembangunan",
+    pricingLink: "Add-on service dan harga penuh",
+    pkgLabel: "Pakej",
+    pkgTitle: "Pakej Commerce.",
+    priceLabel: "Harga",
+    priceTitle: "Apa yang mempengaruhi harga.",
+    priceBody: `Commerce bermula ${rm("ms", { min: commerce.fee.min })}. Sebut harga bertulis menetapkan jumlah akhir sebelum kerja bermula. Ia bergantung pada:`,
+    factors: ["Bilangan produk dan variasi yang anda jual", "Peraturan penghantaran", "Sistem yang perlu disambungkan, seperti perakaunan atau gudang", "Peranan tambahan untuk staf yang mengurus pesanan"],
+    bookingLabel: "Jual masa, bukan barang?",
+    bookingBody: "Jika pelanggan menempah gelanggang, bilik atau sesi dan bukannya membeli produk, Pakej Sistem tempahan lebih sesuai.",
+    bookingLink: "Lihat Sistem tempahan",
+    faqLabel: "Soalan",
+    faqTitle: "Tentang kedai online.",
+    faq: [
+      ["Gerbang pembayaran mana yang boleh diintegrasikan?", "Kami bekerja dengan gerbang pembayaran Malaysia seperti CHIP, yang menerima FPX perbankan dalam talian dan kad. Jika anda sudah ada akaun peniaga dengan penyedia lain, beritahu kami dan kami sahkan dalam sebut harga."],
+      ["Boleh saya tambah dan ubah produk sendiri?", "Boleh. Produk, harga, stok dan baucar diurus dari papan pemuka anda. Tidak perlu Perubahan kandungan atau Care plan untuk itu."],
+      ["Boleh kedai dalam Bahasa Inggeris dan Bahasa Malaysia?", "Boleh. Commerce termasuk semua dalam Corporate, yang sudah merangkumi kedua-dua bahasa."],
+      ["Bagaimana dengan penghantaran?", "Beritahu kami cara anda menghantar sekarang: kurier, penghantar sendiri, ambil sendiri atau gabungan. Peraturan penghantaran dan integrasi kurier ditetapkan dalam sebut harga."],
+      ["Berapa kos tahunan untuk menjalankannya?", `Hosting untuk Commerce ialah ${rm("ms", commerce.hosting!)}${s.perYear}, merangkumi pelayan, SSL, sandaran harian, pemantauan, tampalan keselamatan dan pembaikan pada apa yang kami bina. Caj gerbang pembayaran dibayar kepada penyedia.`],
+    ],
+  },
+}[locale];
+const faq = copy.faq.map(([q, a]) => ({ q, a }));
+---
+
+<Base locale={locale} path="/e-commerce" title={copy.title} description={copy.description} jsonLd={[packageLd(Astro.site, locale, commerce)]}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path: "/e-commerce" }]} />
+    <div class="rise">
+      <h1 class="display mt-8 max-w-[14ch]">{copy.h1}</h1>
+      <div class="grid-12 mt-10 gap-y-8 md:mt-14">
+        <div class="col-span-12 md:col-span-6 md:col-start-4">
+          <p class="lede">{copy.lede}</p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href={contact} class="btn btn-primary">{s.choose(commerce.name[locale])}</a>
+            <a href={`#${commerce.id}`} class="btn btn-quiet">{s.viewPackage}</a>
+          </div>
+        </div>
+        <dl class="col-span-12 grid grid-cols-2 gap-6 border-t border-line pt-5 text-sm md:col-span-3 md:grid-cols-1">
+          <div>
+            <dt class="text-muted">{copy.fee}</dt>
+            <dd class="num font-display mt-1 text-3xl font-medium tracking-tight">{rm(locale, commerce.fee)}</dd>
+          </div>
+          <div>
+            <dt class="text-muted">{s.delivery}</dt>
+            <dd class="mt-1 text-lg font-semibold">{commerce.delivery[locale]}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <Section id="how" label={copy.flowLabel} title={copy.flowTitle} wide>
+    <ol class="grid gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
+      {
+        copy.flow.map(([name, body], i) => (
+          <li class="bg-paper py-8 sm:px-6 sm:first:pl-0 lg:py-10">
+            <p class="num font-display text-5xl font-medium tracking-tight text-forest">{i + 1}</p>
+            <h3 class="mt-8 text-2xl">{name}</h3>
+            <p class="mt-3 text-muted">{body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <Section id="payments" label={copy.payLabel} title={copy.payTitle}>
+    <div class="max-w-2xl space-y-5 text-lg">
+      {copy.payBody.map((p) => <p>{p}</p>)}
+    </div>
+    <p class="mt-6 max-w-2xl text-sm text-muted">{copy.payNote}</p>
+  </Section>
+
+  <Section id="package" label={copy.pkgLabel} title={copy.pkgTitle}>
+    <div class="max-w-xl">
+      <PackageCard locale={locale} item={commerce} />
+    </div>
+  </Section>
+
+  <Section id="price" label={copy.priceLabel} title={copy.priceTitle}>
+    <p class="max-w-2xl text-lg">{copy.priceBody}</p>
+    <ul class="mt-8 max-w-2xl border-b border-line">
+      {
+        copy.factors.map((f) => (
+          <li class="flex gap-3 border-t border-line py-3">
+            <span aria-hidden="true" class="mt-[0.8em] h-px w-3 shrink-0 bg-forest" />
+            {f}
+          </li>
+        ))
+      }
+    </ul>
+    <a href={`${href(locale, "/pricing")}#addons`} class="link mt-6 inline-flex min-h-11 items-center">{copy.pricingLink}</a>
+  </Section>
+
+  <Section id="booking" label={copy.bookingLabel}>
+    <p class="max-w-2xl text-lg">{copy.bookingBody}</p>
+    <a href={`${href(locale, booking.page)}#${booking.id}`} class="link mt-6 inline-flex min-h-11 items-center">{copy.bookingLink}</a>
+  </Section>
+
+  <Section id="faq" label={copy.faqLabel} title={copy.faqTitle}>
+    <Faq items={faq} />
+  </Section>
+
+  <CtaBand locale={locale} packageId={commerce.id} />
+</Base>

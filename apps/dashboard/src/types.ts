@@ -183,6 +183,26 @@ export type InterestRow = {
   count: number;
   notified: number;
 };
+export type LeadStatus = "new" | "contacted" | "won" | "lost";
+export type LeadPackage = "starter" | "business" | "corporate" | "commerce" | "booking" | "enterprise" | "gov-landing" | "gov-portal" | "gov-booking" | "gov-custom";
+export type Lead = {
+  id: string;
+  kind: "quote" | "proposal";
+  packageId: LeadPackage | null;
+  name: string;
+  company: string | null;
+  email: string;
+  whatsapp: string;
+  budget: string | null;
+  brief: string;
+  agency: string | null;
+  procurement: "direct" | "quotation" | "tender" | null;
+  timeline: string | null;
+  sourcePage: string;
+  locale: Locale;
+  status: LeadStatus;
+  createdAt: number;
+};
 export type Setup = {
   activities: {
     id: string;

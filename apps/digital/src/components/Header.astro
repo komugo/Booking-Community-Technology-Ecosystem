@@ -1,0 +1,73 @@
+---
+import { company } from "../content/company";
+import { alternates, href, LOCALES, t, type Locale } from "../content/i18n";
+
+interface Props {
+  locale: Locale;
+  path: string;
+}
+const { locale, path } = Astro.props;
+const s = t[locale];
+const alt = alternates(path);
+const current = (p: string) => (path === p || path.startsWith(p + "/") ? "page" : undefined);
+---
+
+<header class="relative border-b border-line">
+  <div class="wrap flex h-16 items-center gap-6 md:h-20">
+    <a href={href(locale)} class="font-display -ml-1 flex min-h-11 items-center gap-2.5 px-1 text-xl font-semibold tracking-tight">
+      <img src="/logo.svg" alt="" width="28" height="28" class="size-7" />
+      Komugo Digital
+    </a>
+    <nav aria-label={s.menu} class="ml-auto hidden lg:block">
+      <ul class="flex items-center gap-1 text-[0.9375rem]">
+        {
+          s.nav.map(([p, label]) => (
+            <li>
+              <a href={href(locale, p)} aria-current={current(p)} class="flex min-h-11 items-center px-2.5 text-ink/75 hover:text-ink aria-[current=page]:text-ink aria-[current=page]:underline aria-[current=page]:underline-offset-8">
+                {label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 lg:ml-0">
+      <a href={company.platformUrl} class="hidden min-h-11 items-center gap-1 text-sm text-muted hover:text-ink xl:flex">
+        {s.platformLink}
+        <svg aria-hidden="true" viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11l6-6M6 5h5v5" /></svg>
+      </a>
+      <nav aria-label="Language" class="flex text-sm">
+        {
+          LOCALES.map((l) => (
+            <a href={alt[l]} hreflang={l} lang={l} aria-current={l === locale ? "true" : undefined} class="flex min-h-11 min-w-9 items-center justify-center text-muted hover:text-ink aria-[current=true]:font-semibold aria-[current=true]:text-ink">
+              {t[l].langShort}
+              <span class="sr-only"> – {t[l].langName}</span>
+            </a>
+          ))
+        }
+      </nav>
+      <a href={href(locale, "/contact")} class="btn btn-primary hidden min-h-11 px-5 text-sm sm:inline-flex">{s.getQuote}</a>
+      <details class="group lg:hidden">
+        <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+          {s.menu}
+          <svg aria-hidden="true" viewBox="0 0 16 16" class="size-4 transition-transform group-open:rotate-45 motion-reduce:transition-none" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12" /></svg>
+        </summary>
+        <div class="absolute inset-x-0 top-full z-30 border-b border-line bg-paper">
+          <ul class="wrap py-2">
+            {
+              s.nav.map(([p, label]) => (
+                <li class="border-b border-line last:border-0">
+                  <a href={href(locale, p)} aria-current={current(p)} class="font-display flex min-h-14 items-center text-2xl aria-[current=page]:text-forest">{label}</a>
+                </li>
+              ))
+            }
+            <li class="flex flex-wrap items-center justify-between gap-4 py-4">
+              <a href={company.platformUrl} class="link text-sm text-muted">{s.platformLink}</a>
+              <a href={href(locale, "/contact")} class="btn btn-primary">{s.getQuote}</a>
+            </li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>

@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<T> {
+export async function api<T>(method: "GET" | "POST" | "PUT" | "PATCH", path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api/ops${path}`, {

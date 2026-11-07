@@ -1,0 +1,73 @@
+---
+import displayFont from "@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url";
+import bodyFont from "@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2?url";
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import JsonLd from "../components/JsonLd.astro";
+import { alternates, t, type Locale } from "../content/i18n";
+import { abs, orgLd, PROD_HOST } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+  path: string;
+  title: string;
+  description: string;
+  jsonLd?: Record<string, unknown>[];
+  noindex?: boolean;
+}
+
+const { locale, path, title, description, jsonLd = [] } = Astro.props;
+const noindex = Astro.props.noindex || Astro.site?.hostname !== PROD_HOST;
+const s = t[locale];
+const alt = alternates(path);
+const url = abs(Astro.site, alt[locale]);
+const og = abs(Astro.site, "/og.png");
+const fonts = `
+@font-face{font-family:"Bricolage Grotesque Variable";font-style:normal;font-display:swap;font-weight:200 800;src:url(${displayFont}) format("woff2-variations")}
+@font-face{font-family:"Instrument Sans Variable";font-style:normal;font-display:swap;font-weight:400 700;src:url(${bodyFont}) format("woff2-variations")}`;
+---
+
+<!doctype html>
+<html lang={s.htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex,follow" />}
+    <link rel="canonical" href={url} />
+    <link rel="alternate" hreflang="en" href={abs(Astro.site, alt.en)} />
+    <link rel="alternate" hreflang="ms" href={abs(Astro.site, alt.ms)} />
+    <link rel="alternate" hreflang="x-default" href={abs(Astro.site, alt.en)} />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#fbfaf6" />
+    <link rel="preload" href={displayFont} as="font" type="font/woff2" crossorigin />
+    <style is:inline set:html={fonts} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Komugo Digital" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={url} />
+    <meta property="og:locale" content={s.ogLocale} />
+    <meta property="og:locale:alternate" content={t[locale === "en" ? "ms" : "en"].ogLocale} />
+    <meta property="og:image" content={og} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={og} />
+    <JsonLd data={orgLd(Astro.site)} />
+    {jsonLd.map((d) => <JsonLd data={d} />)}
+    <slot name="head" />
+  </head>
+  <body class="min-h-dvh">
+    <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-paper">{s.skip}</a>
+    <Header locale={locale} path={path} />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer locale={locale} />
+  </body>
+</html>

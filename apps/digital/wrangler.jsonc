@@ -1,0 +1,18 @@
+{
+  "name": "komugo-digital",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" },
+  "routes": [{ "pattern": "digital.komugo.com", "custom_domain": true }],
+  // Cloudflare's always-pass test key. Replace with the real digital.komugo.com site key before deploy (docs/DEPLOY-TODO.md).
+  "vars": { "TURNSTILE_SITE_KEY": "1x00000000000000000000AA" },
+  "services": [{ "binding": "API", "service": "komugo-api" }],
+  "env": {
+    "staging": {
+      "routes": [],
+      "workers_dev": true,
+      "vars": { "TURNSTILE_SITE_KEY": "1x00000000000000000000AA" },
+      "services": [{ "binding": "API", "service": "komugo-api-staging" }]
+    }
+  }
+}

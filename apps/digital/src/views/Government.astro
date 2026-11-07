@@ -1,0 +1,213 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import PackageCard from "../components/PackageCard.astro";
+import EnquiryForm from "../components/EnquiryForm.astro";
+import Faq from "../components/Faq.astro";
+import { carePlans } from "../content/care";
+import { company } from "../content/company";
+import { govDocuments, govNote, govPackages } from "../content/gov";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { pkg } from "../content/packages";
+import { packageLd, serviceLd } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const enterprise = pkg("enterprise");
+const sla = carePlans.find((c) => c.id === "enterprise")!;
+const page = href(locale, "/government");
+const profile = Object.keys(import.meta.glob("/public/company-profile.pdf", { query: "?url" })).length > 0;
+const f = s.form.procurements;
+
+const copy = {
+  en: {
+    title: "Government portals and systems for Malaysian agencies",
+    description: "Landing pages, corporate portals, facility booking portals and custom systems for government agencies and GLCs. Indicative ranges from RM5,000.",
+    crumb: "Government",
+    h1: "Portals and systems for government agencies.",
+    lede: "Landing pages, corporate portals, booking portals and custom systems for departments, local authorities and GLCs. Priced on your actual requirements, and documented the way your procurement needs.",
+    request: "Send a proposal request",
+    seeEnterprise: "Enterprise & government",
+    packages: ["Government packages", "Four starting points, priced as ranges."],
+    requestFor: "Request a proposal",
+    enterpriseSection: ["Enterprise", "When one portal isn't enough.", "For ministries, agencies, universities and large companies that need several systems working together, with roles, workflows and reporting across departments."],
+    docs: ["What we prepare", "The paperwork comes with the work.", "For government work we prepare the documents an evaluation committee asks for, in English or Bahasa Malaysia."],
+    profile: "Company profile (PDF)",
+    soon: "Coming soon",
+    how: ["Working with us", "Plain terms, nothing inflated."],
+    howItems: [
+      ["Any procurement route", `We work through ${f.direct.toLowerCase()}, ${f.quotation.toLowerCase()} and ${f.tender.toLowerCase()}. Tell us the route in your request and we shape the documents to it.`],
+      ["Itemised quotation", "Each deliverable is a line item, so you can compare like for like and adjust scope without reworking the whole quote."],
+      ["Straight answers on credentials", "We list only what we actually hold. If your procurement requires a specific registration or certification, name it in your request and we'll tell you in writing whether we meet it."],
+      ["The same two people, start to finish", "The founders who write the proposal design, build and support the system. There is no hand-off to a team you haven't met."],
+      ["Training and handover", "We train your officers on the system and hand over user documentation, so it doesn't depend on us to run day to day."],
+      ["Support to an agreed SLA", `Annual support and maintenance is quoted to your SLA and infrastructure needs. For ongoing Content changes, the optional ${sla.name.en} Care plan starts ${rm("en", sla.fee, true)}${s.perMonth}.`],
+    ],
+    proof: ["Facility booking", "Facility booking is what we've already built.", "Komugo Platform, our own booking and ticketing marketplace, is soft-launched in Putrajaya at komugo.com. Its engine handles availability by court, online payment, automatic refunds and closures. A Government booking portal is built on that same engine."],
+    proofLink: "Read the Komugo Platform case study",
+    form: ["Proposal request", "Send a proposal request.", "Tell us the agency, the procurement route and when it needs to be live. We reply by email with questions and next steps."],
+    faqLabel: "Questions",
+    faqTitle: "For agencies and GLCs.",
+    faq: [
+      ["Which procurement routes do you work with?", `${f.direct}, ${f.quotation.toLowerCase()} and ${f.tender.toLowerCase()}. Select the route in your Proposal request and we prepare the documents to suit it.`],
+      ["Do you hold certifications such as ISO?", "We don't claim certifications on this site. If your procurement requires a particular registration or certification, include it in your Proposal request and we'll confirm in writing whether we meet it before you spend time evaluating us."],
+      ["How long does a government project take?", `It depends on scope. Enterprise and government work runs ${enterprise.delivery.en}; a landing page is far shorter. The implementation plan sets the dates.`],
+      ["Can the portal be in Bahasa Malaysia and English?", "Yes. The Government corporate portal includes a bilingual interface, and we can write the proposal documents in either language."],
+      ["Why are the prices ranges?", govNote.en],
+      ["What happens after launch?", `We train your officers and hand over documentation. Annual support and maintenance is quoted to your SLA. For ongoing Content changes, the optional ${sla.name.en} Care plan starts ${rm("en", sla.fee, true)}${s.perMonth}.`],
+    ],
+  },
+  ms: {
+    title: "Portal dan sistem untuk agensi kerajaan | Komugo Digital",
+    description: "Laman pendaratan, portal korporat, portal tempahan kemudahan dan sistem khas untuk agensi kerajaan dan GLC. Julat harga anggaran dari RM5,000. Mohon cadangan.",
+    crumb: "Kerajaan",
+    h1: "Portal dan sistem untuk agensi kerajaan.",
+    lede: "Laman pendaratan, portal korporat, portal tempahan dan sistem khas untuk jabatan, pihak berkuasa tempatan dan GLC. Harga mengikut keperluan sebenar anda, dan dokumentasi disediakan mengikut keperluan proses perolehan anda.",
+    request: "Hantar permohonan cadangan",
+    seeEnterprise: "Enterprise & kerajaan",
+    packages: ["Pakej kerajaan", "Empat titik permulaan, dalam julat harga."],
+    requestFor: "Mohon cadangan",
+    enterpriseSection: ["Enterprise", "Apabila satu portal tidak mencukupi.", "Untuk kementerian, agensi, universiti dan syarikat besar yang memerlukan beberapa sistem berfungsi bersama, dengan peranan, aliran kerja dan laporan merentas jabatan."],
+    docs: ["Apa yang kami sediakan", "Dokumentasi disediakan bersama kerja.", "Untuk projek kerajaan, kami sediakan dokumen yang diperlukan oleh jawatankuasa penilaian, dalam Bahasa Malaysia atau Bahasa Inggeris."],
+    profile: "Profil syarikat (PDF)",
+    soon: "Akan datang",
+    how: ["Cara kami bekerja", "Terma yang jelas, tanpa dakwaan berlebihan."],
+    howItems: [
+      ["Semua kaedah perolehan", `Kami bekerja melalui ${f.direct.toLowerCase()}, ${f.quotation.toLowerCase()} dan ${f.tender.toLowerCase()}. Nyatakan kaedahnya dalam permohonan anda dan kami sediakan dokumen mengikutnya.`],
+      ["Sebut harga terperinci", "Setiap hasil kerja ialah satu item berasingan, jadi anda boleh membandingkan secara adil dan melaras skop tanpa menyusun semula keseluruhan sebut harga."],
+      ["Jawapan jujur tentang kelayakan", "Kami hanya menyenaraikan apa yang benar-benar kami miliki. Jika perolehan anda memerlukan pendaftaran atau pensijilan tertentu, nyatakannya dalam permohonan dan kami akan sahkan secara bertulis sama ada kami memenuhinya."],
+      ["Dua orang yang sama, dari mula hingga akhir", "Pengasas yang menulis cadangan ialah orang yang mereka bentuk, membina dan menyokong sistem. Tiada penyerahan kepada pasukan yang anda belum kenali."],
+      ["Latihan dan serahan", "Kami latih pegawai anda menggunakan sistem dan serahkan dokumentasi pengguna, supaya operasi harian tidak bergantung kepada kami."],
+      ["Sokongan mengikut SLA yang dipersetujui", `Sokongan dan penyelenggaraan tahunan disebut harga mengikut SLA dan keperluan infrastruktur anda. Untuk Perubahan kandungan berterusan, Care plan ${sla.name.ms} (pilihan) bermula ${rm("ms", sla.fee, true)}${s.perMonth}.`],
+    ],
+    proof: ["Tempahan kemudahan", "Tempahan kemudahan memang sudah kami bina.", "Komugo Platform, pasaran tempahan dan tiket kami sendiri, sudah dilancarkan secara terhad di Putrajaya di komugo.com. Enjinnya mengurus kekosongan mengikut gelanggang, bayaran dalam talian, bayaran balik automatik dan penutupan. Portal tempahan kerajaan dibina di atas enjin yang sama."],
+    proofLink: "Baca kajian kes Komugo Platform",
+    form: ["Permohonan cadangan", "Hantar permohonan cadangan.", "Beritahu kami nama agensi, kaedah perolehan dan bila sistem perlu beroperasi. Kami akan balas melalui e-mel dengan soalan dan langkah seterusnya."],
+    faqLabel: "Soalan",
+    faqTitle: "Untuk agensi dan GLC.",
+    faq: [
+      ["Kaedah perolehan apa yang anda terima?", `${f.direct}, ${f.quotation.toLowerCase()} dan ${f.tender.toLowerCase()}. Pilih kaedahnya dalam permohonan cadangan dan kami sediakan dokumen yang sesuai.`],
+      ["Adakah anda memiliki pensijilan seperti ISO?", "Kami tidak membuat dakwaan pensijilan di laman ini. Jika perolehan anda memerlukan pendaftaran atau pensijilan tertentu, nyatakannya dalam permohonan cadangan dan kami akan sahkan secara bertulis sama ada kami memenuhinya, sebelum anda meluangkan masa menilai kami."],
+      ["Berapa lama projek kerajaan mengambil masa?", `Bergantung pada skop. Kerja enterprise dan kerajaan mengambil masa ${enterprise.delivery.ms}; laman pendaratan jauh lebih singkat. Tarikh ditetapkan dalam pelan pelaksanaan.`],
+      ["Boleh portal dalam Bahasa Malaysia dan Bahasa Inggeris?", "Boleh. Portal korporat kerajaan termasuk antara muka dwibahasa, dan dokumen cadangan boleh kami tulis dalam mana-mana bahasa."],
+      ["Kenapa harga dalam bentuk julat?", govNote.ms],
+      ["Apa yang berlaku selepas pelancaran?", `Kami latih pegawai anda dan serahkan dokumentasi. Sokongan dan penyelenggaraan tahunan disebut harga mengikut SLA. Untuk Perubahan kandungan berterusan, Care plan ${sla.name.ms} (pilihan) bermula ${rm("ms", sla.fee, true)}${s.perMonth}.`],
+    ],
+  },
+}[locale];
+const faq = copy.faq.map(([q, a]) => ({ q, a }));
+const jsonLd = [
+  ...govPackages.map((g) => serviceLd(Astro.site, locale, { name: g.name[locale], description: g.includes[locale].join(", "), fee: g.fee, url: page })),
+  packageLd(Astro.site, locale, enterprise),
+];
+---
+
+<Base locale={locale} path="/government" title={copy.title} description={copy.description} jsonLd={jsonLd}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path: "/government" }]} />
+    <div class="rise">
+      <h1 class="display mt-8 max-w-[15ch]">{copy.h1}</h1>
+      <div class="grid-12 mt-12 md:mt-20">
+        <div class="col-span-12 md:col-span-8 md:col-start-4 lg:col-span-6 lg:col-start-4">
+          <p class="lede">{copy.lede}</p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="#proposal" class="btn btn-primary">{copy.request}</a>
+            <a href={`#${enterprise.id}`} class="btn btn-quiet">{copy.seeEnterprise}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Section id="packages" label={copy.packages[0]} title={copy.packages[1]} intro={govNote[locale]} wide>
+    <div class="grid gap-x-10 gap-y-16 md:grid-cols-2">
+      {
+        govPackages.map((g) => (
+          <article id={g.id} class="flex scroll-mt-8 flex-col border-t-2 border-ink pt-6">
+            <p class="num text-sm text-muted">{g.letter}</p>
+            <h3 class="mt-3 text-3xl md:text-4xl">{g.name[locale]}</h3>
+            <p class="num font-display mt-8 text-4xl font-medium tracking-tight">{rm(locale, g.fee)}</p>
+            <p class="text-sm text-muted">{s.quoted}</p>
+            <ul class="mt-8 space-y-2 border-t border-line pt-6">
+              {g.includes[locale].map((i) => (
+                <li class="flex gap-3">
+                  <span aria-hidden="true" class="mt-[0.7em] h-px w-3 shrink-0 bg-forest" />
+                  {i}
+                </li>
+              ))}
+            </ul>
+            <div class="mt-auto pt-10">
+              <a href={`${page}?package=${g.id}#proposal`} class="btn btn-quiet">
+                {copy.requestFor}
+                <span class="sr-only"> – {g.name[locale]}</span>
+              </a>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <Section id="transformation" label={copy.enterpriseSection[0]} title={copy.enterpriseSection[1]} intro={copy.enterpriseSection[2]}>
+    <div class="max-w-2xl">
+      <PackageCard locale={locale} item={enterprise} cta={`${page}?package=${enterprise.id}#proposal`} />
+    </div>
+  </Section>
+
+  <Section id="documents" label={copy.docs[0]} title={copy.docs[1]} intro={copy.docs[2]} wide>
+    <ol class="grid gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+      {
+        govDocuments[locale].map((d, i) => (
+          <li class="flex items-baseline gap-4 bg-paper py-6 sm:px-6">
+            <span class="num text-sm text-forest">{String(i + 1).padStart(2, "0")}</span>
+            <span class="font-display text-xl font-medium tracking-tight">{d}</span>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+      {
+        profile ? (
+          <a href="/company-profile.pdf" class="link inline-flex min-h-11 items-center" download>{copy.profile}</a>
+        ) : (
+          <>
+            <span class="text-muted">{copy.profile}</span>
+            <span class="rounded-full border border-line px-3 py-1 text-sm text-muted">{copy.soon}</span>
+          </>
+        )
+      }
+    </p>
+  </Section>
+
+  <Section id="how" label={copy.how[0]} title={copy.how[1]}>
+    <dl class="border-b border-line">
+      {
+        copy.howItems.map(([term, body]) => (
+          <div class="grid gap-2 border-t border-line py-6 md:grid-cols-[16rem_1fr] md:gap-8">
+            <dt class="font-display text-xl font-medium tracking-tight">{term}</dt>
+            <dd class="text-muted">{body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </Section>
+
+  <Section id="booking-portals" label={copy.proof[0]} title={copy.proof[1]} intro={copy.proof[2]}>
+    <p class="flex flex-wrap gap-x-6">
+      <a href={href(locale, "/work/komugo-platform")} class="link inline-flex min-h-11 items-center">{copy.proofLink}</a>
+      <a href={company.platformUrl} class="link inline-flex min-h-11 items-center" rel="noopener">komugo.com</a>
+    </p>
+  </Section>
+
+  <Section id="proposal" label={copy.form[0]} title={copy.form[1]} intro={copy.form[2]}>
+    <EnquiryForm locale={locale} kind="proposal" />
+  </Section>
+
+  <Section id="faq" label={copy.faqLabel} title={copy.faqTitle}>
+    <Faq items={faq} />
+  </Section>
+</Base>

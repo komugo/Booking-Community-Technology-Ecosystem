@@ -1,0 +1,212 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import PriceTable from "../components/PriceTable.astro";
+import CareTable from "../components/CareTable.astro";
+import AddonTable from "../components/AddonTable.astro";
+import Faq from "../components/Faq.astro";
+import CtaBand from "../components/CtaBand.astro";
+import { carePlans, contentChange, hostingCovers, hostingNote, hostingSentence } from "../content/care";
+import { govPackages } from "../content/gov";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { packages, pkg } from "../content/packages";
+import { packageLd } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const starter = pkg("starter");
+const booking = pkg("booking");
+const [essential] = carePlans;
+const govFrom = rm(locale, govPackages[0].fee);
+const govTo = rm(locale, govPackages[govPackages.length - 1].fee);
+
+const copy = {
+  en: {
+    title: "Website price in Malaysia: Packages from RM1,500",
+    description: `What a website costs in Malaysia, written down. Six Packages from ${rm("en", starter.fee)}, yearly Hosting from ${rm("en", starter.hosting!, true)}, optional Care plans from ${rm("en", essential.fee, true)} a month.`,
+    crumb: "Pricing",
+    h1: "What a website costs, written down.",
+    lede: "Every Package has a published starting price. Starter, Business and Corporate have a fixed scope; larger Packages are scoped in a written quote. You pay a one-time development fee, then Hosting once a year. A Care plan is optional.",
+    partsLabel: "How it adds up",
+    parts: [
+      ["Development fee", "Paid once", "Design, build and launch of the Package you choose, to the scope in your written quote."],
+      ["Hosting", "Paid yearly, required", "Keeps the site online, backed up and patched. Priced per Package."],
+      ["Care plan", "Paid monthly, optional", "A set number of Content changes each month, on top of Hosting."],
+    ],
+    packagesLabel: "Packages",
+    packagesTitle: "Six Packages, one rate card.",
+    packagesIntro: "Select a Package to see everything it includes.",
+    hostingLabel: "Hosting",
+    hostingTitle: "Hosting keeps your site running.",
+    covers: "What Hosting covers",
+    rates: "Hosting by Package",
+    careLabel: "Care plans",
+    careTitle: "Changes after launch, if you want them.",
+    careIntro: "Hosting keeps the site running. A Care plan is for the edits you'd otherwise make yourself: new prices, a fresh photo, an updated opening time.",
+    addonsLabel: "Add-on services",
+    addonsTitle: "Scope you can add to any Package.",
+    govLabel: "Government",
+    govTitle: "Government and GLC work is priced by proposal.",
+    govBody: `Indicative ranges run from ${govFrom} for an official landing page to ${govTo} for a custom system. Send a Proposal request with your agency, procurement route and timeline, and we prepare the documents your process needs.`,
+    govLink: "Government packages and Proposal requests",
+    faqLabel: "Questions",
+    faqTitle: "About pricing.",
+    faq: [
+      ["What does Hosting cover?", `${hostingSentence("en")}. ${hostingNote.en}`],
+      [
+        "What's the difference between Hosting and a Care plan?",
+        "Hosting is yearly and required: it keeps the site online, secure and backed up, and covers fixes to anything we built that stops working. A Care plan is monthly and optional: it pays for Content changes, the edits you ask for after launch. A Care plan never replaces Hosting.",
+      ],
+      ["What counts as a Content change?", `${contentChange.en} A new page, section or feature isn't a Content change; we quote it separately.`],
+      [
+        "Are these prices final?",
+        `Starter, Business and Corporate are fixed fees for a fixed scope; anything beyond it is an Add-on service. Commerce is ${rm("en", pkg("commerce").fee, true)}, depending on your catalogue and integrations. The Booking system is ${rm("en", booking.fee)}, depending on booking rules, number of venues, user roles and integrations. Your written quote states the final figure before work starts.`,
+      ],
+      ["How do payments work?", "Payment terms are set out in your written quote, and nothing is billed before you accept it. Larger projects can be split into milestones."],
+      [
+        "Who owns the website?",
+        "Your domain, content, images and data are yours. Ownership and licensing of the design and code are written into your contract before work starts. For the Booking system, your site runs on our booking engine, so those terms differ.",
+      ],
+      ["Can I skip the Care plan and update the site myself?", `Yes. Business, Corporate and Commerce include a CMS for your own content updates. On Starter, edits are made by us, through a Care plan from ${rm("en", essential.fee, true)} a month or quoted one by one.`],
+    ],
+  },
+  ms: {
+    title: "Harga buat website di Malaysia: Pakej dari RM1,500",
+    description: `Berapa kos buat website di Malaysia, dinyatakan dengan jelas. Enam Pakej dari ${rm("ms", starter.fee)}, Hosting tahunan dari ${rm("ms", starter.hosting!, true)}, Care plan pilihan dari ${rm("ms", essential.fee, true)} sebulan.`,
+    crumb: "Harga",
+    h1: "Kos laman web, dinyatakan dengan jelas.",
+    lede: "Setiap Pakej ada harga permulaan yang diterbitkan. Starter, Business dan Corporate ada skop tetap; Pakej yang lebih besar diskopkan dalam sebut harga bertulis. Anda bayar yuran pembangunan sekali, kemudian Hosting setahun sekali. Care plan adalah pilihan.",
+    partsLabel: "Cara harga dikira",
+    parts: [
+      ["Yuran pembangunan", "Sekali bayar", "Reka bentuk, pembinaan dan pelancaran Pakej pilihan anda, mengikut skop dalam sebut harga bertulis."],
+      ["Hosting", "Setiap tahun, wajib", "Memastikan laman sentiasa dalam talian, disandarkan dan dikemas kini dari segi keselamatan. Harga mengikut Pakej."],
+      ["Care plan", "Setiap bulan, pilihan", "Sejumlah Perubahan kandungan setiap bulan, di atas Hosting."],
+    ],
+    packagesLabel: "Pakej",
+    packagesTitle: "Enam Pakej, satu senarai harga.",
+    packagesIntro: "Pilih Pakej untuk lihat semua yang termasuk.",
+    hostingLabel: "Hosting",
+    hostingTitle: "Hosting memastikan laman anda terus berjalan.",
+    covers: "Apa yang termasuk dalam Hosting",
+    rates: "Hosting mengikut Pakej",
+    careLabel: "Care plan",
+    careTitle: "Perubahan selepas pelancaran, jika anda perlukan.",
+    careIntro: "Hosting memastikan laman terus berjalan. Care plan pula untuk suntingan kecil yang biasanya anda buat sendiri: harga baharu, gambar baharu, waktu operasi yang berubah.",
+    addonsLabel: "Add-on service",
+    addonsTitle: "Skop tambahan untuk mana-mana Pakej.",
+    govLabel: "Kerajaan",
+    govTitle: "Projek kerajaan dan GLC diberi harga melalui cadangan.",
+    govBody: `Julat anggaran bermula ${govFrom} untuk laman pendaratan rasmi hingga ${govTo} untuk sistem khas. Hantar permohonan cadangan bersama nama agensi, kaedah perolehan dan jangka masa, dan kami sediakan dokumen yang diperlukan oleh proses anda.`,
+    govLink: "Pakej kerajaan dan permohonan cadangan",
+    faqLabel: "Soalan",
+    faqTitle: "Tentang harga.",
+    faq: [
+      ["Apa yang termasuk dalam Hosting?", `${hostingSentence("ms")}. ${hostingNote.ms}`],
+      [
+        "Apa beza Hosting dengan Care plan?",
+        "Hosting dibayar setiap tahun dan wajib: ia memastikan laman dalam talian, selamat dan disandarkan, serta merangkumi pembaikan jika apa-apa yang kami bina tidak berfungsi. Care plan dibayar bulanan dan pilihan: ia untuk Perubahan kandungan, iaitu suntingan yang anda minta selepas pelancaran. Care plan tidak menggantikan Hosting.",
+      ],
+      ["Apa yang dikira sebagai satu Perubahan kandungan?", `${contentChange.ms} Halaman, bahagian atau ciri baharu bukan Perubahan kandungan; kami beri sebut harga berasingan.`],
+      [
+        "Adakah harga ini muktamad?",
+        `Starter, Business dan Corporate ialah yuran tetap untuk skop tetap; apa-apa di luar skop ialah Add-on service. Commerce bermula ${rm("ms", pkg("commerce").fee, true)}, bergantung pada katalog dan integrasi anda. Sistem tempahan berharga ${rm("ms", booking.fee)}, bergantung pada peraturan tempahan, bilangan lokasi, peranan pengguna dan integrasi. Sebut harga bertulis anda menyatakan jumlah akhir sebelum kerja bermula.`,
+      ],
+      ["Bagaimana cara pembayaran?", "Terma pembayaran dinyatakan dalam sebut harga bertulis, dan tiada caj sebelum anda bersetuju. Projek yang lebih besar boleh dibahagikan mengikut peringkat."],
+      [
+        "Siapa pemilik laman web?",
+        "Domain, kandungan, gambar dan data anda adalah milik anda. Hak milik dan lesen reka bentuk serta kod dinyatakan dalam kontrak sebelum kerja bermula. Untuk Sistem tempahan, laman anda berjalan di atas enjin tempahan kami, jadi termanya berbeza.",
+      ],
+      ["Boleh saya tak ambil Care plan dan kemas kini sendiri?", `Boleh. Business, Corporate dan Commerce termasuk CMS untuk anda kemas kini kandungan sendiri. Untuk Starter, suntingan dibuat oleh kami, melalui Care plan dari ${rm("ms", essential.fee, true)} sebulan atau sebut harga satu per satu.`],
+    ],
+  },
+}[locale];
+const faq = copy.faq.map(([q, a]) => ({ q, a }));
+const hosted = packages.filter((p) => p.hosting);
+---
+
+<Base locale={locale} path="/pricing" title={copy.title} description={copy.description} jsonLd={packages.map((p) => packageLd(Astro.site, locale, p))}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path: "/pricing" }]} />
+    <div class="rise">
+      <h1 class="display mt-8 max-w-[13ch]">{copy.h1}</h1>
+      <div class="mt-10 md:mt-14 md:ml-[25%]">
+        <p class="lede">{copy.lede}</p>
+        <a href={href(locale, "/contact")} class="btn btn-primary mt-8">{s.getQuote}</a>
+      </div>
+    </div>
+  </section>
+
+  <Section id="how" label={copy.partsLabel} wide>
+    <ol class="grid gap-px border-y border-line bg-line md:grid-cols-3">
+      {
+        copy.parts.map(([name, when, body], i) => (
+          <li class="bg-paper py-8 md:px-6 md:first:pl-0 lg:py-10">
+            <p class="num font-display text-5xl font-medium tracking-tight text-forest">{i + 1}</p>
+            <h2 class="mt-8 text-2xl md:text-3xl">{name}</h2>
+            <p class="mt-1 text-sm text-muted">{when}</p>
+            <p class="mt-4 max-w-sm">{body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <Section id="packages" label={copy.packagesLabel} title={copy.packagesTitle} intro={copy.packagesIntro}>
+    <PriceTable locale={locale} />
+  </Section>
+
+  <Section id="hosting" label={copy.hostingLabel} title={copy.hostingTitle} intro={hostingNote[locale]}>
+    <div class="grid gap-12 lg:grid-cols-2">
+      <div>
+        <h3 class="text-xl">{copy.covers}</h3>
+        <ul class="mt-5 border-b border-line">
+          {
+            hostingCovers[locale].map((c) => (
+              <li class="flex gap-3 border-t border-line py-3">
+                <span aria-hidden="true" class="mt-[0.8em] h-px w-3 shrink-0 bg-forest" />
+                {c}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-xl">{copy.rates}</h3>
+        <ul class="mt-5 border-b border-line">
+          {
+            hosted.map((p) => (
+              <li class="flex items-baseline justify-between gap-6 border-t border-line py-3">
+                <span>{p.name[locale]}</span>
+                <span class="num shrink-0 font-semibold">{`${rm(locale, p.hosting!)}${s.perYear}`}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-4 text-sm text-muted">{booking.name[locale]}: {booking.hostingNote![locale]}. {pkg("enterprise").name[locale]}: {pkg("enterprise").hostingNote![locale]}.</p>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="care" label={copy.careLabel} title={copy.careTitle} intro={copy.careIntro} wide>
+    <CareTable locale={locale} />
+  </Section>
+
+  <Section id="addons" label={copy.addonsLabel} title={copy.addonsTitle} wide>
+    <AddonTable locale={locale} />
+  </Section>
+
+  <Section id="government" label={copy.govLabel} title={copy.govTitle}>
+    <p class="max-w-2xl text-lg">{copy.govBody}</p>
+    <a href={href(locale, "/government")} class="link mt-8 inline-flex min-h-11 items-center">{copy.govLink}</a>
+  </Section>
+
+  <Section id="faq" label={copy.faqLabel} title={copy.faqTitle}>
+    <Faq items={faq} />
+  </Section>
+
+  <CtaBand locale={locale} />
+</Base>

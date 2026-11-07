@@ -1,0 +1,162 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import Shot from "../components/Shot.astro";
+import CtaBand from "../components/CtaBand.astro";
+import Facts from "../components/work-Facts.astro";
+import Features from "../components/work-Features.astro";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { pkg } from "../content/packages";
+import { abs } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const business = pkg("business");
+const corporate = pkg("corporate");
+const path = "/work/dialisis-my";
+const site = "https://dialisis.my";
+
+const copy = {
+  en: {
+    title: "dialisis.my case study: a dialysis centre directory",
+    description:
+      "dialisis.my helps patients and families find dialysis centres across Malaysia by name, city, state or location. Earlier work by one of our founders.",
+    crumb: "dialisis.my",
+    eyebrow: "Case study · Our founder's earlier work",
+    h1: "dialisis.my",
+    lede: "A directory of dialysis centres across Malaysia, for patients and the families who look after them. Built by one of our founders before Komugo Digital.",
+    visit: "Visit dialisis.my",
+    facts: [
+      ["Type", "Directory and guides"],
+      ["Audience", "Patients and families"],
+      ["Coverage", "Every state in Malaysia"],
+      ["Languages", "Bahasa Malaysia and English"],
+    ] as [string, string][],
+    homeAlt: "dialisis.my home page: the headline Pusat Dialisis di Malaysia, with a near-me button, a search by centre name and a search by city or state",
+    homeCaption: "Home page: three ways to search, all above the fold.",
+    problemLabel: "The need",
+    problemTitle: "The question comes up at a hard time.",
+    problem: [
+      "Families usually start looking for a dialysis centre right after a diagnosis, a discharge or a move. They need to know which centres are near, whether they're private or government, whether they take PERKESO or JPA panel patients, and how to call them.",
+      "dialisis.my puts those answers on one page per centre, in the language the family reads.",
+    ],
+    builtLabel: "What's on the site",
+    builtTitle: "Built around how families search.",
+    features: [
+      ["Three ways to search", "Find centres near you with your phone's location, type a centre's name, or browse by city and state."],
+      ["One page per centre", "Phone, WhatsApp and map links, with tags for private or government, PERKESO and JPA panel status, and hemodialysis."],
+      ["State and city pages", "Each state and town has its own page listing its centres, the way people search: dialysis centres in Kajang, in Shah Alam, in Putrajaya."],
+      ["Map", "A map of centres for families who'd rather look than search."],
+      ["Guides and answers", "Plain-language guides for families and answers on what dialysis is, what it costs and how panel status works, linked to official sources."],
+      ["Two languages", "Bahasa Malaysia first, with an English version of the site."],
+    ],
+    locationAlt: "dialisis.my page for Putrajaya, listing centre counts by type and panel status",
+    locationCaption: "A location page: centres in one place, summarised by type and panel status.",
+    forYouLabel: "For your project",
+    forYouTitle: "Directories, guides and sites people find by searching.",
+    forYou: `If your site needs many structured pages that people reach from Google, such as branches, outlets, listings or services, this is the kind of build to talk to us about. Sites like this usually start from our Business Package at ${rm("en", business.fee)} or Corporate at ${rm("en", corporate.fee)}.`,
+    seeWebsites: "See website Packages",
+    ctaTitle: "Planning a directory or a content-heavy site?",
+    ctaBody: "Tell us what people need to find on it. We'll reply with questions, a scope and a quote.",
+  },
+  ms: {
+    title: "Kajian kes dialisis.my: direktori pusat dialisis",
+    description:
+      "dialisis.my membantu pesakit dan keluarga mencari pusat dialisis di seluruh Malaysia mengikut nama, bandar atau negeri. Hasil kerja terdahulu pengasas kami.",
+    crumb: "dialisis.my",
+    eyebrow: "Kajian kes · Hasil kerja terdahulu pengasas kami",
+    h1: "dialisis.my",
+    lede: "Direktori pusat dialisis di seluruh Malaysia, untuk pesakit dan keluarga yang menjaga mereka. Dibina oleh salah seorang pengasas kami sebelum Komugo Digital.",
+    visit: "Layari dialisis.my",
+    facts: [
+      ["Jenis", "Direktori dan panduan"],
+      ["Pengguna", "Pesakit dan keluarga"],
+      ["Liputan", "Semua negeri di Malaysia"],
+      ["Bahasa", "Bahasa Malaysia dan Bahasa Inggeris"],
+    ] as [string, string][],
+    homeAlt: "Halaman utama dialisis.my: tajuk Pusat Dialisis di Malaysia, dengan butang cari berhampiran, carian nama pusat dan carian bandar atau negeri",
+    homeCaption: "Halaman utama: tiga cara mencari, semuanya terus kelihatan.",
+    problemLabel: "Keperluannya",
+    problemTitle: "Soalan ini muncul pada waktu yang sukar.",
+    problem: [
+      "Keluarga biasanya mula mencari pusat dialisis sejurus selepas diagnosis, keluar wad atau berpindah. Mereka perlu tahu pusat mana yang dekat, swasta atau kerajaan, sama ada menerima pesakit panel PERKESO atau JPA, dan cara menghubunginya.",
+      "dialisis.my letakkan jawapan itu dalam satu halaman bagi setiap pusat, dalam bahasa yang keluarga itu baca.",
+    ],
+    builtLabel: "Apa yang ada di laman",
+    builtTitle: "Dibina ikut cara keluarga mencari.",
+    features: [
+      ["Tiga cara mencari", "Cari pusat berhampiran dengan lokasi telefon, taip nama pusat, atau semak ikut bandar dan negeri."],
+      ["Satu halaman setiap pusat", "Pautan telefon, WhatsApp dan peta, dengan tag swasta atau kerajaan, status panel PERKESO dan JPA, serta hemodialisis."],
+      ["Halaman negeri dan bandar", "Setiap negeri dan bandar ada halaman sendiri yang menyenaraikan pusatnya, ikut cara orang mencari: pusat dialisis di Kajang, di Shah Alam, di Putrajaya."],
+      ["Peta", "Peta pusat dialisis untuk keluarga yang lebih suka melihat daripada mencari."],
+      ["Panduan dan jawapan", "Panduan mudah untuk keluarga dan jawapan tentang apa itu dialisis, kosnya dan cara status panel berfungsi, dengan pautan ke sumber rasmi."],
+      ["Dua bahasa", "Bahasa Malaysia dahulu, dengan versi Bahasa Inggeris."],
+    ],
+    locationAlt: "Halaman dialisis.my untuk Putrajaya, menyenaraikan bilangan pusat mengikut jenis dan status panel",
+    locationCaption: "Halaman lokasi: pusat dalam satu kawasan, diringkaskan ikut jenis dan status panel.",
+    forYouLabel: "Untuk projek anda",
+    forYouTitle: "Direktori, panduan dan laman yang orang jumpa melalui carian.",
+    forYou: `Jika laman anda perlukan banyak halaman berstruktur yang orang capai dari Google, seperti cawangan, outlet, senarai atau perkhidmatan, inilah jenis projek yang boleh anda bincangkan dengan kami. Laman seperti ini biasanya bermula dengan Pakej Business pada ${rm("ms", business.fee)} atau Corporate pada ${rm("ms", corporate.fee)}.`,
+    seeWebsites: "Lihat Pakej laman web",
+    ctaTitle: "Merancang direktori atau laman yang padat kandungan?",
+    ctaBody: "Beritahu kami apa yang orang perlu cari di laman itu. Kami akan balas dengan soalan, skop dan sebut harga.",
+  },
+}[locale];
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: copy.title,
+    description: copy.description,
+    url: abs(Astro.site, href(locale, path)),
+    inLanguage: s.htmlLang,
+    image: abs(Astro.site, "/work/dialisis-my-home.jpg"),
+    about: { "@type": "WebSite", name: "dialisis.my", url: site, inLanguage: ["ms-MY", "en-MY"] },
+  },
+];
+---
+
+<Base locale={locale} path={path} title={copy.title} description={copy.description} jsonLd={jsonLd}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path }]} />
+    <div class="rise">
+      <p class="mt-10 text-sm text-muted">{copy.eyebrow}</p>
+      <h1 class="display mt-4">{copy.h1}</h1>
+      <div class="grid-12 mt-10 gap-y-8 md:mt-16">
+        <p class="lede col-span-12 md:col-span-7">{copy.lede}</p>
+        <div class="col-span-12 flex flex-wrap items-start gap-3 md:col-span-5 md:justify-end">
+          <a href={site} class="btn btn-quiet" rel="noopener">{copy.visit} <span aria-hidden="true">↗</span></a>
+          <a href={`${href(locale, "/contact")}?package=business`} class="btn btn-primary">{s.getQuote}</a>
+        </div>
+      </div>
+      <div class="mt-12 md:mt-16"><Facts items={copy.facts} /></div>
+      <Shot class="mt-12 md:mt-16" src="/work/dialisis-my-home.jpg" alt={copy.homeAlt} width={1600} height={1000} caption={copy.homeCaption} eager />
+    </div>
+  </section>
+
+  <Section id="need" label={copy.problemLabel} title={copy.problemTitle}>
+    <div class="max-w-2xl space-y-5 text-lg">
+      {copy.problem.map((p) => <p>{p}</p>)}
+    </div>
+  </Section>
+
+  <Section id="built" label={copy.builtLabel} title={copy.builtTitle} wide>
+    <Features items={copy.features} />
+    <Shot class="mt-16 md:mt-24" src="/work/dialisis-my-location.jpg" alt={copy.locationAlt} width={1600} height={1000} caption={copy.locationCaption} />
+  </Section>
+
+  <Section id="for-you" label={copy.forYouLabel} title={copy.forYouTitle}>
+    <p class="max-w-2xl text-lg">{copy.forYou}</p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href={`${href(locale, "/contact")}?package=corporate`} class="btn btn-primary">{s.choose(corporate.name[locale])}</a>
+      <a href={href(locale, "/websites")} class="btn btn-quiet">{copy.seeWebsites}</a>
+    </div>
+  </Section>
+
+  <CtaBand locale={locale} title={copy.ctaTitle} body={copy.ctaBody} />
+</Base>

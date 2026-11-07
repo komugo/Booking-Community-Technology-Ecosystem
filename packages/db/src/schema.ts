@@ -614,3 +614,34 @@ export const linkClosures = sqliteTable("link_closures", {
   contactName: text().notNull(),
   createdAt: integer().notNull(),
 });
+
+export const LEAD_PACKAGES = ["starter", "business", "corporate", "commerce", "booking", "enterprise", "gov-landing", "gov-portal", "gov-booking", "gov-custom"] as const;
+export const LEAD_STATUSES = ["new", "contacted", "won", "lost"] as const;
+
+// A Komugo Digital enquiry: a quote request or a government Proposal request.
+export const leads = sqliteTable(
+  "leads",
+  {
+    id: id(),
+    kind: text({ enum: ["quote", "proposal"] }).notNull(),
+    packageId: text({ enum: LEAD_PACKAGES }),
+    name: text().notNull(),
+    company: text(),
+    email: text().notNull(),
+    whatsapp: text().notNull(),
+    budget: text(),
+    brief: text().notNull(),
+    agency: text(),
+    procurement: text({ enum: ["direct", "quotation", "tender"] }),
+    timeline: text(),
+    sourcePage: text().notNull(),
+    locale: text({ enum: ["en", "ms"] }).notNull(),
+    status: text({ enum: LEAD_STATUSES }).notNull().default("new"),
+    createdAt: integer().notNull(),
+  },
+  (t) => [
+    index("leads_created").on(t.createdAt),
+    check("leads_kind", sql`${t.kind} in ('quote', 'proposal')`),
+    check("leads_status", sql`${t.status} in ('new', 'contacted', 'won', 'lost')`),
+  ],
+);

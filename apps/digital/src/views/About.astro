@@ -1,0 +1,199 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import CtaBand from "../components/CtaBand.astro";
+import { company } from "../content/company";
+import { href, t, type Locale, type Text } from "../content/i18n";
+import { abs } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const path = "/about";
+
+const founders: { name: string; photo: string; role: Text; bio: Text }[] = [
+  {
+    name: "",
+    photo: "",
+    role: { en: "Co-founder", ms: "Pengasas bersama" },
+    bio: {
+      en: "Co-founder of Komugo Digital and Komugo Platform. Scopes Client projects, designs the pages and writes the code.",
+      ms: "Pengasas bersama Komugo Digital dan Komugo Platform. Menyediakan skop projek Client, mereka bentuk halaman dan menulis kod.",
+    },
+  },
+  {
+    name: "",
+    photo: "",
+    role: { en: "Co-founder", ms: "Pengasas bersama" },
+    bio: {
+      en: "Co-founder of Komugo Digital and Komugo Platform. Works with Clients from first brief to launch, and looks after their sites once they're live.",
+      ms: "Pengasas bersama Komugo Digital dan Komugo Platform. Bekerja dengan Client dari ringkasan pertama hingga pelancaran, dan menjaga laman mereka selepas beroperasi.",
+    },
+  },
+];
+
+const copy = {
+  en: {
+    title: "About Komugo Digital: a founder-led web studio in Malaysia",
+    description: "Komugo Digital is a two-person, founder-led studio building websites, booking systems and custom software for Malaysian businesses and government.",
+    crumb: "About",
+    h1: "Two founders. Every line of the work.",
+    lede: "Komugo Digital is Komugo's software house. We're a studio of two: the founders who scope your project are the same people who design it, build it and look after it after launch.",
+    foundersLabel: "Founders",
+    foundersTitle: "The people you'll talk to.",
+    photoPending: "Photo coming soon",
+    howLabel: "How we work",
+    howTitle: "Plain terms, written down.",
+    how: [
+      ["Prices before meetings", "Every Package has a published starting price. Starter, Business and Corporate have a fixed scope; larger Packages are scoped in a written quote. You know the starting point before you contact us."],
+      ["A written scope", "Before any work starts you get a written scope and quote. Anything outside it is quoted separately, never added quietly."],
+      ["One team, start to finish", "No account managers and no hand-offs. You deal directly with the two people doing the work."],
+      ["Built on what we run", "We build on the same stack that runs Komugo Platform in production, so we know how it behaves once it's live."],
+      ["English and BM", "We write, design and build in both languages, and can deliver your site in either or both."],
+      ["Clear costs after launch", "Hosting is yearly and covers keeping the site online. A Care plan for Content changes is optional and monthly."],
+    ],
+    workLabel: "Our work",
+    workTitle: "See what we've built.",
+    workLinks: [
+      ["/work/komugo-platform", "Komugo Platform", "Our booking and ticketing marketplace, live in Putrajaya."],
+      ["/work/dialisis-my", "dialisis.my", "A dialysis centre directory, our founder's earlier work."],
+    ],
+    companyLabel: "Company",
+    companyTitle: "Company details",
+    rows: { name: "Trading name", legalName: "Registered name", ssm: "SSM registration", email: "Email", whatsapp: "WhatsApp", address: "Address", platform: "Part of" },
+  },
+  ms: {
+    title: "Tentang Komugo Digital: studio web diterajui pengasas",
+    description: "Komugo Digital ialah studio dua orang yang diterajui pengasas, membina laman web, sistem tempahan dan perisian khas untuk perniagaan dan kerajaan di Malaysia.",
+    crumb: "Tentang kami",
+    h1: "Dua pengasas. Setiap baris kerja.",
+    lede: "Komugo Digital ialah rumah perisian Komugo. Kami studio dua orang: pengasas yang menyediakan skop projek anda ialah orang yang sama yang mereka bentuk, membina dan menjaganya selepas dilancarkan.",
+    foundersLabel: "Pengasas",
+    foundersTitle: "Orang yang anda akan berurusan.",
+    photoPending: "Gambar akan datang",
+    howLabel: "Cara kami bekerja",
+    howTitle: "Terma yang jelas, secara bertulis.",
+    how: [
+      ["Harga sebelum mesyuarat", "Setiap Pakej ada harga permulaan yang diterbitkan. Starter, Business dan Corporate ada skop tetap; Pakej yang lebih besar diskopkan dalam sebut harga bertulis. Anda tahu titik permulaannya sebelum menghubungi kami."],
+      ["Skop bertulis", "Sebelum kerja bermula, anda terima skop dan sebut harga bertulis. Apa-apa di luar skop disebut harga berasingan, tidak ditambah senyap-senyap."],
+      ["Satu pasukan, dari mula hingga akhir", "Tiada pengurus akaun dan tiada serahan antara pasukan. Anda berurusan terus dengan dua orang yang membuat kerja."],
+      ["Dibina atas apa yang kami guna", "Kami membina di atas teknologi yang sama yang menggerakkan Komugo Platform dalam produksi, jadi kami tahu cara ia berfungsi selepas dilancarkan."],
+      ["Bahasa Inggeris dan BM", "Kami menulis, mereka bentuk dan membina dalam kedua-dua bahasa, dan boleh menyerahkan laman anda dalam satu atau kedua-duanya."],
+      ["Kos yang jelas selepas pelancaran", "Hosting dibayar setiap tahun untuk memastikan laman kekal dalam talian. Care plan untuk Perubahan kandungan adalah pilihan dan dibayar bulanan."],
+    ],
+    workLabel: "Hasil kerja",
+    workTitle: "Lihat apa yang kami bina.",
+    workLinks: [
+      ["/work/komugo-platform", "Komugo Platform", "Pasaran tempahan dan tiket kami, beroperasi di Putrajaya."],
+      ["/work/dialisis-my", "dialisis.my", "Direktori pusat dialisis, hasil kerja terdahulu pengasas kami."],
+    ],
+    companyLabel: "Syarikat",
+    companyTitle: "Maklumat syarikat",
+    rows: { name: "Nama dagangan", legalName: "Nama berdaftar", ssm: "No. pendaftaran SSM", email: "E-mel", whatsapp: "WhatsApp", address: "Alamat", platform: "Sebahagian daripada" },
+  },
+}[locale];
+
+const r = copy.rows;
+const details = [
+  [r.name, company.name],
+  [r.legalName, company.legalName],
+  [r.ssm, company.ssm],
+  [r.email, company.email],
+  [r.whatsapp, company.whatsapp],
+  [r.address, company.address],
+].filter(([, v]) => v);
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: copy.title,
+    description: copy.description,
+    url: abs(Astro.site, href(locale, path)),
+    inLanguage: s.htmlLang,
+    mainEntity: { "@id": abs(Astro.site, "/#org") },
+  },
+];
+---
+
+<Base locale={locale} path={path} title={copy.title} description={copy.description} jsonLd={jsonLd}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path }]} />
+    <div class="rise">
+      <h1 class="display mt-8 max-w-[14ch]">{copy.h1}</h1>
+      <div class="grid-12 mt-12 md:mt-20">
+        <p class="lede col-span-12 md:col-span-7 md:col-start-4">{copy.lede}</p>
+      </div>
+    </div>
+  </section>
+
+  <Section id="founders" label={copy.foundersLabel} title={copy.foundersTitle}>
+    <div class="grid gap-12 sm:grid-cols-2 sm:gap-8">
+      {
+        founders.map((f) => (
+          <article>
+            {f.photo ? (
+              <img src={f.photo} alt={f.name} width="800" height="1000" loading="lazy" decoding="async" class="aspect-[4/5] w-full rounded-lg object-cover" />
+            ) : (
+              <div class="flex aspect-[4/5] w-full items-end rounded-lg bg-sand p-6 text-sm text-muted">{copy.photoPending}</div>
+            )}
+            <h3 class="mt-6 text-3xl">{f.name || f.role[locale]}</h3>
+            {f.name && <p class="mt-2 text-sm text-muted">{f.role[locale]}</p>}
+            <p class="mt-4 max-w-md text-muted">{f.bio[locale]}</p>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <Section id="how" label={copy.howLabel} title={copy.howTitle}>
+    <dl class="border-b border-line">
+      {
+        copy.how.map(([term, body]) => (
+          <div class="grid gap-2 border-t border-line py-6 md:grid-cols-[16rem_1fr] md:gap-8">
+            <dt class="font-display text-xl font-medium tracking-tight">{term}</dt>
+            <dd class="text-muted">{body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </Section>
+
+  <Section id="work" label={copy.workLabel} title={copy.workTitle}>
+    <ul class="border-b border-line">
+      {
+        copy.workLinks.map(([p, name, body]) => (
+          <li class="border-t border-line">
+            <a href={href(locale, p)} class="group grid gap-2 py-6 md:grid-cols-[16rem_1fr_auto] md:items-baseline md:gap-8">
+              <span class="font-display text-2xl font-medium tracking-tight group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">{name}</span>
+              <span class="text-muted">{body}</span>
+              <span aria-hidden="true" class="hidden text-forest md:inline">→</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <Section id="company" label={copy.companyLabel} title={copy.companyTitle}>
+    <dl class="border-b border-line">
+      {
+        details.map(([term, value]) => (
+          <div class="grid gap-1 border-t border-line py-4 sm:grid-cols-[14rem_1fr] sm:gap-8">
+            <dt class="text-muted">{term}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))
+      }
+      <div class="grid gap-1 border-t border-line py-4 sm:grid-cols-[14rem_1fr] sm:gap-8">
+        <dt class="text-muted">{r.platform}</dt>
+        <dd><a href={company.platformUrl} class="link">Komugo (komugo.com)</a></dd>
+      </div>
+    </dl>
+  </Section>
+
+  <CtaBand locale={locale} />
+</Base>

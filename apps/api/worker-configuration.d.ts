@@ -19,6 +19,8 @@ interface __BaseEnv_Env {
 	CHIP_SECRET_KEY: string;
 	RESEND_API_KEY: string;
 	WASENDER_API_KEY: string;
+	TURNSTILE_SECRET: string;
+	STAFF_WHATSAPP: string;
 	BOOKING: DurableObjectNamespace<import("./src/index").OperatorBooking>;
 }
 declare namespace Cloudflare {
@@ -33,7 +35,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "CHIP_BASE" | "CHIP_BRAND_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "WASENDER_GAP_MS" | "APP_SECRET" | "CHIP_SECRET_KEY" | "RESEND_API_KEY" | "WASENDER_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEV_SEED" | "BOOK_DRAFTS" | "PUBLIC_SITE_URL" | "CHIP_BASE" | "CHIP_BRAND_ID" | "EMAIL_MODE" | "EMAIL_FROM" | "WHATSAPP_MODE" | "WASENDER_GAP_MS" | "APP_SECRET" | "CHIP_SECRET_KEY" | "RESEND_API_KEY" | "WASENDER_API_KEY" | "TURNSTILE_SECRET" | "STAFF_WHATSAPP">> {}
 }
 declare module "*.txt" {
 	const value: string;

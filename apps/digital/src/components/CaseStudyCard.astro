@@ -1,0 +1,23 @@
+---
+import Shot from "./Shot.astro";
+import { href, type Locale } from "../content/i18n";
+import type { CaseStudy } from "../content/work";
+
+interface Props {
+  locale: Locale;
+  study: CaseStudy;
+}
+const { locale, study: c } = Astro.props;
+---
+
+<article class="group relative">
+  <Shot src={c.image} alt={c.imageAlt[locale]} width={1600} height={1000} />
+  <p class="mt-6 text-sm text-muted">{c.kind[locale]}</p>
+  <h3 class="mt-2 text-3xl md:text-4xl">
+    <a href={href(locale, `/work/${c.slug}`)} class="after:absolute after:inset-0 group-hover:underline group-hover:decoration-1 group-hover:underline-offset-6">{c.name}</a>
+  </h3>
+  <p class="mt-4 max-w-xl text-muted">{c.summary[locale]}</p>
+  <ul class="mt-5 flex flex-wrap gap-2 text-sm">
+    {c.tags[locale].map((tag) => <li class="rounded-full border border-line px-3 py-1">{tag}</li>)}
+  </ul>
+</article>

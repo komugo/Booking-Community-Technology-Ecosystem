@@ -51,7 +51,7 @@ const esc = (s: string) =>
 
 type Link = { href: string; label: string };
 
-const html = (lines: string[], link?: Link, footer?: Link) =>
+export const html = (lines: string[], link?: Link, footer?: Link) =>
   `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#111">${lines
     .map((l) => `<p>${esc(l)}</p>`)
     .join("")}${
