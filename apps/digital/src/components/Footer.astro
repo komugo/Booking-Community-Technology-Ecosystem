@@ -1,0 +1,55 @@
+---
+import { company } from "../content/company";
+import { href, t, type Locale } from "../content/i18n";
+import { caseStudies } from "../content/work";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const cols: [string, [string, string][]][] = [
+  [s.footer.services, s.nav.slice(0, 5)],
+  [s.footer.work, caseStudies.map((c) => [`/work/${c.slug}`, c.name])],
+  [s.footer.company, [s.nav[5], ["/contact", s.footer.contact]]],
+];
+---
+
+<footer class="mt-24 border-t border-line">
+  <div class="wrap grid-12 gap-y-12 py-14 md:py-20">
+    <div class="col-span-12 md:col-span-4">
+      <p class="font-display text-2xl font-semibold tracking-tight">Komugo Digital</p>
+      <p class="mt-3 max-w-sm text-muted">{s.footer.tagline}</p>
+      <a href={company.platformUrl} class="link mt-6 inline-flex min-h-11 items-center text-sm">{s.platformLink}: {s.platformNote}</a>
+    </div>
+    {
+      cols.map(([title, links]) => (
+        <nav aria-label={title} class="col-span-6 sm:col-span-4 md:col-span-2">
+          <p class="text-sm text-muted">{title}</p>
+          <ul class="mt-3">
+            {links.map(([p, label]) => (
+              <li>
+                <a href={href(locale, p)} class="flex min-h-10 items-center hover:underline hover:underline-offset-4">{label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))
+    }
+    {
+      (company.email || company.whatsapp) && (
+        <div class="col-span-6 sm:col-span-4 md:col-span-2">
+          <p class="text-sm text-muted">{s.footer.contact}</p>
+          <ul class="mt-3">
+            {company.email && <li><a href={`mailto:${company.email}`} class="flex min-h-10 items-center break-all">{company.email}</a></li>}
+            {company.whatsapp && <li><a href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} class="flex min-h-10 items-center">WhatsApp</a></li>}
+          </ul>
+        </div>
+      )
+    }
+  </div>
+  <div class="wrap flex flex-wrap gap-x-6 gap-y-1 border-t border-line py-6 text-sm text-muted">
+    <p>© {new Date().getFullYear()} {company.legalName || company.name}{company.ssm && ` (${s.footer.ssm} ${company.ssm})`}. {s.footer.rights}</p>
+    {company.address && <p>{company.address}</p>}
+  </div>
+</footer>

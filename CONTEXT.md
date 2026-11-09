@@ -46,8 +46,28 @@ _Avoid_: Assignment, reservation
 A limit on how a horse may be used (max sessions per day, rest gap, max rider weight).
 
 **Ticket type**:
-How an Option is scheduled: **Timeslot** (a fixed start time, e.g. courts, rides, cruise departures) or **Date ticket** (valid any time during the Activity's opening hours, or else its Venue's, on one chosen date, e.g. gym, pool, ice rink; sold until the Booking cutoff before that day's closing time).
+How an Option is scheduled: **Timeslot** (a fixed start time, e.g. courts, rides, cruise departures), **Date ticket** (valid any time during the Activity's opening hours, or else its Venue's, on one chosen date, e.g. gym, pool, ice rink; sold until the Booking cutoff before that day's closing time) or **Event ticket** (admission to one or more of an Event's fixed days).
 _Avoid_: Ticket kind, booking type
+
+**Event**:
+An Activity whose Options are all Event tickets: it runs on fixed dates set by its Operator (a concert, bazaar, fun run) and **ends** once its last Event day ends: it leaves listings and search, and its page stays up saying it has ended. A new edition is a copy with new Event days, never the old Event reused. Each ticket tier (Early bird, VIP) is an Option.
+_Avoid_: Happening, show, programme
+
+**Event day**:
+One date of an Event with its own start and end time, set by the Operator. Its Event tickets are sold until the Booking cutoff before its start.
+_Avoid_: Session, show date
+
+**Pass**:
+An Event ticket Option admitting every Event day of its Event (never a subset), with its own Daily limit that doesn't draw from day tickets. Sold until, and cancelled against, the start of the first Event day. A Closure of one Event day refunds each Pass Ticket automatically the price ÷ number of Event days (and the same share of its Add-ons; remainder on the last day), with no Closure choice; the Ticket stays valid for the other days.
+_Avoid_: Festival pass, season ticket, bundle
+
+**On sale until**:
+Optional moment after which an Event ticket Option stops selling (an Early bird's end date), shown to Customers. Tickets already sold stay valid.
+_Avoid_: Sale window, expiry, deadline
+
+**Free ticket**:
+An Event ticket Option priced RM0: one per named Participant, issued after Sign-in with no Payment and no Commission. The Customer may cancel it until its Event day starts, whatever the Cancellation Policy; no Refund, and the spot returns to the Daily limit. An Event with free entry and no headcount stays Info instead.
+_Avoid_: RSVP, registration, free pass
 
 **Weekend price**:
 Optional Date ticket price for Saturdays, Sundays and, if the Operator opts in, Public holidays.
@@ -56,7 +76,7 @@ Optional Date ticket price for Saturdays, Sundays and, if the Operator opts in, 
 A date on Komugo's staff-kept list of Malaysian and Putrajaya holidays.
 
 **Daily limit**:
-Optional cap on Date tickets sold for one Option on one date; unlimited when unset. Lowering it below what's sold stops new sales but keeps sold Tickets valid.
+Optional cap on Date tickets or Event tickets sold for one Option on one date (Event day); unlimited when unset. Event tiers have no shared cap: the Operator splits a hall's capacity across them. Lowering it below what's sold stops new sales but keeps sold Tickets valid.
 _Avoid_: Capacity, quota
 
 **Timeslot**:
@@ -82,7 +102,7 @@ A photo that shows the kind of Activity (any badminton court) rather than the Ve
 _Avoid_: Stock photo, placeholder
 
 **Venue**:
-A physical place in a City (sports complex, park, jetty, mall) with its address, Presint, location and opening hours. Kept by Komugo staff; hosts Activities from one or more Operators, each of which edits only its own Activities and may keep shorter hours than the Venue. Shown only while at least one of its Activities isn't Hidden.
+A physical place in a City (sports complex, park, jetty, mall, hotel, open field) with its address, Presint, location and opening hours. Kept by Komugo staff; hosts Activities from one or more Operators, each of which edits only its own Activities and may keep shorter hours than the Venue. Shown only while at least one of its Activities isn't Hidden.
 _Avoid_: Location, facility, site
 
 **Presint**:
@@ -93,7 +113,11 @@ _Avoid_: Precinct, zone
 Location hub grouping Activities (e.g. Putrajaya).
 
 **Category**:
-Activity type hub named the way people search (e.g. badminton, futsal, cruises & boats).
+Activity type hub named the way people search (e.g. badminton, futsal, cruises & boats, concerts, fun runs).
+
+**What's on**:
+A City's page of Events that haven't ended (BM: Acara), ordered by next Event day, filterable by date (today, this weekend, this month) and Category. Bookable and Info Events appear together.
+_Avoid_: Events page, calendar, agenda
 
 ### Demand
 
@@ -137,7 +161,7 @@ Admission to one Timeslot or, for a Date ticket, one date: for exactly one Parti
 _Avoid_: Pass, voucher
 
 **Check-in**:
-The Operator scanning a Ticket on arrival (its QR, or the first 8 characters of its code). Only on the day of the Timeslot; checking in twice changes nothing. Off for now: the counter admits a Customer by matching their Ticket against the Day list.
+The Operator scanning a Ticket on arrival (its QR, or the first 8 characters of its code). Only on the day of the Timeslot; checking in twice changes nothing. Off for now except at Events: the counter admits a Customer by matching their Ticket against the Day list. At an Event, gate staff scan from the Day list itself; a Pass checks in once per Event day, and a repeat scan shows when it was first checked in.
 
 **Operator contact**:
 A WhatsApp number on an Operator's list, kept by staff: **counter** (gets Booking alerts) or **owner** (also gets Payout notices and the email copy of Booking alerts). Has a language (BM by default, or EN) for all its messages. Not a Member and never signs in.
@@ -158,10 +182,10 @@ _Avoid_: User, admin, account
 ### Money and changes
 
 **Cancellation Policy**:
-Per-Activity free-cancel window (default 24h when all its Options are per-court or Date tickets, else 0; for a per-court Ticket counted from its first hour), shown before payment, in hours before the Timeslot starts (for a Date ticket, before that day's opening time), applied per Ticket against its current Timeslot. Inside the window (`hours > 0` and now ≤ start − hours; so 0 means no free cancel) the Ticket is cancelled with a full Refund of its price plus its fixed share of the Booking's Add-ons (a Pack session returns to the Pack); later it is **forfeited** (no Refund, Pack session stays used). No cancel or Reschedule once the Timeslot has started or the Ticket is checked in. A Ticket on a closed Timeslot is always a full Refund. The Customer sees the outcome before confirming; if it changed meanwhile, the cancel is refused.
+Per-Activity free-cancel window (default 24h when all its Options are per-court or Date tickets, else 0, so 0 for Events; for a per-court Ticket counted from its first hour), shown before payment, in hours before the Timeslot starts (for a Date ticket, before that day's opening time; for an Event ticket, before its Event day starts, or a Pass's first), applied per Ticket against its current Timeslot. Inside the window (`hours > 0` and now ≤ start − hours; so 0 means no free cancel) the Ticket is cancelled with a full Refund of its price plus its fixed share of the Booking's Add-ons (a Pack session returns to the Pack); later it is **forfeited** (no Refund, Pack session stays used). No cancel or Reschedule once the Timeslot has started or the Ticket is checked in. A Ticket on a closed Timeslot is always a full Refund. The Customer sees the outcome before confirming; if it changed meanwhile, the cancel is refused.
 
 **Closure**:
-An Operator cancelling a Timeslot (or a date, for Date tickets), with a reason (weather, maintenance, event, horse unfit, other). Closing any hour of a per-court Ticket closes the whole Ticket. Each affected Customer is emailed once to choose a Refund or a Reschedule. The **Closure choice** is one per notice (one Booking, or one Customer's Pack Tickets, in that Timeslot) and applies to all its closed Tickets at once. For Pack Tickets a Refund returns the sessions. Unanswered Closures stay "Awaiting choice".
+An Operator cancelling a Timeslot (or a date, for Date tickets), with a reason (weather, maintenance, event, horse unfit, other). Closing any hour of a per-court Ticket closes the whole Ticket. Each affected Customer is emailed once to choose a Refund or a Reschedule; when no other open Timeslot, date or Event day of the same Option exists, the Ticket is simply refunded. Closing one Event day of a Pass refunds part of it (see Pass); a postponed Event is a Closure of the old Event days after new ones are added. The **Closure choice** is one per notice (one Booking, or one Customer's Pack Tickets, in that Timeslot) and applies to all its closed Tickets at once. For Pack Tickets a Refund returns the sessions. Unanswered Closures stay "Awaiting choice".
 _Avoid_: Operator cancellation
 
 **Payment**:
@@ -172,7 +196,7 @@ _Avoid_: Transaction, charge, bill
 Money returned to the Customer by Komugo: one row per refund_due Payment or per cancel action, with a reason (duplicate, amount mismatch, unavailable, unknown Hold, cancel, Closure). Once due, Komugo asks CHIP to return it to the Customer's original payment method straight away; when CHIP accepts it is **sent** and the Customer is emailed. If CHIP refuses, it stays **due** on "Refunds to pay" until staff pay it by hand and mark it sent; the Customer is emailed when it is due ("within 7 working days") and when it is sent.
 
 **Reschedule**:
-Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of the same Option, same Ticket (QR unchanged), with Resources re-allocated; a per-court Ticket moves whole, to the same number of back-to-back hours on one court. By the Customer only inside the free-cancel window and only to a target of the same total price (Pack: to a Timeslot before expiry). After a Closure, free to any future open target at the same price or cheaper, with the difference refunded. Prices are fixed when the Hold is made.
+Moving Tickets of one Booking or Pack from one Timeslot (or date) to another of the same Option, same Ticket (QR unchanged), with Resources re-allocated; a per-court Ticket moves whole, to the same number of back-to-back hours on one court. By the Customer only inside the free-cancel window and only to a target of the same total price (Pack: to a Timeslot before expiry; Event ticket: to another Event day of the same Option; a Pass never moves). After a Closure, free to any future open target at the same price or cheaper, with the difference refunded. Prices are fixed when the Hold is made.
 
 **Commission**:
 Komugo's cut of each sale: a percentage agreed with each Operator at sign-up, fixed on each Ticket and Pack sale at the time of sale.
@@ -206,3 +230,4 @@ Komugo's monthly transfer to an Operator of that month's sales net of Commission
 
 - "Session" could mean a Timeslot, a Ticket or a Pack unit. Resolved: use **Timeslot** for the bookable time and **Ticket** for attendance. A Pack holds sessions only as a count.
 - "Cancellation" covered both Customer and Operator actions. Resolved: the Customer **cancels** (Cancellation Policy applies); the Operator makes a **Closure**.
+- "Pass" vs "Pack": both prepaid, different things. Resolved: a **Pass** is one Event ticket for every Event day; a **Pack** is a count of sessions on Timeslot Options. A Pack can't be redeemed for an Event ticket.

@@ -1,0 +1,165 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Shot from "../components/Shot.astro";
+import CaseStudyCard from "../components/CaseStudyCard.astro";
+import PriceTable from "../components/PriceTable.astro";
+import Faq from "../components/Faq.astro";
+import CtaBand from "../components/CtaBand.astro";
+import { addons } from "../content/addons";
+import { carePlans, hostingSentence } from "../content/care";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { packages, pkg } from "../content/packages";
+import { caseStudies } from "../content/work";
+import { professionalServiceLd } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const translation = addons[3];
+const delivery = packages.slice(0, 5).map((p) => `${p.name[locale]}: ${p.delivery[locale]}`);
+
+const copy = {
+  en: {
+    title: "Komugo Digital: websites and systems for Malaysia",
+    description: "Founder-led studio building websites, e-commerce, booking systems and custom software for Malaysian businesses and government. From RM1,500.",
+    h1: "Websites and systems for Malaysian businesses and government.",
+    studio: "A founder-led studio",
+    lede: "We design and build websites, online stores, booking systems and custom software. We also run our own booking platform, so the engine we sell is one we use every day.",
+    seePricing: "See pricing",
+    shotCaption: "Komugo Platform, our booking marketplace at komugo.com.",
+    shotAlt: "Komugo Platform home page: the headline Ride. Climb. Putrajaya. over a horse-riding photo, with links to activity categories",
+    work: ["Work", "We run what we build.", "Our Booking system Package is custom-built on the same engine that runs Komugo Platform in Putrajaya."],
+    pricing: ["Packages", "Six Packages, priced up front.", "A one-time development fee, then yearly Hosting. Care plans are optional."],
+    allPricing: "Full pricing, Care plans and Add-on services",
+    process: ["Process", "How a project runs."],
+    steps: [
+      ["Discover", "We talk through your goals, your users and the rules your business runs on, then send a written scope and quote."],
+      ["Design", "You see and approve the pages before we build them, in English, BM or both."],
+      ["Build", "We build on the stack we already run in production. You review progress on a private preview link."],
+      ["Launch & care", "We launch, set up Hosting and hand over. A Care plan can take your Content changes from there."],
+    ],
+    studioSection: ["Studio", "Two founders. No account managers."],
+    studioBody: [
+      "Komugo Digital is two people. The founders who scope your project are the same people who design it, write the code and look after it once it's live.",
+      "You always know who is working on your site, and you talk to them directly.",
+    ],
+    about: "About the founders",
+    faqLabel: "Questions",
+    faqTitle: "Before you ask.",
+    faq: [
+      ["What does Hosting cover?", `${hostingSentence("en")}. It's paid yearly and priced per Package. Hosting doesn't include Content changes.`],
+      [
+        "Do I need a Care plan?",
+        `No. Care plans are optional and billed monthly on top of Hosting. ${carePlans[0].name.en} is ${rm("en", carePlans[0].fee)} a month for 2 Content changes. A Content change is one edit to text, images or prices on an existing page, taking at most 30 minutes.`,
+      ],
+      ["How long does a project take?", `${delivery.join(". ")}. Enterprise and government work runs 3–12+ months depending on scope.`],
+      ["Can my site be in English and Bahasa Malaysia?", `Yes. Corporate and Commerce include both languages. For Starter or Business, add our ${translation.name.en} Add-on service for ${rm("en", translation.fee)}.`],
+      ["Is the Booking system built from scratch?", `No. It's custom-built for your rules on our proven booking engine, the one that runs Komugo Platform. You get your own site, branding and admin dashboard. ${pkg("booking").priceNote!.en}`],
+      ["Do you work with government agencies?", "Yes. Send a Proposal request with your agency, procurement route and timeline. We prepare the company profile, technical proposal, timeline and detailed quotation your process needs."],
+    ],
+  },
+  ms: {
+    title: "Komugo Digital: laman web dan sistem untuk Malaysia",
+    description: "Studio yang diterajui pengasas, membina laman web, e-dagang, sistem tempahan dan perisian khas untuk perniagaan dan kerajaan di Malaysia. Pakej dari RM1,500.",
+    h1: "Laman web dan sistem untuk perniagaan dan kerajaan di Malaysia.",
+    studio: "Studio diterajui pengasas",
+    lede: "Kami mereka bentuk dan membina laman web, kedai dalam talian, sistem tempahan dan perisian khas. Kami juga mengendalikan platform tempahan sendiri, jadi enjin yang kami jual ialah enjin yang kami guna setiap hari.",
+    seePricing: "Lihat harga",
+    shotCaption: "Komugo Platform, pasaran tempahan kami di komugo.com.",
+    shotAlt: "Halaman utama Komugo Platform: tajuk Ride. Climb. Putrajaya. di atas gambar menunggang kuda, dengan pautan ke kategori aktiviti",
+    work: ["Hasil kerja", "Kami guna apa yang kami bina.", "Pakej Sistem tempahan kami dibina khas di atas enjin yang sama yang menggerakkan Komugo Platform di Putrajaya."],
+    pricing: ["Pakej", "Enam Pakej, harga dinyatakan awal.", "Yuran pembangunan sekali bayar, kemudian Hosting tahunan. Care plan adalah pilihan."],
+    allPricing: "Harga penuh, Care plan dan Add-on service",
+    process: ["Proses", "Bagaimana projek berjalan."],
+    steps: [
+      ["Kenal pasti", "Kami bincang matlamat, pengguna dan peraturan perniagaan anda, kemudian hantar skop dan sebut harga bertulis."],
+      ["Reka bentuk", "Anda lihat dan luluskan halaman sebelum kami bina, dalam Bahasa Inggeris, BM atau kedua-duanya."],
+      ["Bina", "Kami bina di atas teknologi yang sudah kami guna dalam produksi. Anda semak kemajuan melalui pautan pratonton peribadi."],
+      ["Lancar & jaga", "Kami lancarkan, sediakan Hosting dan serahkan. Care plan boleh uruskan Perubahan kandungan anda selepas itu."],
+    ],
+    studioSection: ["Studio", "Dua pengasas. Tiada pengurus akaun."],
+    studioBody: [
+      "Komugo Digital terdiri daripada dua orang. Pengasas yang menyediakan skop projek anda ialah orang yang sama yang mereka bentuk, menulis kod dan menjaganya selepas dilancarkan.",
+      "Anda sentiasa tahu siapa yang mengusahakan laman anda, dan anda berurusan terus dengan mereka.",
+    ],
+    about: "Tentang pengasas",
+    faqLabel: "Soalan",
+    faqTitle: "Sebelum anda bertanya.",
+    faq: [
+      ["Apa yang termasuk dalam Hosting?", `${hostingSentence("ms")}. Dibayar setiap tahun dan harganya mengikut Pakej. Hosting tidak termasuk Perubahan kandungan.`],
+      [
+        "Perlukah saya ambil Care plan?",
+        `Tidak. Care plan adalah pilihan dan dibayar bulanan di atas Hosting. ${carePlans[0].name.ms} berharga ${rm("ms", carePlans[0].fee)} sebulan untuk 2 Perubahan kandungan. Satu Perubahan kandungan ialah satu suntingan pada teks, gambar atau harga di halaman sedia ada, tidak melebihi 30 minit.`,
+      ],
+      ["Berapa lama sesuatu projek?", `${delivery.join(". ")}. Kerja enterprise dan kerajaan mengambil masa 3–12+ bulan bergantung pada skop.`],
+      ["Boleh laman saya dalam Bahasa Inggeris dan Bahasa Malaysia?", `Boleh. Corporate dan Commerce sudah termasuk kedua-dua bahasa. Untuk Starter atau Business, tambah Add-on service ${translation.name.ms} pada harga ${rm("ms", translation.fee)}.`],
+      ["Adakah Sistem tempahan dibina dari kosong?", `Tidak. Ia dibina khas mengikut peraturan anda di atas enjin tempahan kami yang telah terbukti, enjin yang menggerakkan Komugo Platform. Anda dapat laman, jenama dan papan pemuka admin sendiri. ${pkg("booking").priceNote!.ms}`],
+      ["Adakah anda bekerja dengan agensi kerajaan?", "Ya. Hantar permohonan cadangan bersama nama agensi, kaedah perolehan dan jangka masa. Kami sediakan profil syarikat, cadangan teknikal, jadual dan sebut harga terperinci yang diperlukan oleh proses anda."],
+    ],
+  },
+}[locale];
+const faq = copy.faq.map(([q, a]) => ({ q, a }));
+---
+
+<Base locale={locale} path="/" title={copy.title} description={copy.description} jsonLd={[professionalServiceLd(Astro.site, locale, copy.description)]}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <div class="rise">
+      <h1 class="display max-w-[15ch]">{copy.h1}</h1>
+      <div class="grid-12 mt-12 gap-y-6 md:mt-20">
+        <p class="col-span-12 flex items-center gap-3 text-sm text-muted md:col-span-3 md:items-start md:pt-1.5">
+          <span aria-hidden="true" class="h-px w-6 bg-forest md:mt-[0.7em]"></span>
+          {copy.studio}
+        </p>
+        <div class="col-span-12 md:col-span-7 lg:col-span-6">
+          <p class="lede">{copy.lede}</p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href={href(locale, "/contact")} class="btn btn-primary">{s.getQuote}</a>
+            <a href={href(locale, "/pricing")} class="btn btn-quiet">{copy.seePricing}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <Shot class="mt-16 md:mt-24" src="/work/komugo-platform-home.jpg" alt={copy.shotAlt} width={1600} height={1000} caption={copy.shotCaption} eager />
+  </section>
+
+  <Section id="work" label={copy.work[0]} title={copy.work[1]} intro={copy.work[2]} wide>
+    <div class="grid gap-16 md:grid-cols-2 md:gap-10">
+      {caseStudies.map((c) => <CaseStudyCard locale={locale} study={c} />)}
+    </div>
+  </Section>
+
+  <Section id="packages" label={copy.pricing[0]} title={copy.pricing[1]} intro={copy.pricing[2]}>
+    <PriceTable locale={locale} />
+    <a href={href(locale, "/pricing")} class="link mt-8 inline-flex min-h-11 items-center">{copy.allPricing}</a>
+  </Section>
+
+  <Section id="process" label={copy.process[0]} title={copy.process[1]} wide>
+    <ol class="grid gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+      {
+        copy.steps.map(([name, body], i) => (
+          <li class="bg-paper py-8 sm:px-6 sm:first:pl-0 lg:py-10">
+            <p class="num font-display text-5xl font-medium tracking-tight text-forest">{i + 1}</p>
+            <h3 class="mt-8 text-2xl">{name}</h3>
+            <p class="mt-3 text-muted">{body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <Section id="studio" label={copy.studioSection[0]} title={copy.studioSection[1]}>
+    <div class="max-w-2xl space-y-5 text-lg">
+      {copy.studioBody.map((p) => <p>{p}</p>)}
+    </div>
+    <a href={href(locale, "/about")} class="link mt-8 inline-flex min-h-11 items-center">{copy.about}</a>
+  </Section>
+
+  <Section id="faq" label={copy.faqLabel} title={copy.faqTitle}>
+    <Faq items={faq} />
+  </Section>
+
+  <CtaBand locale={locale} />
+</Base>

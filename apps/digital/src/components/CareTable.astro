@@ -1,0 +1,31 @@
+---
+import { carePlans, careNote, changesLabel, contentChange } from "../content/care";
+import { rm, t, type Locale } from "../content/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+---
+
+<div>
+  <ul class="grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+    {
+      carePlans.map((c) => (
+        <li class="flex flex-col bg-paper p-6">
+          <h3 class="text-2xl">{c.name[locale]}</h3>
+          <p class="num font-display mt-6 text-3xl font-medium tracking-tight">
+            {rm(locale, c.fee)}
+            <span class="font-sans text-base font-normal tracking-normal text-muted">{s.perMonth}</span>
+          </p>
+          <ul class="mt-6 space-y-2 border-t border-line pt-5 text-[0.9375rem]">
+            {c.changes !== null && <li>{changesLabel[locale](c.changes)}</li>}
+            {c.extras[locale].map((x) => <li>{x}</li>)}
+          </ul>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="mt-6 max-w-2xl text-sm text-muted">{contentChange[locale]} {careNote[locale]}</p>
+</div>

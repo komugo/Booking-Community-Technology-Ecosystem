@@ -1,0 +1,147 @@
+---
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import EnquiryForm from "../components/EnquiryForm.astro";
+import Eyebrow from "../components/Eyebrow.astro";
+import { company, waLink } from "../content/company";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { packages } from "../content/packages";
+import { abs } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const path = "/contact";
+const wa = waLink(s.form.waText(""));
+
+const copy = {
+  en: {
+    title: "Get a quote for a website or booking system",
+    description: `Send a short brief for a website, online store, booking system or custom software. We reply with questions, a written scope and a quote. From ${rm("en", packages[0].fee)}.`,
+    crumb: "Contact",
+    h1: "Tell us what you need built.",
+    lede: "A few lines are enough to start. Pick a Package if you know which one fits, or leave it as not sure.",
+    formLabel: "Quote request",
+    nextLabel: "What happens next",
+    next: ["We read your brief ourselves.", "We reply by email or WhatsApp with any questions.", "You get a written scope and quote before any work starts."],
+    directLabel: "Or reach us directly",
+    whatsapp: "WhatsApp",
+    email: "Email",
+    govLabel: "Government or GLC?",
+    gov: "Send a Proposal request with your agency, procurement route and timeline.",
+    govLink: "Government projects",
+    packagesLabel: "Packages",
+    allPricing: "Full pricing",
+  },
+  ms: {
+    title: "Dapatkan sebut harga laman web atau sistem tempahan",
+    description: `Hantar ringkasan projek laman web, kedai dalam talian, sistem tempahan atau perisian khas. Kami balas dengan soalan, skop bertulis dan sebut harga.`,
+    crumb: "Hubungi",
+    h1: "Beritahu kami apa yang anda perlukan.",
+    lede: "Beberapa baris sudah cukup untuk bermula. Pilih Pakej jika anda tahu yang mana sesuai, atau biarkan sebagai belum pasti.",
+    formLabel: "Permintaan sebut harga",
+    nextLabel: "Apa yang berlaku seterusnya",
+    next: ["Kami sendiri baca ringkasan anda.", "Kami balas melalui e-mel atau WhatsApp jika ada soalan.", "Anda terima skop dan sebut harga bertulis sebelum kerja bermula."],
+    directLabel: "Atau hubungi kami terus",
+    whatsapp: "WhatsApp",
+    email: "E-mel",
+    govLabel: "Agensi kerajaan atau GLC?",
+    gov: "Hantar permohonan cadangan bersama nama agensi, kaedah perolehan dan jangka masa.",
+    govLink: "Projek kerajaan",
+    packagesLabel: "Pakej",
+    allPricing: "Harga penuh",
+  },
+}[locale];
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: copy.title,
+    description: copy.description,
+    url: abs(Astro.site, href(locale, path)),
+    inLanguage: s.htmlLang,
+    mainEntity: { "@id": abs(Astro.site, "/#org") },
+  },
+];
+---
+
+<Base locale={locale} path={path} title={copy.title} description={copy.description} jsonLd={jsonLd}>
+  <section class="wrap pt-14 pb-20 md:pt-24 md:pb-28">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path }]} />
+    <div class="rise">
+      <h1 class="display mt-8 max-w-[14ch]">{copy.h1}</h1>
+      <div class="grid-12 mt-8 md:mt-12">
+        <p class="lede col-span-12 text-muted md:col-span-8 md:col-start-4 lg:col-span-6">{copy.lede}</p>
+      </div>
+    </div>
+
+    <div class="grid-12 mt-16 gap-y-16 border-t border-line pt-10 md:mt-24 md:pt-14">
+      <div class="col-span-12 lg:col-span-8">
+        <h2 class="sr-only">{copy.formLabel}</h2>
+        <EnquiryForm locale={locale} kind="quote" />
+      </div>
+
+      <aside class="col-span-12 space-y-12 lg:col-span-3 lg:col-start-10">
+        <div>
+          <Eyebrow>{copy.nextLabel}</Eyebrow>
+          <ol class="mt-5 space-y-4">
+            {
+              copy.next.map((step, i) => (
+                <li class="flex gap-4">
+                  <span class="num text-forest">{i + 1}</span>
+                  <span>{step}</span>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+
+        {
+          (wa || company.email) && (
+            <div>
+              <Eyebrow>{copy.directLabel}</Eyebrow>
+              <ul class="mt-5 space-y-2">
+                {wa && (
+                  <li>
+                    <a href={wa} class="link inline-flex min-h-11 items-center">{copy.whatsapp}</a>
+                  </li>
+                )}
+                {company.email && (
+                  <li>
+                    <a href={`mailto:${company.email}`} class="link inline-flex min-h-11 items-center">{company.email}</a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )
+        }
+
+        <div>
+          <Eyebrow>{copy.packagesLabel}</Eyebrow>
+          <ul class="mt-5 border-b border-line">
+            {
+              packages.map((p) => (
+                <li class="border-t border-line">
+                  <a href={`${href(locale, p.page)}#${p.id}`} class="flex min-h-11 items-baseline justify-between gap-4 py-2 hover:underline hover:underline-offset-4">
+                    <span>{p.name[locale]}</span>
+                    <span class="num text-sm text-muted">{rm(locale, p.fee)}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+          <a href={href(locale, "/pricing")} class="link mt-4 inline-flex min-h-11 items-center">{copy.allPricing}</a>
+        </div>
+
+        <div>
+          <Eyebrow>{copy.govLabel}</Eyebrow>
+          <p class="mt-5 text-muted">{copy.gov}</p>
+          <a href={href(locale, "/government")} class="link mt-2 inline-flex min-h-11 items-center">{copy.govLink}</a>
+        </div>
+      </aside>
+    </div>
+  </section>
+</Base>

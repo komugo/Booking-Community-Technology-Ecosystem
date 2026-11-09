@@ -23,6 +23,8 @@ export default defineConfig({
           RESEND_API_KEY: "re_test",
           WASENDER_API_KEY: "wasender_test",
           WASENDER_GAP_MS: "0",
+          TURNSTILE_SECRET: "turnstile_test",
+          STAFF_WHATSAPP: "+60120000000",
         },
       },
     })),

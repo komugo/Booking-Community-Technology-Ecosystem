@@ -1,0 +1,31 @@
+---
+import { company, waLink } from "../content/company";
+import { href, t, type Locale } from "../content/i18n";
+import type { PackageId } from "../content/packages";
+
+interface Props {
+  locale: Locale;
+  title?: string;
+  body?: string;
+  packageId?: PackageId;
+}
+const copy = {
+  en: { title: "Tell us what you need built.", body: "Send a short brief. We'll reply with questions, a scope and a quote.", wa: "WhatsApp us" },
+  ms: { title: "Beritahu kami apa yang anda perlukan.", body: "Hantar ringkasan projek. Kami akan balas dengan soalan, skop dan sebut harga.", wa: "WhatsApp kami" },
+};
+const { locale, packageId } = Astro.props;
+const c = copy[locale];
+const { title = c.title, body = c.body } = Astro.props;
+const wa = waLink(t[locale].form.waText(""));
+---
+
+<section class="wrap mt-8">
+  <div class="rounded-lg bg-forest px-6 py-16 text-paper md:px-14 md:py-24">
+    <h2 class="display max-w-[14ch] !text-[clamp(2.5rem,1.5rem+4vw,5.5rem)]">{title}</h2>
+    <p class="lede mt-6 text-paper/80">{body}</p>
+    <div class="mt-10 flex flex-wrap items-center gap-4">
+      <a href={`${href(locale, "/contact")}${packageId ? `?package=${packageId}` : ""}`} class="btn bg-lime text-ink hover:bg-paper focus-visible:outline-lime">{t[locale].getQuote}</a>
+      {company.whatsapp && <a href={wa} class="btn text-paper focus-visible:outline-lime shadow-[inset_0_0_0_1px_rgb(251_250_246/0.5)] hover:bg-paper/10">{c.wa}</a>}
+    </div>
+  </div>
+</section>

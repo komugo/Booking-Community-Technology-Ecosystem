@@ -1,0 +1,23 @@
+---
+import { addonNote, addons } from "../content/addons";
+import { rm, type Locale } from "../content/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+---
+
+<div>
+  <ul class="grid gap-x-12 md:grid-cols-2">
+    {
+      addons.map((a) => (
+        <li class="flex items-baseline justify-between gap-6 border-t border-line py-4">
+          <span>{a.name[locale]}</span>
+          <span class="num shrink-0 font-semibold">{rm(locale, a.fee)}</span>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="mt-4 max-w-2xl border-t border-line pt-4 text-sm text-muted">{addonNote[locale]}</p>
+</div>

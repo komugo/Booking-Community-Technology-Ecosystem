@@ -1,0 +1,232 @@
+---
+import { env } from "cloudflare:workers";
+import { company, waLink } from "../content/company";
+import { govPackages, procurements, type GovPackageId } from "../content/gov";
+import { t, type Locale } from "../content/i18n";
+import { packages, pkg, type PackageId } from "../content/packages";
+
+interface Props {
+  locale: Locale;
+  kind: "quote" | "proposal";
+  packageId?: PackageId | GovPackageId;
+  sourcePage?: string;
+}
+const { locale, kind, packageId, sourcePage = Astro.url.pathname } = Astro.props;
+const f = t[locale].form;
+const proposal = kind === "proposal";
+const options = proposal
+  ? [...govPackages.map((g) => ({ id: g.id, name: g.name[locale] })), { id: "enterprise", name: pkg("enterprise").name[locale] }]
+  : packages.map((p) => ({ id: p.id, name: p.name[locale] }));
+const wa = waLink(f.waText(""));
+const label = "mb-2 block font-medium";
+const hint = "mb-2 -mt-1 block text-sm text-muted";
+const err = "mt-2 text-sm font-medium text-clay";
+---
+
+<div data-lead data-errors={JSON.stringify(f.errors)} data-wa-pkg={f.waText("%s")} data-wa-none={f.waText("")}>
+  <form novalidate class="grid gap-6 md:grid-cols-2">
+    <input type="hidden" name="kind" value={kind} />
+    <input type="hidden" name="locale" value={locale} />
+    <input type="hidden" name="sourcePage" value={sourcePage} />
+    <div data-summary role="alert" tabindex="-1" hidden class="rounded-md border border-clay bg-clay/5 p-4 font-medium text-clay md:col-span-2"></div>
+
+    <div>
+      <label for="lead-name" class={label}>{f.name}</label>
+      <input id="lead-name" name="name" required maxlength="120" autocomplete="name" class="field" />
+      <p id="lead-name-error" class={err} hidden></p>
+    </div>
+    {
+      proposal ? (
+        <div>
+          <label for="lead-agency" class={label}>{f.agency}</label>
+          <input id="lead-agency" name="agency" required maxlength="200" autocomplete="organization" class="field" />
+          <p id="lead-agency-error" class={err} hidden />
+        </div>
+      ) : (
+        <div>
+          <label for="lead-company" class={label}>
+            {f.company} <span class="font-normal text-muted">({f.optional})</span>
+          </label>
+          <input id="lead-company" name="company" maxlength="200" autocomplete="organization" class="field" />
+          <p id="lead-company-error" class={err} hidden />
+        </div>
+      )
+    }
+    <div>
+      <label for="lead-email" class={label}>{f.email}</label>
+      <input id="lead-email" name="email" type="email" required maxlength="200" autocomplete="email" class="field" />
+      <p id="lead-email-error" class={err} hidden></p>
+    </div>
+    <div>
+      <label for="lead-whatsapp" class={label}>{f.whatsapp}</label>
+      <input id="lead-whatsapp" name="whatsapp" type="tel" required pattern="^\+?[\s\-]*(?:[0-9][\s\-]*){9,15}$" autocomplete="tel" inputmode="tel" aria-describedby="lead-whatsapp-hint" class="field" />
+      <p id="lead-whatsapp-hint" class="mt-2 text-sm text-muted">{f.whatsappHint}</p>
+      <p id="lead-whatsapp-error" class={err} hidden></p>
+    </div>
+    <div>
+      <label for="lead-packageId" class={label}>
+        {f.package} <span class="font-normal text-muted">({f.optional})</span>
+      </label>
+      <select id="lead-packageId" name="packageId" class="field">
+        <option value="">{f.notSure}</option>
+        {options.map((o) => <option value={o.id} selected={o.id === packageId}>{o.name}</option>)}
+      </select>
+      <p id="lead-packageId-error" class={err} hidden></p>
+    </div>
+    {
+      proposal ? (
+        <div>
+          <label for="lead-procurement" class={label}>
+            {f.procurement} <span class="font-normal text-muted">({f.optional})</span>
+          </label>
+          <select id="lead-procurement" name="procurement" class="field">
+            <option value="">{f.notSure}</option>
+            {procurements.map((p) => <option value={p}>{f.procurements[p]}</option>)}
+          </select>
+          <p id="lead-procurement-error" class={err} hidden />
+        </div>
+      ) : (
+        <div>
+          <label for="lead-budget" class={label}>
+            {f.budget} <span class="font-normal text-muted">({f.optional})</span>
+          </label>
+          <select id="lead-budget" name="budget" class="field">
+            <option value="">{f.notSure}</option>
+            {f.budgets.map((b) => <option>{b}</option>)}
+          </select>
+          <p id="lead-budget-error" class={err} hidden />
+        </div>
+      )
+    }
+    {
+      proposal && (
+        <div class="md:col-span-2">
+          <label for="lead-timeline" class={label}>
+            {f.timeline} <span class="font-normal text-muted">({f.optional})</span>
+          </label>
+          <span id="lead-timeline-hint" class={hint}>{f.timelineHint}</span>
+          <input id="lead-timeline" name="timeline" maxlength="100" aria-describedby="lead-timeline-hint" class="field" />
+          <p id="lead-timeline-error" class={err} hidden />
+        </div>
+      )
+    }
+    <div class="md:col-span-2">
+      <label for="lead-brief" class={label}>{f.brief}</label>
+      <span id="lead-brief-hint" class={hint}>{f.briefHint}</span>
+      <textarea id="lead-brief" name="brief" required rows="6" minlength="10" maxlength="4000" aria-describedby="lead-brief-hint" class="field"></textarea>
+      <p id="lead-brief-error" class={err} hidden></p>
+    </div>
+    <div class="md:col-span-2">
+      <div class="cf-turnstile" data-sitekey={env.TURNSTILE_SITE_KEY} data-language={locale} data-response-field-name="turnstileToken" data-size="flexible"></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-4 md:col-span-2">
+      <button type="submit" class="btn btn-primary disabled:opacity-60" data-sending={f.sending}>{proposal ? f.submitProposal : f.submitQuote}</button>
+      {wa && <a href={wa} data-wa class="link inline-flex min-h-11 items-center">{f.orWhatsapp}</a>}
+    </div>
+    <noscript><p class="text-sm text-muted md:col-span-2">{f.noscript}{company.email && <> <a href={`mailto:${company.email}`} class="link">{company.email}</a></>}</p></noscript>
+  </form>
+  <div data-sent hidden tabindex="-1" class="border-t-2 border-forest pt-6">
+    <h2 class="text-3xl md:text-4xl">{f.sentTitle}</h2>
+    <p class="lede mt-4 text-muted">{f.sentBody}</p>
+  </div>
+</div>
+
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  declare global {
+    interface Window {
+      turnstile?: { reset(el?: Element | string): void };
+    }
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-lead]")) {
+    const form = root.querySelector("form")!;
+    const summary = form.querySelector<HTMLElement>("[data-summary]")!;
+    const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    const wa = form.querySelector<HTMLAnchorElement>("[data-wa]");
+    const select = form.querySelector("select")!;
+    const errors: Record<string, string> = JSON.parse(root.dataset.errors!);
+    const fields = () => [...form.querySelectorAll<HTMLInputElement>("input:not([type=hidden]),select,textarea")].filter((el) => el.name);
+
+    const wanted = new URLSearchParams(location.search).get("package");
+    if (wanted && [...select.options].some((o) => o.value === wanted)) select.value = wanted;
+
+    const syncWa = () => {
+      if (!wa) return;
+      const name = select.value ? select.selectedOptions[0].text : "";
+      const text = name ? root.dataset.waPkg!.replace("%s", name) : root.dataset.waNone!;
+      wa.href = wa.href.replace(/text=.*$/, "text=" + encodeURIComponent(text));
+    };
+    syncWa();
+    select.addEventListener("change", syncWa);
+
+    const setError = (el: HTMLInputElement, msg: string) => {
+      const out = form.querySelector<HTMLElement>(`#${el.id}-error`);
+      const ids = (el.getAttribute("aria-describedby") ?? "").split(" ").filter((id) => id && id !== `${el.id}-error`);
+      if (msg) ids.push(`${el.id}-error`);
+      el.setAttribute("aria-describedby", ids.join(" "));
+      if (msg) el.setAttribute("aria-invalid", "true");
+      else el.removeAttribute("aria-invalid");
+      if (out) {
+        out.textContent = msg;
+        out.hidden = !msg;
+      }
+    };
+
+    const showSummary = (msg: string) => {
+      summary.textContent = msg;
+      summary.hidden = !msg;
+      if (msg) summary.focus();
+    };
+
+    const clientCheck = () => {
+      let first: HTMLInputElement | undefined;
+      for (const el of fields()) {
+        const v = el.validity;
+        const msg = v.valueMissing ? errors.required : v.typeMismatch ? errors.email : v.patternMismatch ? errors.whatsapp : v.tooShort ? errors.brief : v.valid ? "" : errors.invalid;
+        setError(el, msg);
+        if (msg) first ??= el;
+      }
+      return first;
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showSummary("");
+      const invalid = clientCheck();
+      if (invalid) {
+        invalid.focus();
+        return;
+      }
+      const body = Object.fromEntries([...new FormData(form)].map(([k, v]) => [k, String(v).trim()]).filter(([, v]) => v !== ""));
+      const label = button.textContent;
+      button.disabled = true;
+      button.textContent = button.dataset.sending!;
+      try {
+        const res = await fetch("/api/lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (res.status === 204) {
+          form.hidden = true;
+          const sent = root.querySelector<HTMLElement>("[data-sent]")!;
+          sent.hidden = false;
+          sent.focus();
+          return;
+        }
+        const data = (await res.json().catch(() => ({}))) as { code?: string; field?: string };
+        const el = data.field ? form.querySelector<HTMLInputElement>(`[name="${CSS.escape(data.field)}"]`) : null;
+        const msg = (data.code === "invalid_field" && data.field && errors[data.field]) || (data.code && errors[data.code]) || (res.status === 400 ? errors.invalid : errors.network);
+        if (el && el.type !== "hidden") {
+          setError(el, msg);
+          el.focus();
+        } else {
+          showSummary(msg);
+        }
+      } catch {
+        showSummary(errors.network);
+      } finally {
+        button.disabled = false;
+        button.textContent = label;
+        if (!form.hidden) window.turnstile?.reset(form.querySelector(".cf-turnstile")!);
+      }
+    });
+  }
+</script>

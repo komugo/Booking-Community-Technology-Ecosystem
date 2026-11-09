@@ -1,0 +1,28 @@
+---
+import Eyebrow from "./Eyebrow.astro";
+
+interface Props {
+  id?: string;
+  label?: string;
+  title?: string;
+  intro?: string;
+  wide?: boolean;
+  class?: string;
+}
+const { id, label, title, intro, wide = false, class: cls } = Astro.props;
+const headingId = id && title ? `${id}-title` : undefined;
+---
+
+<section id={id} aria-labelledby={headingId} class:list={["wrap", cls]}>
+  <div class="grid-12 gap-y-8 border-t border-line pt-10 pb-20 md:pt-14 md:pb-28">
+    <div class="col-span-12 md:col-span-3">
+      {label && <Eyebrow>{label}</Eyebrow>}
+    </div>
+    <div class="col-span-12 md:col-span-9">
+      {title && <h2 id={headingId} class="h2 max-w-[18ch]">{title}</h2>}
+      {intro && <p class="lede mt-6 text-muted">{intro}</p>}
+      {!wide && <div class:list={[(title || intro) && "mt-12"]}><slot /></div>}
+    </div>
+    {wide && <div class="col-span-12 mt-4"><slot /></div>}
+  </div>
+</section>

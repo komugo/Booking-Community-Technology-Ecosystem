@@ -1,0 +1,18 @@
+---
+interface Props {
+  items: string[][];
+}
+const { items } = Astro.props;
+---
+
+<ul class="grid gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+  {
+    items.map(([name, body], i) => (
+      <li class="bg-paper py-8 sm:pr-8 lg:py-10">
+        <p class="num text-sm text-forest">{String(i + 1).padStart(2, "0")}</p>
+        <h3 class="mt-6 text-2xl">{name}</h3>
+        <p class="mt-3 text-muted">{body}</p>
+      </li>
+    ))
+  }
+</ul>

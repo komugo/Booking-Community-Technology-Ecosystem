@@ -1,0 +1,10 @@
+---
+interface Props {
+  class?: string;
+}
+---
+
+<p class:list={["flex items-center gap-3 text-sm text-muted", Astro.props.class]}>
+  <span aria-hidden="true" class="h-px w-6 bg-forest"></span>
+  <slot />
+</p>

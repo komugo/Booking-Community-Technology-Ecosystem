@@ -1,0 +1,196 @@
+---
+import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import Shot from "../components/Shot.astro";
+import CtaBand from "../components/CtaBand.astro";
+import Facts from "../components/work-Facts.astro";
+import Features from "../components/work-Features.astro";
+import { href, rm, t, type Locale } from "../content/i18n";
+import { pkg } from "../content/packages";
+import { company } from "../content/company";
+import { abs } from "../lib/seo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = t[locale];
+const booking = pkg("booking");
+const path = "/work/komugo-platform";
+
+const copy = {
+  en: {
+    title: "Komugo Platform case study: booking in Putrajaya",
+    description:
+      "How we designed and built Komugo Platform, a booking and ticketing marketplace for Putrajaya activities, on Cloudflare Workers, D1 and Durable Objects.",
+    crumb: "Komugo Platform",
+    eyebrow: "Case study · Our own product",
+    h1: "Komugo Platform",
+    lede: "A booking and ticketing marketplace for courts, rides, cruises and parks in Putrajaya. We designed it, built it and run it ourselves, every day.",
+    visit: "Visit komugo.com",
+    facts: [
+      ["Role", "Product, design, engineering, operations"],
+      ["Status", "Soft-launched, live in Putrajaya"],
+      ["Stack", "Cloudflare Workers, D1, Durable Objects, Astro"],
+      ["Languages", "English and Bahasa Malaysia"],
+    ] as [string, string][],
+    homeAlt: "Komugo Platform home page: the headline Ride. Climb. Putrajaya. over a horse-riding photo, with links to activity categories",
+    homeCaption: "komugo.com home page, with every activity category one tap away.",
+    problemLabel: "The problem",
+    problemTitle: "Finding a court shouldn't take three phone calls.",
+    problem: [
+      "Putrajaya has public courts, stables, climbing walls, lake cruises and parks, run by many different operators. There was no single place to see what's on, what it costs and whether a slot is free.",
+      "Booking usually meant a phone call or a WhatsApp chat, and prices, age limits and opening hours were hard to find before you arrived.",
+    ],
+    builtLabel: "What we built",
+    builtTitle: "One engine for every kind of booking.",
+    builtIntro: "Each venue runs on different rules. A badminton court is booked by the hour, a horse ride per rider, a pool by the day, a fun run by the event. The engine handles all of them.",
+    features: [
+      ["Live availability", "A time only shows as open when the court, horse or instructor it needs is free. A short hold keeps the spot while the customer pays, so two people can't book the same thing."],
+      ["Named tickets", "One ticket per person, or one per court for a group, each with its own QR code. Price, duration and age limit are shown before anyone pays."],
+      ["Online payment and refunds", "CHIP checkout with FPX is built in. When a refund is due, the system is built to send it back through the payment gateway on its own."],
+      ["Venue rules", "Per-person and per-court pricing, weekend and peak prices, closed days, booking cutoffs, cancellation windows, multi-day events and passes."],
+      ["Closures and reschedules", "When a venue closes a slot for weather or maintenance, each customer is emailed once to choose a refund or a new time."],
+      ["Built for counter staff", "The system is built to send a WhatsApp alert for every booking, with a link to that day's list. Komugo staff manage venues and activities from a separate dashboard."],
+    ],
+    stackLabel: "Stack",
+    stackTitle: "Small, fast and close to Malaysian users.",
+    stack: [
+      ["Cloudflare Workers", "The API and the site run on Cloudflare's network, close to the people using them."],
+      ["Cloudflare D1", "A SQL database holds activities, bookings, tickets and payments."],
+      ["Durable Objects", "Each operator's bookings pass through one coordinator, so holds and tickets never collide."],
+      ["Cloudflare Queues", "WhatsApp messages go through a queue that retries failed sends automatically."],
+      ["Astro", "Activity pages are built ahead of time and served as plain HTML, so they load fast on a phone."],
+    ],
+    activityAlt: "Komugo Platform activity page for badminton at Kompleks Kejiranan Presint 11, with breadcrumbs, opening hours and a How to book button",
+    activityCaption: "An activity page: venue photo, opening hours and how to book.",
+    forYouLabel: "For your project",
+    forYouTitle: "The same engine, built around your rules.",
+    forYou: `Our Booking system Package is custom-built on this engine, not started from scratch. You get your own site, your own branding and your own admin dashboard, shaped to how your venue actually takes bookings. ${rm("en", booking.fee)}, delivered in ${booking.delivery.en}.`,
+    seePackage: "See the Booking system Package",
+    ctaTitle: "Need a booking system like this?",
+    ctaBody: "Tell us how your venue takes bookings today. We'll reply with questions, a scope and a quote.",
+  },
+  ms: {
+    title: "Kajian kes Komugo Platform: tempahan di Putrajaya",
+    description:
+      "Cara kami mereka bentuk dan membina Komugo Platform, pasaran tempahan dan tiket untuk aktiviti di Putrajaya, di atas Cloudflare Workers, D1 dan Durable Objects.",
+    crumb: "Komugo Platform",
+    eyebrow: "Kajian kes · Produk kami sendiri",
+    h1: "Komugo Platform",
+    lede: "Pasaran tempahan dan tiket untuk gelanggang, tunggangan kuda, kapal persiaran dan taman di Putrajaya. Kami yang mereka bentuk, membina dan mengendalikannya, setiap hari.",
+    visit: "Layari komugo.com",
+    facts: [
+      ["Peranan", "Produk, reka bentuk, kejuruteraan, operasi"],
+      ["Status", "Dilancarkan secara terhad, beroperasi di Putrajaya"],
+      ["Teknologi", "Cloudflare Workers, D1, Durable Objects, Astro"],
+      ["Bahasa", "Bahasa Inggeris dan Bahasa Malaysia"],
+    ] as [string, string][],
+    homeAlt: "Halaman utama Komugo Platform: tajuk Ride. Climb. Putrajaya. di atas gambar menunggang kuda, dengan pautan ke kategori aktiviti",
+    homeCaption: "Halaman utama komugo.com, setiap kategori aktiviti hanya satu sentuhan.",
+    problemLabel: "Masalahnya",
+    problemTitle: "Tempah gelanggang tak sepatutnya perlu tiga panggilan.",
+    problem: [
+      "Putrajaya ada gelanggang awam, kandang kuda, dinding panjat, kapal persiaran tasik dan taman, diuruskan oleh ramai pengendali berbeza. Tiada satu tempat untuk lihat apa yang ada, berapa harganya dan sama ada slot masih kosong.",
+      "Selalunya tempahan perlu dibuat melalui telefon atau WhatsApp, dan harga, had umur serta waktu operasi sukar dicari sebelum sampai.",
+    ],
+    builtLabel: "Apa yang kami bina",
+    builtTitle: "Satu enjin untuk semua jenis tempahan.",
+    builtIntro: "Setiap lokasi ada peraturan sendiri. Gelanggang badminton ditempah ikut jam, tunggangan kuda ikut penunggang, kolam renang ikut hari, larian amal ikut acara. Enjin ini mengendalikan semuanya.",
+    features: [
+      ["Kekosongan masa nyata", "Sesuatu waktu hanya dibuka jika gelanggang, kuda atau jurulatih yang diperlukan masih kosong. Slot ditahan seketika semasa pelanggan membayar, jadi dua orang tak boleh tempah benda yang sama."],
+      ["Tiket bernama", "Satu tiket untuk setiap orang, atau satu tiket untuk satu gelanggang bagi kumpulan, setiap satu dengan kod QR sendiri. Harga, tempoh dan had umur dipaparkan sebelum bayaran."],
+      ["Bayaran dan bayaran balik dalam talian", "Pembayaran CHIP dengan FPX sudah tersedia. Bila bayaran balik perlu dibuat, sistem dibina untuk menghantarnya semula melalui gerbang pembayaran secara automatik."],
+      ["Peraturan lokasi", "Harga ikut orang atau ikut gelanggang, harga hujung minggu dan waktu puncak, hari tutup, had masa tempahan, tempoh pembatalan, acara berbilang hari dan pas."],
+      ["Penutupan dan tukar tarikh", "Bila lokasi menutup slot kerana cuaca atau penyelenggaraan, setiap pelanggan menerima satu e-mel untuk pilih bayaran balik atau waktu baharu."],
+      ["Dibina untuk staf kaunter", "Sistem dibina untuk menghantar makluman WhatsApp bagi setiap tempahan, bersama pautan ke senarai tempahan hari itu. Staf Komugo mengurus lokasi dan aktiviti melalui papan pemuka berasingan."],
+    ],
+    stackLabel: "Teknologi",
+    stackTitle: "Ringan, pantas dan dekat dengan pengguna di Malaysia.",
+    stack: [
+      ["Cloudflare Workers", "API dan laman web berjalan di rangkaian Cloudflare, dekat dengan penggunanya."],
+      ["Cloudflare D1", "Pangkalan data SQL menyimpan aktiviti, tempahan, tiket dan bayaran."],
+      ["Durable Objects", "Tempahan setiap pengendali melalui satu penyelaras, jadi tahanan slot dan tiket tak pernah bertindih."],
+      ["Cloudflare Queues", "Mesej WhatsApp dihantar melalui baris gilir yang mencuba semula penghantaran yang gagal secara automatik."],
+      ["Astro", "Halaman aktiviti dibina lebih awal dan dihantar sebagai HTML biasa, jadi cepat dibuka di telefon."],
+    ],
+    activityAlt: "Halaman aktiviti Komugo Platform untuk badminton di Kompleks Kejiranan Presint 11, dengan laluan navigasi, waktu operasi dan butang How to book",
+    activityCaption: "Halaman aktiviti: gambar lokasi, waktu operasi dan cara menempah.",
+    forYouLabel: "Untuk projek anda",
+    forYouTitle: "Enjin yang sama, dibina ikut peraturan anda.",
+    forYou: `Pakej Sistem tempahan kami dibina khas di atas enjin ini, bukan bermula dari kosong. Anda dapat laman sendiri, jenama sendiri dan papan pemuka admin sendiri, disesuaikan dengan cara lokasi anda menerima tempahan. ${rm("ms", booking.fee)}, siap dalam ${booking.delivery.ms}.`,
+    seePackage: "Lihat Pakej Sistem tempahan",
+    ctaTitle: "Perlukan sistem tempahan seperti ini?",
+    ctaBody: "Ceritakan bagaimana lokasi anda menerima tempahan hari ini. Kami akan balas dengan soalan, skop dan sebut harga.",
+  },
+}[locale];
+
+const url = abs(Astro.site, href(locale, path));
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: copy.title,
+    description: copy.description,
+    url,
+    inLanguage: s.htmlLang,
+    image: abs(Astro.site, "/work/komugo-platform-home.jpg"),
+    creator: { "@id": abs(Astro.site, "/#org") },
+    about: { "@type": "WebApplication", name: "Komugo Platform", url: company.platformUrl, applicationCategory: "BusinessApplication", operatingSystem: "Web" },
+  },
+];
+---
+
+<Base locale={locale} path={path} title={copy.title} description={copy.description} jsonLd={jsonLd}>
+  <section class="wrap pt-14 pb-16 md:pt-24 md:pb-24">
+    <Breadcrumbs locale={locale} items={[{ name: copy.crumb, path }]} />
+    <div class="rise">
+      <p class="mt-10 text-sm text-muted">{copy.eyebrow}</p>
+      <h1 class="display mt-4">{copy.h1}</h1>
+      <div class="grid-12 mt-10 gap-y-8 md:mt-16">
+        <p class="lede col-span-12 md:col-span-7">{copy.lede}</p>
+        <div class="col-span-12 flex flex-wrap items-start gap-3 md:col-span-5 md:justify-end">
+          <a href={company.platformUrl} class="btn btn-quiet" rel="noopener">{copy.visit} <span aria-hidden="true">↗</span></a>
+          <a href={`${href(locale, "/contact")}?package=booking`} class="btn btn-primary">{s.choose(booking.name[locale])}</a>
+        </div>
+      </div>
+      <div class="mt-12 md:mt-16"><Facts items={copy.facts} /></div>
+      <Shot class="mt-12 md:mt-16" src="/work/komugo-platform-home.jpg" alt={copy.homeAlt} width={1600} height={1000} caption={copy.homeCaption} eager />
+    </div>
+  </section>
+
+  <Section id="problem" label={copy.problemLabel} title={copy.problemTitle}>
+    <div class="max-w-2xl space-y-5 text-lg">
+      {copy.problem.map((p) => <p>{p}</p>)}
+    </div>
+  </Section>
+
+  <Section id="built" label={copy.builtLabel} title={copy.builtTitle} intro={copy.builtIntro} wide>
+    <Features items={copy.features} />
+    <Shot class="mt-16 md:mt-24" src="/work/komugo-platform-activity.jpg" alt={copy.activityAlt} width={1600} height={1000} caption={copy.activityCaption} />
+  </Section>
+
+  <Section id="stack" label={copy.stackLabel} title={copy.stackTitle}>
+    <dl class="border-b border-line">
+      {
+        copy.stack.map(([name, body]) => (
+          <div class="grid gap-2 border-t border-line py-6 md:grid-cols-[14rem_1fr] md:gap-8">
+            <dt class="font-display text-xl font-medium tracking-tight">{name}</dt>
+            <dd class="text-muted">{body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </Section>
+
+  <Section id="for-you" label={copy.forYouLabel} title={copy.forYouTitle}>
+    <p class="max-w-2xl text-lg">{copy.forYou}</p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href={`${href(locale, "/contact")}?package=booking`} class="btn btn-primary">{s.choose(booking.name[locale])}</a>
+      <a href={href(locale, booking.page)} class="btn btn-quiet">{copy.seePackage}</a>
+    </div>
+  </Section>
+
+  <CtaBand locale={locale} packageId="booking" title={copy.ctaTitle} body={copy.ctaBody} />
+</Base>

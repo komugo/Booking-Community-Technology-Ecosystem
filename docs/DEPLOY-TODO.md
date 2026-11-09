@@ -12,6 +12,8 @@ Run from `apps/api`. Add `--env staging` for staging.
 | `CHIP_SECRET_KEY` | [ ] | [ ] | CHIP portal → Developers → API keys: test key (staging) / live key (prod) (#38) |
 | `RESEND_API_KEY` | [ ] | [ ] | Resend → API Keys |
 | `WASENDER_API_KEY` | [ ] | [ ] | WasenderAPI → the Komugo number's session → API key (#34) |
+| `TURNSTILE_SECRET` | [ ] | [ ] | Cloudflare → Turnstile → widget for `digital.komugo.com` → secret key (Komugo Digital Leads; site key goes in `apps/digital`) |
+| `STAFF_WHATSAPP` | [ ] | [ ] | Staff number for Lead alerts, `+60…`; empty skips the alert |
 
 ## Vars (`apps/api/wrangler.jsonc`)
 
@@ -19,6 +21,12 @@ Run from `apps/api`. Add `--env staging` for staging.
 - [ ] Prod `EMAIL_FROM` `tickets@komugo.com` needs `komugo.com` verified in Resend (see DNS)
 - Staging sends from `onboarding@resend.dev`: delivers only to the Resend account owner's email
 - [ ] `WASENDER_GAP_MS` (5000, Account Protection's 1 message per 5 s): lower it if the WasenderAPI plan allows (#34)
+
+## Komugo Digital (`apps/digital`)
+
+- [ ] Prod `TURNSTILE_SITE_KEY` in `apps/digital/wrangler.jsonc` top-level `vars` is still Cloudflare's always-pass test key: replace it with the real `digital.komugo.com` widget's site key, and set the matching `TURNSTILE_SECRET` on prod `komugo-api`. Never pair the test site key with a real secret (every Lead 403s) or the test secret with prod (no spam check)
+- [ ] Turnstile widget hostnames: only `digital.komugo.com` (plus the staging host on a separate widget if staging uses a real key)
+- [ ] DNS: `digital.komugo.com` custom domain is created by `pnpm --filter @komugo/digital deploy` (route `custom_domain: true`)
 
 ## Queues
 
@@ -38,6 +46,7 @@ Run from `apps/api`. Add `--env staging` for staging.
 Order matters.
 
 1. [x] `pnpm --filter @komugo/api db:migrate:remote` (D1 `komugo`, 0000–0026)
+   - [ ] Re-run for `0027_leads` (additive: new `leads` table) before deploying the api with `/digital/leads`
 2. [ ] Set prod secrets (live `CHIP_SECRET_KEY`) + `CHIP_BRAND_ID`
 3. [x] `pnpm --filter @komugo/api deploy`
 4. [x] Delete WordPress DNS records (takes WordPress offline): apex A ×2 + AAAA ×2, `www` CNAME. Keep MX, SPF, DMARC, DKIM, `ftp`, `autoconfig`, `autodiscover`

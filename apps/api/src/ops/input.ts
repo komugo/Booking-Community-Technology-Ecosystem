@@ -12,4 +12,8 @@ export function invalid(checks: [boolean, string][]): ApiError[] {
   return checks.filter(([ok]) => !ok).map(([, field]) => ({ code: "invalid_field", field }));
 }
 
-export const json = (c: Ctx) => c.req.json<Body>().catch((): Body => ({}));
+export const json = (c: Ctx) =>
+  c.req
+    .json<Body>()
+    .then((b): Body => (b && typeof b === "object" && !Array.isArray(b) ? b : {}))
+    .catch((): Body => ({}));
